@@ -1,0 +1,67 @@
+# == Project setup ==
+cmake_minimum_required(VERSION 3.10)
+
+# Set the project name
+project(JSOG)
+
+# Specify the C++ standard
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+# == Packages ==
+# add nlohmann json package
+find_package(nlohmann_json 3.2.0 REQUIRED)
+find_package(uriparser 0.9.2 CONFIG REQUIRED char wchar_t)
+
+
+# == Executable ==
+# Glob all .cpp files in the current directory
+file(GLOB SOURCES "src/*.cpp")
+list(REMOVE_ITEM SOURCES "src/main.cpp")
+
+add_library(JSOG_lib STATIC ${SOURCES})
+
+# Add the include directory
+target_include_directories(JSOG_lib PUBLIC include)
+
+# Add the system include directory
+target_include_directories(JSOG_lib SYSTEM PUBLIC nlohmann_json::nlohmann_json uriparser::uriparser)
+
+
+# Create the executable
+add_executable(JSOG)
+
+# Add the sources to the executable
+target_sources(JSOG PRIVATE src/main.cpp)
+
+
+# Add the include directory
+target_include_directories(JSOG PRIVATE include)
+
+# Link the nlohmann json library
+target_link_libraries(JSOG PRIVATE JSOG_lib nlohmann_json::nlohmann_json uriparser::uriparser)
+
+
+Include(FetchContent)
+
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG        v3.4.0 # or a later release
+)
+
+FetchContent_MakeAvailable(Catch2)
+
+file(GLOB TEST_SOURCES "tests/*.cpp")
+
+add_executable(tests ${TEST_SOURCES} ${SOURCES_WITHOUT_MAIN})
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain JSOG_lib  nlohmann_json::nlohmann_json uriparser::uriparser)
+
+
+list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+include(CTest)
+include(Catch)
+catch_discover_tests(tests)
+
+enable_testing()
+add_test(NAME tests COMMAND tests)

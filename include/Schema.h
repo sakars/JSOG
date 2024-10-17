@@ -1,12 +1,11 @@
 #ifndef SCHEMA_H
 #define SCHEMA_H
 
+#include "ResourceIndex.h"
 #include <functional>
 #include <nlohmann/json.hpp>
 #include <optional>
-
-class ResourceIndex;
-class Resource;
+#include <string>
 
 /**
  * @brief Represents a JSON schema
@@ -27,23 +26,14 @@ class Schema {
 
 public:
   std::reference_wrapper<const nlohmann::json> content;
-  std::map<std::string, std::reference_wrapper<Schema>> subschemas;
-  std::reference_wrapper<Schema> root;
-  std::reference_wrapper<Schema> parent;
-  std::optional<std::reference_wrapper<Resource>> resource = std::nullopt;
+  std::string baseUri;
 
-  Schema(const nlohmann::json &source,
-         std::optional<std::reference_wrapper<Schema>> root = std::nullopt,
-         std::optional<std::reference_wrapper<Schema>> parent = std::nullopt)
-      : content(source), root(root.value_or(*this)),
-        parent(parent.value_or(root.value_or(*this))) {
-    // Clone the default resource from the root schema
-    resource = this->root.get().resource;
-  }
+  Schema(const nlohmann::json &source, const std::string &baseUri)
+      : content(source), baseUri(baseUri) {}
 
-  virtual void
-  initialize(const std::function<Schema &(const nlohmann::json &)> &factory,
-             ResourceIndex &index) = 0;
+  virtual void initialize(
+      const std::function<Schema &(const nlohmann::json &)> &schema_generator,
+      ResourceIndex &index) = 0;
 };
 
 #endif // SCHEMA_H

@@ -99,3 +99,50 @@ TEST_CASE("'/' in fragments are allowed") {
   UriWrapper uri("http://example.com:80/path?query=1#frag/ment");
   REQUIRE(uri.getFragment() == "frag/ment");
 }
+
+TEST_CASE("UriWrapper outputs correct toFragmentlessString()", "[UriWrapper]") {
+
+  SECTION("Fragment is removed correctly") {
+    UriWrapper uri("http://example.com:80/path?query=1#fragment");
+    REQUIRE(uri.toFragmentlessString().value_or("") ==
+            "http://example.com:80/path?query=1");
+  }
+
+  SECTION("URI without fragment is returned as-is") {
+    UriWrapper uri("http://example.com:80/path?query=1");
+    REQUIRE(uri.toFragmentlessString().value_or("") ==
+            "http://example.com:80/path?query=1");
+  }
+
+  SECTION("URI with empty fragment is returned as-is") {
+    UriWrapper uri("http://example.com:80/path?query=1#");
+    REQUIRE(uri.toFragmentlessString().value_or("") ==
+            "http://example.com:80/path?query=1");
+  }
+}
+
+TEST_CASE("Normalization", "[UriWrapper]") {
+  SECTION("Case normalization") {
+    UriWrapper uri("data%3aTEXT%2Fhtml%3Bcharset%3dutf-8%2c%3chtml%3e");
+    UriWrapper uri2("data%3ATEXT%2fhtml%3bcharset%3Dutf-8%2C%3Chtml%3E");
+    uri.normalize();
+    uri2.normalize();
+    REQUIRE(uri.toString().value() == uri2.toString().value());
+  }
+
+  SECTION("Syntax normalization") {
+    UriWrapper uri("example://a/b/c/%7Bfoo%7D");
+    UriWrapper uri2("eXAMPLE://a/./b/../b/%63/%7bfoo%7d");
+    uri.normalize();
+    uri2.normalize();
+    REQUIRE(uri.toString().value() == uri2.toString().value());
+  }
+
+  SECTION("Percent-encoding normalization") {
+    UriWrapper uri("http://example.com/a%7Eb");
+    UriWrapper uri2("http://example.com/a~b");
+    uri.normalize();
+    uri2.normalize();
+    REQUIRE(uri.toString().value() == uri2.toString().value());
+  }
+}

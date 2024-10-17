@@ -26,13 +26,16 @@ TEST_CASE("JSONPointer correctly adds and removes tokens", "[JSONPointer]") {
   SECTION("Adding tokens") {
     pointer.add("token1");
     REQUIRE(pointer.toString() == "/token1");
+    REQUIRE(pointer.toFragment() == "#/token1");
     pointer.add("token2");
     REQUIRE(pointer.toString() == "/token1/token2");
+    REQUIRE(pointer.toFragment() == "#/token1/token2");
   }
 
   SECTION("Adding index") {
     pointer.add(1);
     REQUIRE(pointer.toString() == "/1");
+    REQUIRE(pointer.toFragment() == "#/1");
   }
 
   SECTION("Removing tokens") {
@@ -40,11 +43,13 @@ TEST_CASE("JSONPointer correctly adds and removes tokens", "[JSONPointer]") {
     pointer.add("token2");
     pointer.up();
     REQUIRE(pointer.toString() == "/token1");
+    REQUIRE(pointer.toFragment() == "#/token1");
   }
 
   SECTION("Removing tokens from empty pointer") {
     pointer.up();
     REQUIRE(pointer.toString() == "");
+    REQUIRE(pointer.toFragment() == "#");
   }
 }
 

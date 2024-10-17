@@ -44,12 +44,26 @@ private:
     return dest;
   }
 
+  UriWrapper(std::unique_ptr<UriUriA> uri) : uri_(std::move(uri)) {}
+
 public:
   static std::string escapeString(const std::string &str) {
     std::unique_ptr<char[]> uriString(new char[6 * (str.size() + 1)]);
     auto end = uriEscapeA(str.c_str(), uriString.get(), URI_TRUE, URI_TRUE);
     std::string escapedUri(uriString.get(), end);
     return escapedUri;
+  }
+
+  static UriWrapper applyUri(const UriWrapper &base,
+                             const UriWrapper &relative) {
+    if (!base.uri_ || !relative.uri_) {
+      return UriWrapper();
+    }
+    auto newUri = applyUri(*base.uri_, *relative.uri_);
+    if (!newUri) {
+      return UriWrapper();
+    }
+    return UriWrapper(std::move(newUri));
   }
 
   UriWrapper() {}
@@ -102,6 +116,15 @@ public:
     uri_ = nullptr;
   }
 
+  void normalize() {
+    if (!uri_) {
+      return;
+    }
+    if (uriNormalizeSyntaxA(uri_.get()) != URI_SUCCESS) {
+      throw std::runtime_error("Failed to normalize URI");
+    }
+  }
+
   std::optional<std::string> toString() const {
     if (!uri_) {
       return std::nullopt;
@@ -120,6 +143,22 @@ public:
     return std::string(uriString.get());
   }
 
+  std::optional<std::string> toFragmentlessString() const {
+    if (!uri_) {
+      return std::nullopt;
+    }
+    auto uriString = toString();
+    if (!uriString) {
+      return std::nullopt;
+    }
+    auto uriStringView = std::string_view(uriString.value());
+    auto fragmentPos = uriStringView.find('#');
+    if (fragmentPos == std::string::npos) {
+      return uriString;
+    }
+    return std::string(uriStringView.substr(0, fragmentPos));
+  }
+
   std::optional<std::string> getFragment() const {
     if (!uri_) {
       return std::nullopt;
@@ -136,9 +175,11 @@ public:
     return std::string(fragment.get());
   }
 
-  void setFragment(const std::string &fragment) {
+  void setFragment(const std::string &fragment,
+                   bool hasStartingOctothorpe = false) {
     auto dest = std::make_unique<UriUriA>();
-    auto escapedFragment = escapeString(fragment);
+    auto escapedFragment =
+        escapeString(fragment.substr(hasStartingOctothorpe ? 1 : 0));
     escapedFragment = "#" + escapedFragment;
     // perform parsing on the fragment
     const UriWrapper fragmentUri(escapedFragment);

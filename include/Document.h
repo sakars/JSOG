@@ -12,13 +12,15 @@ class ResourceIndex;
 
 class Document {
 public:
-  std::vector<std::unique_ptr<Schema>> schemas;
   nlohmann::json json;
-  std::reference_wrapper<ResourceIndex> index;
 
-  Document(const std::filesystem::path &path, ResourceIndex &index);
-
-  Schema &makeSchema(const nlohmann::json &source);
+  Document(const std::filesystem::path &path) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+      throw std::runtime_error("Could not open file");
+    }
+    file >> json;
+  }
 };
 
 #endif // DOCUMENT_H

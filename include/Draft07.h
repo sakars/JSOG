@@ -1,5 +1,10 @@
+#ifndef DRAFT07_H
+#define DRAFT07_H
+
+#include "JSONPointer.h"
 #include "ResourceIndex.h"
 #include "Schema.h"
+#include "UriWrapper.h"
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <regex>
@@ -97,57 +102,126 @@ class Draft07 : public Schema {
   Internals internals;
 
 public:
-  Draft07(const nlohmann::json &source) : Schema(source) {}
+  Draft07(const nlohmann::json &source, std::string baseUri)
+      : Schema(source, baseUri) {}
 
-  void
-  initialize(const std::function<Schema &(const nlohmann::json &)> &factory,
-             ResourceIndex &index) override {
-    const auto &c = content.get();
-    // Initialize the schema
-    // Check if the json is a boolean
-    if (c.is_boolean()) {
-      internals = BooleanSchema{c.get<bool>()};
-      return;
-    } else if (c.contains("$ref") && c["$ref"].is_string()) {
-      internals = c["$ref"].get<std::string>();
-      return;
-    }
-    internals = SchemaInternals{};
-    // Step1: Check for the presence of an "$id" keyword.
-    // In this case, we construct a new resource and add it to the index.
-    // Root and parent won't change in this case.
-    if (c.contains("$id") && c["$id"].is_string()) {
-      index.addResource(c["$id"].get<std::string>(), *this);
+  std::set<std::string> getDeps() const override {
+    std::set<std::string> deps;
+    UriWrapper uri(baseUri_);
+    JSONPointer pointer =
+        JSONPointer::fromURIString(uri.getFragment().value_or(""));
+    const auto addPtr = [&uri, &deps](const JSONPointer &pointer) {
+      UriWrapper depUri(uri);
+      depUri.setFragment(pointer.toFragment(), true);
+      deps.insert(depUri.toString().value());
+    };
+    const auto addStr = [&uri, &deps](const std::string &str) {
+      UriWrapper depUri(uri);
+      UriWrapper strUri(str);
+      depUri = UriWrapper::applyUri(uri, strUri);
+      deps.insert(depUri.toString().value());
+    };
+
+    const nlohmann::json &json = json_;
+    if (json.contains("$ref")) {
+      deps.insert(json["$ref"].get<std::string>());
+      return deps;
     }
 
-    // Step2: Fill out the internals
-    auto &internalsRef = std::get<SchemaInternals>(internals);
-    if (c.contains("type")) {
-      if (c["type"].is_string()) {
-        auto type = SchemaInternals::stringToType(c["type"].get<std::string>());
-        if (type.has_value()) {
-          internalsRef.type = std::set<SchemaInternals::Type>{type.value()};
-        }
-      } else if (c["type"].is_array()) {
-        std::set<SchemaInternals::Type> types;
-        for (const auto &type : c["type"]) {
-          if (type.is_string()) {
-            auto t = SchemaInternals::stringToType(type.get<std::string>());
-            if (t.has_value()) {
-              types.insert(t.value());
-            }
-          }
-        }
-        internalsRef.type = types;
+    if (json.contains("if") &&
+        (json["if"].is_object() || json["if"].is_boolean())) {
+      addPtr(pointer / "if");
+    }
+
+    if (json.contains("then") &&
+        (json["then"].is_object() || json["then"].is_boolean())) {
+      addPtr(pointer / "then");
+    }
+
+    if (json.contains("else") &&
+        (json["else"].is_object() || json["else"].is_boolean())) {
+      addPtr(pointer / "else");
+    }
+
+    if (json.contains("allOf") && json["allOf"].is_array()) {
+      for (size_t i = 0; i < json["allOf"].size(); i++) {
+        addPtr(pointer / "allOf" / std::to_string(i));
       }
-    } else {
-      internalsRef.type = std::set<SchemaInternals::Type>{
-          SchemaInternals::Type::STRING, SchemaInternals::Type::NUMBER,
-          SchemaInternals::Type::INTEGER, SchemaInternals::Type::BOOLEAN,
-          SchemaInternals::Type::OBJECT, SchemaInternals::Type::ARRAY,
-          SchemaInternals::Type::NULL_};
     }
 
-    
+    if (json.contains("anyOf") && json["anyOf"].is_array()) {
+      for (size_t i = 0; i < json["anyOf"].size(); i++) {
+        addPtr(pointer / "anyOf" / std::to_string(i));
+      }
+    }
+
+    if (json.contains("oneOf") && json["oneOf"].is_array()) {
+      for (size_t i = 0; i < json["oneOf"].size(); i++) {
+        addPtr(pointer / "oneOf" / std::to_string(i));
+      }
+    }
+
+    if (json.contains("not") &&
+        (json["not"].is_object() || json["not"].is_boolean())) {
+      addPtr(pointer / "not");
+    }
+
+    if (json.contains("items")) {
+      if (json["items"].is_object() || json["items"].is_boolean()) {
+        addPtr(pointer / "items");
+      } else if (json["items"].is_array()) {
+        for (size_t i = 0; i < json["items"].size(); i++) {
+          addPtr(pointer / "items" / std::to_string(i));
+        }
+      }
+    }
+
+    if (json.contains("additionalItems") &&
+        (json["additionalItems"].is_object() ||
+         json["additionalItems"].is_boolean())) {
+      addPtr(pointer / "additionalItems");
+    }
+
+    if (json.contains("contains") &&
+        (json["contains"].is_object() || json["contains"].is_boolean())) {
+      addPtr(pointer / "contains");
+    }
+
+    if (json.contains("properties") && (json["properties"].is_object())) {
+      for (auto &[key, value] : json["properties"].items()) {
+        addPtr(pointer / "properties" / key);
+      }
+    }
+
+    if (json.contains("patternProperties") &&
+        json["patternProperties"].is_object()) {
+      for (auto &[key, value] : json["patternProperties"].items()) {
+        addPtr(pointer / "patternProperties" / key);
+      }
+    }
+
+    if (json.contains("additionalProperties") &&
+        (json["additionalProperties"].is_object() ||
+         json["additionalProperties"].is_boolean())) {
+      addPtr(pointer / "additionalProperties");
+    }
+
+    if (json.contains("dependencies") && json["dependencies"].is_object()) {
+      for (auto &[key, value] : json["dependencies"].items()) {
+        if (value.is_object() || value.is_boolean()) {
+          addPtr(pointer / "dependencies" / key);
+        }
+      }
+    }
+
+    if (json.contains("propertyNames") &&
+        (json["propertyNames"].is_object() ||
+         json["propertyNames"].is_boolean())) {
+      addPtr(pointer / "propertyNames");
+    }
+
+    return deps;
   }
 };
+
+#endif // DRAFT07_H

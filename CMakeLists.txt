@@ -9,10 +9,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # == Packages ==
-# add nlohmann json package
-find_package(nlohmann_json 3.2.0 REQUIRED)
+# Add nlohmann json package
+find_package(nlohmann_json 3.2.0 CONFIG REQUIRED)
 find_package(uriparser 0.9.2 CONFIG REQUIRED char wchar_t)
-
 
 # == Executable ==
 # Glob all .cpp files in the current directory
@@ -24,9 +23,10 @@ add_library(JSOG_lib STATIC ${SOURCES})
 # Add the include directory
 target_include_directories(JSOG_lib PUBLIC include)
 
-# Add the system include directory
-target_include_directories(JSOG_lib SYSTEM PUBLIC nlohmann_json::nlohmann_json uriparser::uriparser)
+# Link the nlohmann json and uriparser libraries to the JSOG_lib target
+target_link_libraries(JSOG_lib PUBLIC nlohmann_json::nlohmann_json uriparser::uriparser)
 
+# Create the executable
 
 # Create the executable
 add_executable(JSOG)
@@ -42,6 +42,7 @@ target_include_directories(JSOG PRIVATE include)
 target_link_libraries(JSOG PRIVATE JSOG_lib nlohmann_json::nlohmann_json uriparser::uriparser)
 
 
+# == Tests ==
 Include(FetchContent)
 
 FetchContent_Declare(
@@ -59,6 +60,9 @@ target_link_libraries(tests PRIVATE Catch2::Catch2WithMain JSOG_lib  nlohmann_js
 
 
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+
+
+# Add the tests
 include(CTest)
 include(Catch)
 catch_discover_tests(tests)

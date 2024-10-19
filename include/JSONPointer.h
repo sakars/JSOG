@@ -217,7 +217,7 @@ public:
 
   /// @brief Converts the JSONPointer to a fragment string. It escapes the
   /// tokens and the anchor.
-  /// @return
+  /// @return The escaped fragment string WITH the octothorpe
   std::string toFragment() const {
     std::string fragment = "";
     fragment += "#" + escapePointer(escapeURI(anchor));
@@ -295,6 +295,12 @@ public:
       }
     }
     return *currentNode;
+  }
+
+  JSONPointer operator/(const std::string &token) {
+    JSONPointer newPointer = *this;
+    newPointer.add(token);
+    return newPointer;
   }
 };
 

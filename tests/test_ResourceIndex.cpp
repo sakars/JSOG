@@ -84,3 +84,40 @@ TEST_CASE("ResourceIndex correctly adds resources: Draft07 example",
                                "urn:uuid:ee564b8a-7a87-4125-8c96-e9f123d6766f#",
                                "http://example.com/root.json#/definitions/C"});
 }
+
+TEST_CASE("ResourceIndex correctly builds objects", "[ResourceIndex]") {
+  ResourceIndex index;
+  nlohmann::json json = R"(
+    {
+      "$id": "http://example.com/root.json",
+      "allOf": [
+        { "$id": "http://example.com/root2.json" },
+        { "$id": "http://example.com/root3.json" }
+      ],
+      "random":
+      {
+        "$id": "http://example.com/root4.json"
+      }
+    }
+  )"_json;
+
+  index.addResource(json, {}, "file:///root.json");
+  index.markForBuild("http://example.com/root.json");
+  index.build();
+
+  // for (const auto &[key, value] : index) {
+  //   std::cout << key << ": " << value->json.dump(1) << std::endl;
+  // }
+
+  REQUIRE(index.contains("http://example.com/root.json"));
+  REQUIRE(index.contains("http://example.com/root2.json"));
+  REQUIRE(index.contains("http://example.com/root3.json"));
+  REQUIRE(index.contains("http://example.com/root4.json"));
+
+  // all except root4.json should have schemas as root4.json is not a required
+  // schema
+  REQUIRE(index["http://example.com/root.json"]->schema != nullptr);
+  REQUIRE(index["http://example.com/root2.json"]->schema != nullptr);
+  REQUIRE(index["http://example.com/root3.json"]->schema != nullptr);
+  REQUIRE(index["http://example.com/root4.json"]->schema == nullptr);
+}

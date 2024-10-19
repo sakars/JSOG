@@ -1,10 +1,10 @@
 #ifndef SCHEMA_H
 #define SCHEMA_H
 
-#include "ResourceIndex.h"
 #include <functional>
 #include <nlohmann/json.hpp>
 #include <optional>
+#include <set>
 #include <string>
 
 /**
@@ -25,15 +25,13 @@
 class Schema {
 
 public:
-  std::reference_wrapper<const nlohmann::json> content;
-  std::string baseUri;
+  std::reference_wrapper<const nlohmann::json> json_;
+  std::string baseUri_;
 
-  Schema(const nlohmann::json &source, const std::string &baseUri)
-      : content(source), baseUri(baseUri) {}
+  Schema(const nlohmann::json &json, std::string baseUri)
+      : json_(json), baseUri_(baseUri) {}
 
-  virtual void initialize(
-      const std::function<Schema &(const nlohmann::json &)> &schema_generator,
-      ResourceIndex &index) = 0;
+  virtual std::set<std::string> getDeps() const = 0;
 };
 
 #endif // SCHEMA_H

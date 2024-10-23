@@ -7,6 +7,7 @@
 // circular refs.
 
 std::unique_ptr<Schema> initializeSchema(const nlohmann::json &json,
-                                         std::string baseUri);
+                                         std::string baseUri,
+                                         Draft draft = Draft::UNKNOWN);
 
 #endif // SCHEMAINITIALIZER_H

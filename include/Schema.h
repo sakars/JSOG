@@ -7,6 +7,8 @@
 #include <set>
 #include <string>
 
+enum class Draft { DRAFT_07, UNKNOWN };
+
 /**
  * @brief Represents a JSON schema
  * @details This class represents a JSON schema. It is a base class for
@@ -27,9 +29,12 @@ class Schema {
 public:
   std::reference_wrapper<const nlohmann::json> json_;
   std::string baseUri_;
+  std::set<std::string> customNames = {};
 
   Schema(const nlohmann::json &json, std::string baseUri)
       : json_(json), baseUri_(baseUri) {}
+
+  void addName(const std::string &name) { customNames.emplace(name); }
 
   virtual std::set<std::string> getDeps() const = 0;
 };

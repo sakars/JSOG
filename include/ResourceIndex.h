@@ -209,6 +209,36 @@ public:
       }
     }
   }
+
+  /// @brief Takes all of the names of the resources that have already been
+  /// built and overrides them with suffixes to make them all unique.
+  void generateUniqueSchemaNames() {
+    std::set<std::string> existingRealNames;
+    for (auto &builtResource : resourcesBuilt) {
+      if (builtResource->schema == nullptr) {
+        std::cerr << "Built resource not actually built. WTF???";
+        continue;
+      }
+      auto &schema = builtResource->schema;
+      schema->generateRealName();
+      auto name = schema->getRealName();
+      if (existingRealNames.contains(name)) {
+        size_t uniqueSuffix = 1;
+        auto name_ends_with_number = std::isdigit(name.back());
+        while (uniqueSuffix < 69696969) {
+          auto newName = name + (name_ends_with_number ? "_" : "") +
+                         std::to_string(uniqueSuffix);
+          if (!existingRealNames.contains(newName)) {
+            name = newName;
+            schema->overrideRealName(name);
+            break;
+          }
+          uniqueSuffix++;
+        }
+      }
+      existingRealNames.emplace(name);
+    }
+  }
 };
 
 #endif // RESOURCEINDEX_H

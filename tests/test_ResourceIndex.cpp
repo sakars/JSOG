@@ -108,16 +108,36 @@ TEST_CASE("ResourceIndex correctly builds objects", "[ResourceIndex]") {
   // for (const auto &[key, value] : index) {
   //   std::cout << key << ": " << value->json.dump(1) << std::endl;
   // }
+  SECTION("Build stage") {
+    REQUIRE(index.contains("http://example.com/root.json"));
+    REQUIRE(index.contains("http://example.com/root2.json"));
+    REQUIRE(index.contains("http://example.com/root3.json"));
+    REQUIRE(index.contains("http://example.com/root4.json"));
 
-  REQUIRE(index.contains("http://example.com/root.json"));
-  REQUIRE(index.contains("http://example.com/root2.json"));
-  REQUIRE(index.contains("http://example.com/root3.json"));
-  REQUIRE(index.contains("http://example.com/root4.json"));
+    // all except root4.json should have schemas as root4.json is not a required
+    // schema
+    REQUIRE(index["http://example.com/root.json"]->schema != nullptr);
+    REQUIRE(index["http://example.com/root2.json"]->schema != nullptr);
+    REQUIRE(index["http://example.com/root3.json"]->schema != nullptr);
+    REQUIRE(index["http://example.com/root4.json"]->schema == nullptr);
+  }
 
-  // all except root4.json should have schemas as root4.json is not a required
-  // schema
-  REQUIRE(index["http://example.com/root.json"]->schema != nullptr);
-  REQUIRE(index["http://example.com/root2.json"]->schema != nullptr);
-  REQUIRE(index["http://example.com/root3.json"]->schema != nullptr);
-  REQUIRE(index["http://example.com/root4.json"]->schema == nullptr);
+  SECTION("Unique Name stage") {
+    index.generateUniqueSchemaNames();
+    std::set<std::shared_ptr<ResourceIndex::Resource>> resources;
+    std::set<std::string> names;
+    for (const auto &[_, resource] : index) {
+      if (resources.contains(resource)) {
+        continue;
+      }
+      resources.emplace(resource);
+      const auto &schema = resource->schema;
+      if (schema) {
+        const auto name = schema->getRealName();
+        CAPTURE(name, names);
+        REQUIRE(!names.contains(name));
+        names.emplace(name);
+      }
+    }
+  }
 }

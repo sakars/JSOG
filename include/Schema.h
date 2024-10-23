@@ -30,6 +30,7 @@ public:
   std::reference_wrapper<const nlohmann::json> json_;
   std::string baseUri_;
   std::set<std::string> customNames = {};
+  std::optional<std::string> realName;
 
   Schema(const nlohmann::json &json, std::string baseUri)
       : json_(json), baseUri_(baseUri) {}
@@ -37,6 +38,45 @@ public:
   void addName(const std::string &name) { customNames.emplace(name); }
 
   virtual std::set<std::string> getDeps() const = 0;
+
+private:
+  /// @brief Sanitize this string that can be practically anything, to a
+  /// typename that is valid in C++
+  /// @param str The string to sanitize
+  /// @return A sanitized string
+  static std::string sanitize(const std::string &str) {
+    std::string sanitized = str;
+    std::replace(sanitized.begin(), sanitized.end(), '-', '_');
+    std::replace(sanitized.begin(), sanitized.end(), '.', '_');
+    std::replace(sanitized.begin(), sanitized.end(), '/', '_');
+    std::replace(sanitized.begin(), sanitized.end(), ':', '_');
+    std::replace(sanitized.begin(), sanitized.end(), '#', '_');
+    std::replace(sanitized.begin(), sanitized.end(), ' ', '_');
+    return sanitized;
+  }
+
+protected:
+  virtual std::string getTypeName() const {
+    if (realName.has_value()) {
+      return *realName;
+    }
+    if (json_.get().contains("title")) {
+      return sanitize(json_.get()["title"].get<std::string>());
+    }
+    return "Schema";
+  }
+
+public:
+  void generateRealName() {
+    if (!realName.has_value()) {
+      realName = getTypeName();
+    }
+  }
+  void clearRealName() { realName = std::nullopt; }
+
+  void overrideRealName(std::string name) { realName = sanitize(name); }
+
+  std::string getRealName() const { return getTypeName(); }
 };
 
 #endif // SCHEMA_H

@@ -1,13 +1,20 @@
 #ifndef SCHEMA_H
 #define SCHEMA_H
 
+#include "JSONPointer.h"
 #include <functional>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <set>
 #include <string>
+#include <variant>
 
 enum class Draft { DRAFT_07, UNKNOWN };
+
+// TODO: Rewrite Schema Interface to have seperate stage interfaces.
+// Currently a variant with stages where each stage has the previous stage moved
+// inside it sounds pretty good. A bit complicated, sure, but not bad by any
+// measure.
 
 /**
  * @brief Represents a JSON schema
@@ -27,56 +34,98 @@ enum class Draft { DRAFT_07, UNKNOWN };
 class Schema {
 
 public:
-  std::reference_wrapper<const nlohmann::json> json_;
-  std::string baseUri_;
-  std::set<std::string> customNames = {};
-  std::optional<std::string> realName;
+  struct Stage1 {
+    /// @brief The json content of the schema. This does not own the JSON
+    /// content, and the JSON content must outlive this object.
+    std::reference_wrapper<const nlohmann::json> json_;
+    /// @brief Pointer to the current schema from baseUri_
+    JSONPointer pointer_;
+    /// @brief The base URI of the schema
+    std::string baseUri_;
 
-  Schema(const nlohmann::json &json, std::string baseUri)
-      : json_(json), baseUri_(baseUri) {}
+    Stage1(const nlohmann::json &json, JSONPointer pointer, std::string baseUri)
+        : json_(json), pointer_(pointer), baseUri_(baseUri) {}
 
-  void addName(const std::string &name) { customNames.emplace(name); }
+    virtual std::string getPreferredIdentifier() const {
+      if (json_.get().contains("title")) {
+        return json_.get()["title"].get<std::string>();
+      }
+      return "Schema";
+    }
+
+    std::optional<std::string> getIdentifier() const { return std::nullopt; }
+    std::string getBaseUri() const { return baseUri_; }
+    const nlohmann::json &getJson() const { return json_; }
+    const JSONPointer &getPointer() const { return pointer_; }
+  };
+
+  struct Stage2 {
+    Stage1 stage1_;
+    std::string uniqueIdentifier_;
+
+    std::optional<std::string> getIdentifier() const {
+      return uniqueIdentifier_;
+    }
+    std::string getBaseUri() const { return stage1_.baseUri_; }
+    const nlohmann::json &getJson() const { return stage1_.json_; }
+    const JSONPointer &getPointer() const { return stage1_.pointer_; }
+  };
+
+public:
+  // std::reference_wrapper<const nlohmann::json> json_;
+  // std::string baseUri_;
+  // std::optional<std::string> realName;
+
+  std::variant<Stage1, Stage2> stage_;
+
+  Schema(const nlohmann::json &json, std::string baseUri, JSONPointer pointer)
+      : stage_(Stage1(json, pointer, baseUri)) {}
 
   virtual std::set<std::string> getDeps() const = 0;
 
-private:
-  /// @brief Sanitize this string that can be practically anything, to a
-  /// typename that is valid in C++
-  /// @param str The string to sanitize
-  /// @return A sanitized string
-  static std::string sanitize(const std::string &str) {
-    std::string sanitized = str;
-    std::replace(sanitized.begin(), sanitized.end(), '-', '_');
-    std::replace(sanitized.begin(), sanitized.end(), '.', '_');
-    std::replace(sanitized.begin(), sanitized.end(), '/', '_');
-    std::replace(sanitized.begin(), sanitized.end(), ':', '_');
-    std::replace(sanitized.begin(), sanitized.end(), '#', '_');
-    std::replace(sanitized.begin(), sanitized.end(), ' ', '_');
-    return sanitized;
-  }
-
-protected:
-  virtual std::string getTypeName() const {
-    if (realName.has_value()) {
-      return *realName;
-    }
-    if (json_.get().contains("title")) {
-      return sanitize(json_.get()["title"].get<std::string>());
-    }
-    return "Schema";
-  }
-
 public:
-  void generateRealName() {
-    if (!realName.has_value()) {
-      realName = getTypeName();
+  void transitionToStage2(std::string uniqueIdentifier) {
+    if (!std::holds_alternative<Stage1>(stage_)) {
+      throw std::runtime_error("Cannot transition to Stage2 from non-Stage1");
     }
+    auto &stage1 = std::get<Stage1>(stage_);
+    stage_ = Stage2(std::move(stage1), uniqueIdentifier);
   }
-  void clearRealName() { realName = std::nullopt; }
 
-  void overrideRealName(std::string name) { realName = sanitize(name); }
+  std::optional<std::string> getIdentifier() const {
+    return std::visit([](auto &&arg) { return arg.getIdentifier(); }, stage_);
+  }
 
-  std::string getRealName() const { return getTypeName(); }
+  std::string getBaseUri() const {
+    return std::visit([](auto &&arg) { return arg.getBaseUri(); }, stage_);
+  }
+
+  const nlohmann::json &getJson() const {
+    return std::visit(
+        [](auto &&arg) -> const nlohmann::json & { return arg.getJson(); },
+        stage_);
+  }
+
+  const JSONPointer &getPointer() const {
+    return std::visit(
+        [](auto &&arg) -> const JSONPointer & { return arg.getPointer(); },
+        stage_);
+  }
+
+  virtual std::string getTypeName() const = 0;
+
+  virtual std::string generateDefinition() const { return ""; }
+
+  // TODO: implement in Draft07
+  /// @brief Resolves references in the schema
+  /// @details This function resolves references in the schema. Before calling
+  /// this function, a schema may not know which other schemas it is
+  /// referencing, only knowing their URIs. After calling this function, the
+  /// schema should have references to the actual schema objects that it
+  /// references.
+  virtual void resolveReferences(
+      std::function<
+          std::optional<std::reference_wrapper<Schema>>(std::string)>) = 0;
 };
 
 #endif // SCHEMA_H

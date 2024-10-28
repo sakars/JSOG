@@ -25,8 +25,10 @@ public:
   struct Resource {
     /// @brief A reference to the shallow json object it manages.
     const nlohmann::json &json;
-    /// @brief A string representing the base of
+    /// @brief A string representing the base of the URI of the resource
     const std::string baseUri;
+    /// @brief A JSON Pointer to the resource relative to the base URI
+    const JSONPointer jsonPointer;
 
     /// @brief Which draft this schema is most likely adhering to
     Draft draft = Draft::UNKNOWN;
@@ -67,7 +69,8 @@ public:
   /// @param baseUri The base URI of the resource
   /// @warning provided JSON must outlive the ResourceIndex object
   void addResource(const nlohmann::json &json, std::set<std::string> refs,
-                   std::string baseUri, Draft draft = Draft::UNKNOWN) {
+                   std::string baseUri, JSONPointer jsonPointer = JSONPointer(),
+                   Draft draft = Draft::UNKNOWN) {
     // TODO: Draft recognition is a bit iffy at this stage, consider doing this
     // seperately in a previous step.
     if (draft == Draft::UNKNOWN) {
@@ -83,12 +86,20 @@ public:
           if (schemaField == draft07SchemaUri) {
             draft = Draft::DRAFT_07;
             return;
+          } else {
+            std::cerr << "Unknown Schema attempted resolution. Schema field: "
+                      << schemaField << "draft07 uri\n"
+                      << draft07SchemaUri << std::endl;
           }
         }
 
         // TODO: Add other detection methods to know in case schema field is
         // missing or doesn't match recognized schemas.
       }();
+    }
+    if (draft == Draft::UNKNOWN) {
+      std::cerr << "Unknown draft version still, assuming Draft07:" << std::endl
+                << json.dump(1) << std::endl;
     }
     std::string baseUri_ = baseUri;
 
@@ -102,6 +113,7 @@ public:
       const auto fragment = fullUri.getFragment().value_or("");
       if (fragment == "") {
         baseUri_ = fullUri.toFragmentlessString().value();
+        jsonPointer = JSONPointer();
         refs.emplace(baseUri_);
         refs.emplace(baseUri_ + "#");
       } else {
@@ -117,8 +129,8 @@ public:
       base.setFragment(anchor, false);
       refs.emplace(base.toString().value());
     }
-    std::shared_ptr<Resource> resource =
-        std::make_shared<Resource>(std::cref(json), baseUri_, draft);
+    std::shared_ptr<Resource> resource = std::make_shared<Resource>(
+        std::cref(json), baseUri_, jsonPointer, draft);
 
     // Since schemas can only be objects or booleans, we can safely assume that
     // no $ref will reference other types, since that would be an invalid JSON
@@ -141,8 +153,9 @@ public:
           JSONPointer::fromURIString(uri.getFragment().value_or("")));
     }
 
-    const auto addItem = [&pointers, &uris, &baseUri_, draft, this](
-                             const nlohmann::json &json, std::string navKey) {
+    const auto addItem = [&pointers, &uris, &baseUri_, &jsonPointer, draft,
+                          this](const nlohmann::json &json,
+                                std::string navKey) {
       std::vector<UriWrapper> uris_ = uris;
       std::vector<JSONPointer> pointers_ = pointers;
 
@@ -155,7 +168,7 @@ public:
         uri.setFragment(fragment, true);
         refs.emplace(uri.toString().value_or(""));
       }
-      addResource(std::cref(json), refs, baseUri_, draft);
+      addResource(std::cref(json), refs, baseUri_, jsonPointer / navKey, draft);
     };
     if (json.is_object() || json.is_array()) {
       for (auto &[key, value] : json.items()) {
@@ -174,6 +187,11 @@ public:
       resources[uri_] = nullptr;
     }
     return resources[uri_];
+  }
+
+  const std::shared_ptr<Resource> &getResource(const std::string &uri) const {
+    std::string uri_ = normalizeUri(uri);
+    return resources.at(uri_);
   }
 
   std::shared_ptr<Resource> &operator[](const std::string &uri) {
@@ -200,7 +218,8 @@ public:
     while (!resourcesRequiringBuilding.empty()) {
       auto resource = *resourcesRequiringBuilding.begin();
       resource->schema =
-          std::move(initializeSchema(resource->json, resource->baseUri));
+          std::move(initializeSchema(resource->json, resource->baseUri,
+                                     resource->jsonPointer, resource->draft));
       resourcesBuilt.insert(resource);
       resourcesRequiringBuilding.erase(resource);
       auto dependencies = resource->schema->getDeps();
@@ -220,24 +239,86 @@ public:
         continue;
       }
       auto &schema = builtResource->schema;
-      schema->generateRealName();
-      auto name = schema->getRealName();
+      if (!std::holds_alternative<Schema::Stage1>(schema->stage_)) {
+        continue;
+      }
+      auto &stage1 = std::get<Schema::Stage1>(schema->stage_);
+      auto name = stage1.getPreferredIdentifier();
       if (existingRealNames.contains(name)) {
         size_t uniqueSuffix = 1;
         auto name_ends_with_number = std::isdigit(name.back());
-        while (uniqueSuffix < 69696969) {
+        size_t maxUniqueSuffix = 69696969;
+        while (uniqueSuffix < maxUniqueSuffix) {
           auto newName = name + (name_ends_with_number ? "_" : "") +
                          std::to_string(uniqueSuffix);
           if (!existingRealNames.contains(newName)) {
             name = newName;
-            schema->overrideRealName(name);
             break;
           }
           uniqueSuffix++;
         }
+        if (uniqueSuffix == maxUniqueSuffix) {
+          throw std::runtime_error(
+              "Too many schemas with the same name, likely "
+              "a bug in the schema generation code.");
+        }
       }
+      schema->transitionToStage2(name);
       existingRealNames.emplace(name);
     }
+  }
+
+private:
+  /// @brief small utility method that is used for binding to a ResourceIndex
+  /// and base URI to resolve JSON pointers.
+  std::optional<std::reference_wrapper<Schema>>
+  resolveSchemaRequest(std::string base, std::string ref) const {
+    UriWrapper baseUri(base);
+    UriWrapper refUri(ref);
+    UriWrapper fullUri = UriWrapper::applyUri(baseUri, refUri);
+    auto fullUriStr = fullUri.toString();
+    if (!fullUriStr.has_value()) {
+      return std::nullopt;
+    }
+    auto resource = getResource(fullUriStr.value());
+    if (resource == nullptr) {
+      return std::nullopt;
+    }
+    return *(resource->schema);
+  }
+
+public:
+  /// @brief Calls resolveReferences on all schemas, giving a definitive method
+  /// that resolves references.
+  void resolveReferences() {
+    for (auto &resource : resourcesBuilt) {
+      if (resource->schema == nullptr) {
+        continue;
+      }
+      resource->schema->resolveReferences(
+          std::bind(&ResourceIndex::resolveSchemaRequest, this,
+                    resource->baseUri, std::placeholders::_1));
+    }
+  }
+
+  std::string generateDefinition() const {
+    std::string definition;
+    definition += "#pragma once\n";
+    definition += "#include <variant>\n";
+    definition += "#include <vector>\n";
+    definition += "#include <string>\n";
+    definition += "#include <tuple>\n";
+    definition += "#include <map>\n";
+    definition += "#include <set>\n";
+
+    for (const auto &resource : resourcesBuilt) {
+      if (resource == nullptr || resource->schema == nullptr) {
+        continue;
+      }
+      // TODO: Continue here
+      // definition += resource->schema->getDeps();
+    }
+    return definition;
   }
 };
 

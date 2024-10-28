@@ -21,6 +21,7 @@ class Draft07 : public Schema {
 
   struct SchemaInternals {
     enum class Type { STRING, NUMBER, INTEGER, BOOLEAN, OBJECT, ARRAY, NULL_ };
+    SchemaInternals(const nlohmann::json &, JSONPointer);
     static std::optional<Type> stringToType(const std::string &s) {
       if (s == "string") {
         return Type::STRING;
@@ -84,7 +85,8 @@ class Draft07 : public Schema {
     std::optional<unsigned long> maxProperties;
     std::optional<unsigned long> minProperties;
     std::optional<std::set<std::string>> required;
-    std::optional<std::map<std::string, std::reference_wrapper<Schema>>>
+    std::optional<std::map<
+        std::string, std::variant<JSONPointer, std::reference_wrapper<Schema>>>>
         properties;
     std::optional<
         std::vector<std::tuple<std::regex, std::reference_wrapper<Schema>>>>
@@ -102,14 +104,25 @@ class Draft07 : public Schema {
   Internals internals;
 
 public:
-  Draft07(const nlohmann::json &source, std::string baseUri)
-      : Schema(source, baseUri) {}
+  Draft07(const nlohmann::json &source, std::string baseUri,
+          JSONPointer pointer)
+      : Schema(source, baseUri, pointer) {
+    if (source.is_boolean()) {
+      internals = BooleanSchema{source.get<bool>()};
+    } else if (source.is_object()) {
+      if (source.contains("$ref")) {
+        internals = source["$ref"].get<std::string>();
+      } else {
+        internals = SchemaInternals(source, pointer);
+      }
+    }
+  }
 
   std::set<std::string> getDeps() const override {
     std::set<std::string> deps;
-    UriWrapper uri(baseUri_);
+    UriWrapper uri(getBaseUri());
     JSONPointer pointer =
-        JSONPointer::fromURIString(uri.getFragment().value_or(""));
+        JSONPointer::fromJSONString(getPointer().toFragment());
     const auto addPtr = [&uri, &deps](const JSONPointer &pointer) {
       UriWrapper depUri(uri);
       depUri.setFragment(pointer.toFragment(), true);
@@ -122,7 +135,7 @@ public:
       deps.insert(depUri.toString().value());
     };
 
-    const nlohmann::json &json = json_;
+    const nlohmann::json &json = getJson();
     if (json.contains("$ref")) {
       deps.insert(json["$ref"].get<std::string>());
       return deps;
@@ -221,6 +234,38 @@ public:
     }
 
     return deps;
+  }
+
+  std::string generateDefinition() const override;
+
+  std::string createArrayStruct() const;
+  std::string createObjectStruct() const;
+
+  std::string getTypeName() const override;
+
+  void resolveReferences(
+      std::function<std::optional<std::reference_wrapper<Schema>>(std::string)>
+          resolve) override {
+    if (std::holds_alternative<std::string>(internals)) {
+      // TODO: This is really fucking scuffed, as right now string holds both
+      // json pointers and the typename
+      auto &str = std::get<std::string>(internals);
+      str = resolve(str).value().get().getTypeName();
+    } else if (std::holds_alternative<SchemaInternals>(internals)) {
+      auto &schemaInternals = std::get<SchemaInternals>(internals);
+      if (schemaInternals.properties.has_value()) {
+        auto &properties = schemaInternals.properties.value();
+        for (auto &[key, value] : properties) {
+          if (std::holds_alternative<JSONPointer>(value)) {
+            const auto &ptr = std::get<JSONPointer>(value);
+            const auto typeName = resolve("#" + ptr.toString());
+            if (typeName.has_value()) {
+              properties[key] = typeName.value();
+            }
+          }
+        }
+      }
+    }
   }
 };
 

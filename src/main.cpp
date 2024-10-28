@@ -1,12 +1,34 @@
+#include "ResourceIndex.h"
 #include "UriWrapper.h"
-// #include <iostream>
-// #include <nlohmann/json.hpp>
-// #include "ResourceMap.h"
 #include <iostream>
+#include <nlohmann/json.hpp>
 
 int main() {
-  UriWrapper uri("http://example.com");
-  auto uri2 = uri;
-  auto uri3 = uri2;
-  return 0;
+  nlohmann::json schema = R"(
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "file:///myfile",
+  "title": "MyThing",
+  "type": ["object", "null", "string"],
+  "properties": {
+    "foo": {
+      "type": "string"
+    },
+    "bar": {
+      "type": "number"
+    }
+  }
+})"_json;
+
+  ResourceIndex index;
+  index.addResource(schema, {}, "file:///root.json");
+  index.markForBuild("file:///myfile");
+  index.build();
+  index.generateUniqueSchemaNames();
+  index.resolveReferences();
+
+  std::cout << index["file:///myfile"]->schema->generateDefinition()
+            << std::endl;
+
+  std::cout << index["file:///myfile"]->schema->getTypeName() << std::endl;
 }

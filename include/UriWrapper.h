@@ -35,8 +35,17 @@ private:
                                            const UriUriA &relative) {
     auto dest = std::make_unique<UriUriA>();
     std::memset(dest.get(), 0, sizeof(UriUriA));
-    if (uriAddBaseUriA(dest.get(), &relative, &base) != URI_SUCCESS) {
+    if (const auto code = uriAddBaseUriA(dest.get(), &relative, &base);
+        code != URI_SUCCESS) {
       uriFreeUriMembersA(dest.get());
+      std::cerr << "Failed to apply URI\n";
+      if (code == URI_ERROR_NULL) {
+        std::cerr << "Memory error\n";
+      } else if (code == URI_ERROR_ADDBASE_REL_BASE) {
+        std::cerr << "Given base is not absolute\n";
+      } else {
+        std::cerr << "Unknown error: " << code << std::endl;
+      }
       return nullptr;
     }
 
@@ -61,6 +70,10 @@ public:
     }
     auto newUri = applyUri(*base.uri_, *relative.uri_);
     if (!newUri) {
+      std::cerr << "Failed to apply URI\n";
+      std::cerr << "Base: " << base.toString().value_or("") << std::endl;
+      std::cerr << "Relative: " << relative.toString().value_or("")
+                << std::endl;
       return UriWrapper();
     }
     return UriWrapper(std::move(newUri));
@@ -180,6 +193,10 @@ public:
     auto dest = std::make_unique<UriUriA>();
     auto escapedFragment =
         escapeString(fragment.substr(hasStartingOctothorpe ? 1 : 0));
+    if (escapedFragment.empty()) {
+      *this = UriWrapper(toFragmentlessString().value_or(""));
+      return;
+    }
     escapedFragment = "#" + escapedFragment;
     // perform parsing on the fragment
     const UriWrapper fragmentUri(escapedFragment);

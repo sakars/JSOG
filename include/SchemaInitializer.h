@@ -8,6 +8,7 @@
 
 std::unique_ptr<Schema> initializeSchema(const nlohmann::json &json,
                                          std::string baseUri,
+                                         JSONPointer jsonPointer,
                                          Draft draft = Draft::UNKNOWN);
 
 #endif // SCHEMAINITIALIZER_H

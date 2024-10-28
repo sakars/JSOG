@@ -89,6 +89,7 @@ TEST_CASE("ResourceIndex correctly builds objects", "[ResourceIndex]") {
   ResourceIndex index;
   nlohmann::json json = R"(
     {
+      "$schema": "http://json-schema.org/draft-07/schema#",
       "$id": "http://example.com/root.json",
       "allOf": [
         { "$id": "http://example.com/root2.json" },
@@ -122,8 +123,9 @@ TEST_CASE("ResourceIndex correctly builds objects", "[ResourceIndex]") {
     REQUIRE(index["http://example.com/root4.json"]->schema == nullptr);
   }
 
+  index.generateUniqueSchemaNames();
+
   SECTION("Unique Name stage") {
-    index.generateUniqueSchemaNames();
     std::set<std::shared_ptr<ResourceIndex::Resource>> resources;
     std::set<std::string> names;
     for (const auto &[_, resource] : index) {
@@ -133,11 +135,39 @@ TEST_CASE("ResourceIndex correctly builds objects", "[ResourceIndex]") {
       resources.emplace(resource);
       const auto &schema = resource->schema;
       if (schema) {
-        const auto name = schema->getRealName();
+        REQUIRE(schema->getIdentifier().has_value());
+        const auto name = schema->getIdentifier().value();
         CAPTURE(name, names);
         REQUIRE(!names.contains(name));
         names.emplace(name);
       }
     }
+  }
+
+  index.resolveReferences();
+
+  SECTION("Reference resolution and correct type names") {
+    const auto &resource = index["http://example.com/root.json"];
+    const auto &schema = resource.get()->schema;
+    REQUIRE(schema != nullptr);
+    const auto typeName = schema->getTypeName();
+    const auto contains = [&typeName](std::string s) {
+      for (size_t i = 0; i < typeName.size(); i++) {
+        if (typeName.substr(i).starts_with(s))
+          return true;
+      }
+      return false;
+    };
+    const auto identifier = schema->getIdentifier().value();
+    CAPTURE(typeName);
+    REQUIRE(typeName.starts_with("std::variant<"));
+    REQUIRE(contains("bool"));
+    REQUIRE(contains("int"));
+    REQUIRE(contains(identifier + "::Object"));
+    REQUIRE(contains(identifier + "::Array"));
+    REQUIRE(contains("double"));
+    REQUIRE(contains("std::string"));
+    REQUIRE(contains("std::monostate"));
+    REQUIRE(contains(">"));
   }
 }

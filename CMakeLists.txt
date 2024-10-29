@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 # == Packages ==
 # Add nlohmann json package
 find_package(nlohmann_json 3.2.0 CONFIG REQUIRED)
-find_package(uriparser 0.9.2 CONFIG REQUIRED char wchar_t)
+find_package(uriparser 0.9.2 CONFIG REQUIRED char)
 
 # == Executable ==
 # Glob all .cpp files in the current directory

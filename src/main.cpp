@@ -27,8 +27,8 @@ int main() {
   index.generateUniqueSchemaNames();
   index.resolveReferences();
 
-  std::cout << index["file:///myfile"]->schema->generateDefinition()
+  std::cout << (*index["file:///myfile"])->schema->generateDefinition()
             << std::endl;
 
-  std::cout << index["file:///myfile"]->schema->getTypeName() << std::endl;
+  std::cout << (*index["file:///myfile"])->schema->getTypeName() << std::endl;
 }

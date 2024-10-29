@@ -2,7 +2,8 @@
 #include <catch2/catch_all.hpp>
 
 TEST_CASE("ResourceIndex correctly adds resources: Simple example",
-          "[ResourceIndex]") {
+          "[ResourceIndex]")
+{
   ResourceIndex index;
   nlohmann::json json = R"(
     {
@@ -12,18 +13,20 @@ TEST_CASE("ResourceIndex correctly adds resources: Simple example",
   )"_json;
   index.addResource(json, {}, "file:///root.json");
 
-  for (const auto &[key, value] : index) {
-    std::cout << key << ": " << value->json.dump(1) << std::endl;
+  for (const auto &[key, value] : index)
+  {
+    std::cout << key << ": " << (*value)->json.dump(1) << std::endl;
   }
 
   REQUIRE(index.contains("http://example.com"));
   REQUIRE(index.contains("file:///root.json#fragment"));
-  REQUIRE((index["http://example.com"]->json) ==
-          (index["file:///root.json#fragment"]->json));
+  REQUIRE(((*index["http://example.com"])->json) ==
+          ((*index["file:///root.json#fragment"])->json));
 }
 
 TEST_CASE("ResourceIndex correctly adds resources: Draft07 example",
-          "[ResourceIndex]") {
+          "[ResourceIndex]")
+{
   ResourceIndex index;
   nlohmann::json json = R"(
   {
@@ -44,19 +47,21 @@ TEST_CASE("ResourceIndex correctly adds resources: Draft07 example",
   })"_json;
   index.addResource(json, {}, "file:///root.json");
 
-  for (const auto &[key, value] : index) {
-    std::cout << key << ": " << value->json.dump(1) << std::endl;
+  for (const auto &[key, value] : index)
+  {
+    std::cout << key << ": " << (*value)->json.dump(1) << std::endl;
   }
 
-  auto &r = index;
-
-  const auto t = [&](const auto &json, const std::vector<std::string> &keys) {
-    for (const auto &key : keys) {
-      DYNAMIC_SECTION("Key: " << key) {
+  const auto t = [&](const auto &json, const std::vector<std::string> &keys)
+  {
+    for (const auto &key : keys)
+    {
+      DYNAMIC_SECTION("Key: " << key)
+      {
         CAPTURE(key, json);
-        REQUIRE(r.contains(key));
-        REQUIRE(r[key] != nullptr);
-        REQUIRE(r[key]->json == json);
+        REQUIRE(index.contains(key));
+        REQUIRE(index[key] != nullptr);
+        REQUIRE((*index[key])->json == json);
       }
     }
   };
@@ -85,7 +90,8 @@ TEST_CASE("ResourceIndex correctly adds resources: Draft07 example",
                                "http://example.com/root.json#/definitions/C"});
 }
 
-TEST_CASE("ResourceIndex correctly builds objects", "[ResourceIndex]") {
+TEST_CASE("ResourceIndex correctly builds objects", "[ResourceIndex]")
+{
   ResourceIndex index;
   nlohmann::json json = R"(
     {
@@ -109,7 +115,8 @@ TEST_CASE("ResourceIndex correctly builds objects", "[ResourceIndex]") {
   // for (const auto &[key, value] : index) {
   //   std::cout << key << ": " << value->json.dump(1) << std::endl;
   // }
-  SECTION("Build stage") {
+  SECTION("Build stage")
+  {
     REQUIRE(index.contains("http://example.com/root.json"));
     REQUIRE(index.contains("http://example.com/root2.json"));
     REQUIRE(index.contains("http://example.com/root3.json"));
@@ -117,24 +124,28 @@ TEST_CASE("ResourceIndex correctly builds objects", "[ResourceIndex]") {
 
     // all except root4.json should have schemas as root4.json is not a required
     // schema
-    REQUIRE(index["http://example.com/root.json"]->schema != nullptr);
-    REQUIRE(index["http://example.com/root2.json"]->schema != nullptr);
-    REQUIRE(index["http://example.com/root3.json"]->schema != nullptr);
-    REQUIRE(index["http://example.com/root4.json"]->schema == nullptr);
+    REQUIRE((*index["http://example.com/root.json"])->schema != nullptr);
+    REQUIRE((*index["http://example.com/root2.json"])->schema != nullptr);
+    REQUIRE((*index["http://example.com/root3.json"])->schema != nullptr);
+    REQUIRE((*index["http://example.com/root4.json"])->schema == nullptr);
   }
 
   index.generateUniqueSchemaNames();
 
-  SECTION("Unique Name stage") {
-    std::set<std::shared_ptr<ResourceIndex::Resource>> resources;
+  SECTION("Unique Name stage")
+  {
+    std::set<std::shared_ptr<std::optional<ResourceIndex::Resource>>> resources;
     std::set<std::string> names;
-    for (const auto &[_, resource] : index) {
-      if (resources.contains(resource)) {
+    for (const auto &[_, resource] : index)
+    {
+      if (resources.contains(resource))
+      {
         continue;
       }
       resources.emplace(resource);
-      const auto &schema = resource->schema;
-      if (schema) {
+      const auto &schema = (*resource)->schema;
+      if (schema)
+      {
         REQUIRE(schema->getIdentifier().has_value());
         const auto name = schema->getIdentifier().value();
         CAPTURE(name, names);
@@ -146,13 +157,16 @@ TEST_CASE("ResourceIndex correctly builds objects", "[ResourceIndex]") {
 
   index.resolveReferences();
 
-  SECTION("Reference resolution and correct type names") {
+  SECTION("Reference resolution and correct type names")
+  {
     const auto &resource = index["http://example.com/root.json"];
-    const auto &schema = resource.get()->schema;
+    const auto &schema = (*resource)->schema;
     REQUIRE(schema != nullptr);
     const auto typeName = schema->getTypeName();
-    const auto contains = [&typeName](std::string s) {
-      for (size_t i = 0; i < typeName.size(); i++) {
+    const auto contains = [&typeName](std::string s)
+    {
+      for (size_t i = 0; i < typeName.size(); i++)
+      {
         if (typeName.substr(i).starts_with(s))
           return true;
       }

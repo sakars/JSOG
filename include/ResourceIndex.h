@@ -10,7 +10,10 @@
 #include <nlohmann/json.hpp>
 #include <set>
 #include <string>
+#include <optional>
+#include <format>
 #include <vector>
+#include <fstream>
 
 /// @brief The central index of known json elements.
 /// @details This index maps out json instances for schemmas and constructs
@@ -352,27 +355,98 @@ public:
     }
   }
 
-  std::string generateDefinition() const
+  /// @brief Returns a list of declarations for a given resource.
+  std::set<std::shared_ptr<std::optional<Resource>>> getRequiredResources(const Resource &resource) const
   {
+    std::set<std::shared_ptr<std::optional<Resource>>> dependantResources;
+    if (resource.schema == nullptr)
+    {
+      return dependantResources;
+    }
+    if (std::holds_alternative<Schema::Stage1>(resource.schema->stage_))
+    {
+      return dependantResources;
+    }
+    auto &stage2 = std::get<Schema::Stage2>(resource.schema->stage_);
+    const auto deps = resource.schema->getDeps();
+    for (const auto &dep : deps)
+    {
+      dependantResources.insert(getResource(dep));
+    }
+    return dependantResources;
+  }
+
+  std::string generateRequiredIncludes(const Resource &resource) const
+  {
+    std::string includes;
+    const auto requiredResources = getRequiredResources(resource);
+    for (const auto &reqResource : requiredResources)
+    {
+      const auto reqIdentifier = (*reqResource)->schema->getIdentifier().value();
+      includes += std::format("#include \"{}.h\"\n", reqIdentifier);
+    }
+    includes += "\n";
+    return includes;
+  }
+
+  std::string generateDeclaration(const Resource &resource) const
+  {
+    std::string declaration;
+    const auto identifier = resource.schema->getIdentifier().value();
+    declaration += generateRequiredIncludes(resource);
+    auto upperIdentifier = identifier;
+    std::transform(upperIdentifier.begin(), upperIdentifier.end(),
+                   upperIdentifier.begin(), ::toupper);
+    declaration += std::format("#ifndef {}_H\n", upperIdentifier);
+    declaration += std::format("#define {}_H\n", upperIdentifier);
+    declaration += "namespace " + identifier + "{\n";
+    declaration += "struct Array;\n";
+    declaration += "struct Object;\n";
+    declaration += "std::optional<" + resource.schema->getTypeName() + "> create(const nlohmann::json &json);\n";
+    declaration += "} // namespace " + identifier + "\n\n";
+    declaration += "#endif // " + upperIdentifier + "_H\n";
+    return declaration;
+  }
+
+  std::string generateDefinition(const Resource &resource) const
+  {
+    std::string identifier = resource.schema->getIdentifier().value();
     std::string definition;
-    definition += "#pragma once\n";
+    definition += "#include <nlohmann/json.hpp>\n";
     definition += "#include <variant>\n";
+    definition += "#include <optional>\n";
     definition += "#include <vector>\n";
     definition += "#include <string>\n";
     definition += "#include <tuple>\n";
     definition += "#include <map>\n";
     definition += "#include <set>\n";
+    definition += "\n";
 
+    definition += generateRequiredIncludes(resource);
+
+    definition += resource.schema->generateDefinition();
+    definition += "\n";
+
+    return definition;
+  }
+
+  void generateResources(std::filesystem::path srcDir, std::optional<std::filesystem::path> includeDir = std::nullopt) const
+  {
+    includeDir = includeDir.value_or(srcDir);
     for (const auto &resource : resourcesBuilt)
     {
-      if (resource == nullptr || (*resource)->schema == nullptr)
+      if ((*resource)->schema == nullptr)
       {
         continue;
       }
-      // TODO: Continue here
-      // definition += resource->schema->getDeps();
+      auto identifier = (*resource)->schema->getIdentifier().value();
+      std::ofstream out(*includeDir / (identifier + ".h"));
+      out << generateDeclaration(**resource);
+      out.close();
+      out.open(srcDir / (identifier + ".cpp"));
+      out << generateDefinition(**resource);
+      out.close();
     }
-    return definition;
   }
 };
 

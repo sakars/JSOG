@@ -66,6 +66,27 @@ class Draft07 : public Schema
       }
       return std::nullopt;
     }
+    static std::string typeToString(Type t)
+    {
+      switch (t)
+      {
+      case Type::STRING:
+        return "string";
+      case Type::NUMBER:
+        return "number";
+      case Type::INTEGER:
+        return "integer";
+      case Type::BOOLEAN:
+        return "boolean";
+      case Type::OBJECT:
+        return "object";
+      case Type::ARRAY:
+        return "array";
+      case Type::NULL_:
+        return "null";
+      }
+      throw std::runtime_error("Unknown type");
+    }
     std::optional<std::set<Type>> type;
     std::optional<std::vector<nlohmann::json>> enum_;
     std::optional<nlohmann::json> const_;

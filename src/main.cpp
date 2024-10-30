@@ -1,9 +1,11 @@
 #include "ResourceIndex.h"
 #include "UriWrapper.h"
 #include <iostream>
+#include <fstream>
 #include <nlohmann/json.hpp>
 
-int main() {
+int main()
+{
   nlohmann::json schema = R"(
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
@@ -26,9 +28,15 @@ int main() {
   index.build();
   index.generateUniqueSchemaNames();
   index.resolveReferences();
+  // std::ofstream out("myfile.cpp");
 
-  std::cout << (*index["file:///myfile"])->schema->generateDefinition()
-            << std::endl;
+  // out << index.generateDefinition(**index["file:///myfile"]);
+  // std::cout << index.generateDefinition(**index["file:///myfile"]) << std::endl;
+  // out.close();
+  // // std::cout << (*index["file:///myfile"])->schema->generateDefinition()
+  // //           << std::endl;
 
-  std::cout << (*index["file:///myfile"])->schema->getTypeName() << std::endl;
+  // std::cout << (*index["file:///myfile"])->schema->getTypeName() << std::endl;
+
+  index.generateResources("./outDir");
 }

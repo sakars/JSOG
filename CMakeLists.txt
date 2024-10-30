@@ -8,6 +8,11 @@ project(JSOG)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+# Enable code coverage if not defined
+if(NOT DEFINED CODE_COVERAGE)
+  set(CODE_COVERAGE ON)
+endif()
+
 # == Packages ==
 # Add nlohmann json package
 find_package(nlohmann_json 3.2.0 CONFIG REQUIRED)
@@ -58,6 +63,13 @@ file(GLOB TEST_SOURCES "tests/*.cpp")
 add_executable(tests ${TEST_SOURCES} ${SOURCES_WITHOUT_MAIN})
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain JSOG_lib  nlohmann_json::nlohmann_json uriparser::uriparser)
 
+# Add coverage flags to the compiler options
+if(CMAKE_COMPILER_IS_GNUCXX)
+  target_compile_options(JSOG_lib PRIVATE --coverage)
+  target_link_libraries(JSOG_lib PRIVATE --coverage)
+  target_compile_options(tests PRIVATE --coverage)
+  target_link_libraries(tests PRIVATE --coverage)
+endif()
 
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 
@@ -68,4 +80,13 @@ include(Catch)
 catch_discover_tests(tests)
 
 enable_testing()
-add_test(NAME tests COMMAND tests)
+
+# Code coverage target
+if(CODE_COVERAGE)
+  add_custom_target(coverage
+  COMMAND lcov --capture --directory . --output-file lcov.info --rc branch_coverage=1 --rc geninfo_unexecuted_blocks=1 --ignore-errors mismatch
+  COMMAND lcov --remove lcov.info '/usr/*' '*/catch2/*' '*/tests/*' --output-file lcov.info
+  COMMAND genhtml lcov.info --output-directory coverage_report --rc branch_coverage=1 --rc geninfo_unexecuted_blocks=1
+  COMMENT "Generating coverage report..."
+  )
+endif()

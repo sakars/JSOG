@@ -17,16 +17,25 @@ RUN if [ "${REINSTALL_CMAKE_VERSION_FROM_SOURCE}" != "none" ]; then \
 # RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 #     && apt-get -y install --no-install-recommends <your-package-list-here>
 
-
-# Install dependencies
-RUN apt-get update && apt-get install -y \
-git \
-cmake \
-g++ \
-libboost-all-dev
+# Clone dependency repos
 
 # nlohmann/json
 RUN git clone https://github.com/nlohmann/json.git
+# uriparser
+RUN git clone https://github.com/uriparser/uriparser
+
+# Install dependencies
+# Install in parts for better caching
+RUN apt-get update && apt-get install -y \
+git \
+cmake
+
+RUN apt-get install -y \
+g++ \
+libboost-all-dev
+
+RUN apt-get install -y lcov
+
 
 # Build nlohmann/json
 WORKDIR /json
@@ -37,8 +46,6 @@ RUN make
 RUN make install
 
 WORKDIR /
-# uriparser
-RUN git clone https://github.com/uriparser/uriparser
 
 # Build uriparser
 WORKDIR /uriparser

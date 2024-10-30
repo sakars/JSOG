@@ -4,12 +4,12 @@
 
 std::string normalizeString(std::string s)
 {
-  std::string outStr = "_";
+  std::string outStr = "";
   for (const auto &c : s)
   {
     if (c == ' ')
     {
-      outStr += "_s_";
+      outStr += "_s";
     }
     else if (c == '_')
     {
@@ -18,7 +18,10 @@ std::string normalizeString(std::string s)
     else if (!((c <= '9' && c >= '0') || (c >= 'a' && c <= 'z') ||
                (c >= 'A' && c <= 'Z')))
     {
-      outStr += "_d" + std::to_string((unsigned char)c) + "_";
+      static const std::string hex = "0123456789ABCDEF";
+      outStr += "_";
+      outStr += hex[(c & 0xF0) >> 4];
+      outStr += hex[c & 0x0F];
     }
     else
     {

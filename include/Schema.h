@@ -2,6 +2,7 @@
 #define SCHEMA_H
 
 #include "JSONPointer.h"
+#include "StringUtils.h"
 #include <functional>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -9,7 +10,11 @@
 #include <string>
 #include <variant>
 
-enum class Draft { DRAFT_07, UNKNOWN };
+enum class Draft
+{
+  DRAFT_07,
+  UNKNOWN
+};
 
 // TODO: Rewrite Schema Interface to have seperate stage interfaces.
 // Currently a variant with stages where each stage has the previous stage moved
@@ -31,10 +36,12 @@ enum class Draft { DRAFT_07, UNKNOWN };
  *
  *
  */
-class Schema {
+class Schema
+{
 
 public:
-  struct Stage1 {
+  struct Stage1
+  {
     /// @brief The json content of the schema. This does not own the JSON
     /// content, and the JSON content must outlive this object.
     std::reference_wrapper<const nlohmann::json> json_;
@@ -46,9 +53,15 @@ public:
     Stage1(const nlohmann::json &json, JSONPointer pointer, std::string baseUri)
         : json_(json), pointer_(pointer), baseUri_(baseUri) {}
 
-    virtual std::string getPreferredIdentifier() const {
-      if (json_.get().contains("title")) {
-        return json_.get()["title"].get<std::string>();
+    virtual std::string getPreferredIdentifier() const
+    {
+      if (json_.get().contains("title"))
+      {
+        auto title = json_.get()["title"].get<std::string>();
+        if (title != "")
+        {
+          return normalizeString(title);
+        }
       }
       return "Schema";
     }
@@ -59,11 +72,13 @@ public:
     const JSONPointer &getPointer() const { return pointer_; }
   };
 
-  struct Stage2 {
+  struct Stage2
+  {
     Stage1 stage1_;
     std::string uniqueIdentifier_;
 
-    std::optional<std::string> getIdentifier() const {
+    std::optional<std::string> getIdentifier() const
+    {
       return uniqueIdentifier_;
     }
     std::string getBaseUri() const { return stage1_.baseUri_; }
@@ -84,37 +99,48 @@ public:
   virtual std::set<std::string> getDeps() const = 0;
 
 public:
-  void transitionToStage2(std::string uniqueIdentifier) {
-    if (!std::holds_alternative<Stage1>(stage_)) {
+  void transitionToStage2(std::string uniqueIdentifier)
+  {
+    if (!std::holds_alternative<Stage1>(stage_))
+    {
       throw std::runtime_error("Cannot transition to Stage2 from non-Stage1");
     }
     auto &stage1 = std::get<Stage1>(stage_);
     stage_ = Stage2(std::move(stage1), uniqueIdentifier);
   }
 
-  std::optional<std::string> getIdentifier() const {
-    return std::visit([](auto &&arg) { return arg.getIdentifier(); }, stage_);
+  std::optional<std::string> getIdentifier() const
+  {
+    return std::visit([](auto &&arg)
+                      { return arg.getIdentifier(); }, stage_);
   }
 
-  std::string getBaseUri() const {
-    return std::visit([](auto &&arg) { return arg.getBaseUri(); }, stage_);
+  std::string getBaseUri() const
+  {
+    return std::visit([](auto &&arg)
+                      { return arg.getBaseUri(); }, stage_);
   }
 
-  const nlohmann::json &getJson() const {
+  const nlohmann::json &getJson() const
+  {
     return std::visit(
-        [](auto &&arg) -> const nlohmann::json & { return arg.getJson(); },
+        [](auto &&arg) -> const nlohmann::json &
+        { return arg.getJson(); },
         stage_);
   }
 
-  const JSONPointer &getPointer() const {
+  const JSONPointer &getPointer() const
+  {
     return std::visit(
-        [](auto &&arg) -> const JSONPointer & { return arg.getPointer(); },
+        [](auto &&arg) -> const JSONPointer &
+        { return arg.getPointer(); },
         stage_);
   }
 
   virtual std::string getTypeName() const = 0;
 
   virtual std::string generateDefinition() const { return ""; }
+  virtual std::string generateStructs() const { return ""; }
 
   // TODO: implement in Draft07
   /// @brief Resolves references in the schema

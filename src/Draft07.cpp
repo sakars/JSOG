@@ -95,6 +95,9 @@ std::string Draft07::createArrayStruct() const
     }
   }
   // TODO: add additionalItems.
+
+  arrStruct += "static std::optional<Array> create(const nlohmann::json &json);\n";
+
   arrStruct += "};\n";
   return arrStruct;
 }
@@ -139,39 +142,51 @@ std::string Draft07::createObjectStruct() const
   // TODO: add other schema properties.
 
   // Add the factory function
-  objectStruct += "static std::optional<Object> create(const nlohmann::json &json) {\n";
+  objectStruct += "static std::optional<Object> create(const nlohmann::json &json);\n";
+  // objectStruct += "static std::optional<Object> create(const nlohmann::json &json) {\n";
 
-  objectStruct += "Object obj;\n";
-  // Check if the json is an object
-  objectStruct += "if (!json.is_object()) {\n";
-  objectStruct += "return std::nullopt;\n";
-  objectStruct += "}\n";
+  // objectStruct += "Object obj;\n";
+  // // Check if the json is an object
+  // objectStruct += "if (!json.is_object()) {\n";
+  // objectStruct += "return std::nullopt;\n";
+  // objectStruct += "}\n";
 
-  if (properties.has_value())
-  {
-    for (const auto &[key, schema] : properties.value())
-    {
-      const auto identifier = std::get<std::reference_wrapper<Schema>>(schema).get().getIdentifier().value();
-      // if (iscxxTypeJSONPrimitive(typeName))
-      // {
-      //   objectStruct += std::format(
-      //       objectKeyPrimitiveAdder,
-      //       key, typeName, cxxTypeToJSONType(typeName));
-      // }
-      // else
-      // {
-      objectStruct += std::format(
-          objectKeyRequiredSchemaAdder,
-          key, identifier);
-      // }
-    }
-  }
-  objectStruct += "return obj;\n";
-  objectStruct += "}\n";
+  // if (properties.has_value())
+  // {
+  //   for (const auto &[key, schema] : properties.value())
+  //   {
+  //     const auto identifier = std::get<std::reference_wrapper<Schema>>(schema).get().getIdentifier().value();
+  //     // if (iscxxTypeJSONPrimitive(typeName))
+  //     // {
+  //     //   objectStruct += std::format(
+  //     //       objectKeyPrimitiveAdder,
+  //     //       key, typeName, cxxTypeToJSONType(typeName));
+  //     // }
+  //     // else
+  //     // {
+  //     objectStruct += std::format(
+  //         objectKeyRequiredSchemaAdder,
+  //         key, identifier);
+  //     // }
+  //   }
+  // }
+  // objectStruct += "return obj;\n";
+  // objectStruct += "}\n";
 
   objectStruct += "};\n";
 
   return objectStruct;
+}
+
+std::string Draft07::generateStructs() const
+{
+  std::string definition = "namespace " + getIdentifier().value() + " {\n";
+
+  definition += createArrayStruct();
+  definition += createObjectStruct();
+
+  definition += "} // namespace" + getIdentifier().value() + "\n";
+  return definition;
 }
 
 std::string Draft07::generateDefinition() const
@@ -193,9 +208,6 @@ std::string Draft07::generateDefinition() const
   const auto &types = schemaInternals.type.value();
 
   std::string definition = "namespace " + getIdentifier().value() + " {\n";
-
-  definition += createArrayStruct();
-  definition += createObjectStruct();
 
   // Add the factory function
   definition += "std::optional<" + getTypeName() + "> create(const nlohmann::json &json) {\n";
@@ -246,6 +258,47 @@ std::string Draft07::generateDefinition() const
     }
   }
   definition += "return std::nullopt;\n";
+  definition += "}\n";
+
+  definition += "std::optional<Object> Object::create(const nlohmann::json &json) {\n";
+
+  definition += "Object obj;\n";
+  // Check if the json is an object
+  definition += "if (!json.is_object()) {\n";
+  definition += "return std::nullopt;\n";
+  definition += "}\n";
+
+  const auto &properties = schemaInternals.properties;
+
+  if (properties.has_value())
+  {
+    for (const auto &[key, schema] : properties.value())
+    {
+      const auto identifier = std::get<std::reference_wrapper<Schema>>(schema).get().getIdentifier().value();
+      // if (iscxxTypeJSONPrimitive(typeName))
+      // {
+      //   definition += std::format(
+      //       objectKeyPrimitiveAdder,
+      //       key, typeName, cxxTypeToJSONType(typeName));
+      // }
+      // else
+      // {
+      definition += std::format(
+          objectKeyRequiredSchemaAdder,
+          key, identifier);
+      // }
+    }
+  }
+  definition += "return obj;\n";
+  definition += "}\n";
+
+  definition += "std::optional<Array> Array::create(const nlohmann::json &json) {\n";
+  definition += "Array arr;\n";
+  definition += "if (!json.is_array()) {\n";
+  definition += "return std::nullopt;\n";
+  definition += "}\n";
+  // TODO: add array creation logic
+  definition += "return arr;\n";
   definition += "}\n";
 
   definition += "} // namespace" + getIdentifier().value() + "\n";

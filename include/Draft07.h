@@ -321,7 +321,7 @@ public:
   }
 
   std::string generateDefinition() const override;
-
+  std::string generateStructs() const;
   std::string createArrayStruct() const;
   std::string createObjectStruct() const;
 

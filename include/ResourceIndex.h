@@ -161,7 +161,7 @@ public:
       for (auto &ref : refs)
       {
         std::string ref_ = UriWrapper(ref).toString().value();
-        (*this)[ref_] = resourcePtr;
+        setResource(ref_, resourcePtr);
       }
     }
 
@@ -215,6 +215,8 @@ public:
     std::string uri_ = normalizeUri(uri);
     if (!resources.contains(uri_))
     {
+      throw std::runtime_error(
+          std::format("Resource {} not found in index", uri_));
       resources[uri_] = std::make_shared<std::optional<Resource>>(std::nullopt);
     }
     return resources[uri_];
@@ -224,6 +226,11 @@ public:
   {
     std::string uri_ = normalizeUri(uri);
     return resources.at(uri_);
+  }
+
+  void setResource(const std::string &uri, std::shared_ptr<std::optional<Resource>> resource)
+  {
+    resources[normalizeUri(uri)] = resource;
   }
 
   std::shared_ptr<std::optional<Resource>> &operator[](const std::string &uri)
@@ -385,6 +392,14 @@ public:
       const auto reqIdentifier = (*reqResource)->schema->getIdentifier().value();
       includes += std::format("#include \"{}.h\"\n", reqIdentifier);
     }
+    includes += "#include <nlohmann/json.hpp>\n";
+    includes += "#include <variant>\n";
+    includes += "#include <optional>\n";
+    includes += "#include <vector>\n";
+    includes += "#include <string>\n";
+    includes += "#include <tuple>\n";
+    includes += "#include <map>\n";
+    includes += "#include <set>\n";
     includes += "\n";
     return includes;
   }
@@ -394,17 +409,13 @@ public:
     std::string declaration;
     const auto identifier = resource.schema->getIdentifier().value();
     declaration += generateRequiredIncludes(resource);
-    auto upperIdentifier = identifier;
-    std::transform(upperIdentifier.begin(), upperIdentifier.end(),
-                   upperIdentifier.begin(), ::toupper);
-    declaration += std::format("#ifndef {}_H\n", upperIdentifier);
-    declaration += std::format("#define {}_H\n", upperIdentifier);
+    declaration += std::format("#ifndef JSOG_{}_H\n", identifier);
+    declaration += std::format("#define JSOG_{}_H\n", identifier);
+    declaration += resource.schema->generateStructs();
     declaration += "namespace " + identifier + "{\n";
-    declaration += "struct Array;\n";
-    declaration += "struct Object;\n";
     declaration += "std::optional<" + resource.schema->getTypeName() + "> create(const nlohmann::json &json);\n";
     declaration += "} // namespace " + identifier + "\n\n";
-    declaration += "#endif // " + upperIdentifier + "_H\n";
+    declaration += "#endif // JSOG_" + identifier + "_H\n";
     return declaration;
   }
 
@@ -412,17 +423,9 @@ public:
   {
     std::string identifier = resource.schema->getIdentifier().value();
     std::string definition;
-    definition += "#include <nlohmann/json.hpp>\n";
-    definition += "#include <variant>\n";
-    definition += "#include <optional>\n";
-    definition += "#include <vector>\n";
-    definition += "#include <string>\n";
-    definition += "#include <tuple>\n";
-    definition += "#include <map>\n";
-    definition += "#include <set>\n";
-    definition += "\n";
 
     definition += generateRequiredIncludes(resource);
+    definition += "#include \"" + identifier + ".h\"\n";
 
     definition += resource.schema->generateDefinition();
     definition += "\n";
@@ -433,6 +436,14 @@ public:
   void generateResources(std::filesystem::path srcDir, std::optional<std::filesystem::path> includeDir = std::nullopt) const
   {
     includeDir = includeDir.value_or(srcDir);
+    if (!std::filesystem::exists(srcDir))
+    {
+      std::filesystem::create_directories(srcDir);
+    }
+    if (!std::filesystem::exists(*includeDir))
+    {
+      std::filesystem::create_directories(*includeDir);
+    }
     for (const auto &resource : resourcesBuilt)
     {
       if ((*resource)->schema == nullptr)

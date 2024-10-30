@@ -1,6 +1,9 @@
+#ifndef STRINGUTILS_H
+#define STRINGUTILS_H
+
 #include <string>
 
-std::string normalizeString(std::string s)
+inline std::string normalizeString(std::string s)
 {
   std::string outStr = "_";
   for (const auto &c : s)
@@ -26,13 +29,13 @@ std::string normalizeString(std::string s)
   return outStr;
 }
 
-bool iscxxTypeJSONPrimitive(std::string s)
+inline bool iscxxTypeJSONPrimitive(std::string s)
 {
   return s == "std::string" || s == "double" || s == "int" || s == "unsigned int" ||
          s == "long" || s == "unsigned long" || s == "bool";
 }
 
-std::string cxxTypeToJSONType(std::string s)
+inline std::string cxxTypeToJSONType(std::string s)
 {
   if (!iscxxTypeJSONPrimitive(s))
   {
@@ -65,10 +68,12 @@ std::string cxxTypeToJSONType(std::string s)
   else if (s == "bool")
   {
     return "boolean";
-  } else if (s == "std::monostate")
+  }
+  else if (s == "std::monostate")
   {
     return "null";
   }
   throw std::runtime_error("Unknown type: " + s);
 }
 
+#endif // STRINGUTILS_H

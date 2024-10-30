@@ -34,38 +34,7 @@ class Draft07 : public Schema
       NULL_
     };
     SchemaInternals(const nlohmann::json &, JSONPointer);
-    static std::optional<Type> stringToType(const std::string &s)
-    {
-      if (s == "string")
-      {
-        return Type::STRING;
-      }
-      else if (s == "number")
-      {
-        return Type::NUMBER;
-      }
-      else if (s == "integer")
-      {
-        return Type::INTEGER;
-      }
-      else if (s == "boolean")
-      {
-        return Type::BOOLEAN;
-      }
-      else if (s == "object")
-      {
-        return Type::OBJECT;
-      }
-      else if (s == "array")
-      {
-        return Type::ARRAY;
-      }
-      else if (s == "null")
-      {
-        return Type::NULL_;
-      }
-      return std::nullopt;
-    }
+    static std::optional<Type> stringToType(const std::string &s);
     static std::string typeToString(Type t)
     {
       switch (t)

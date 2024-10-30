@@ -2,6 +2,7 @@
 #include "JSONPointer.h"
 #include "StringUtils.h"
 #include <format>
+#include <unordered_map>
 
 Draft07::SchemaInternals::SchemaInternals(const nlohmann::json &json,
                                           JSONPointer pointer)
@@ -51,17 +52,28 @@ Draft07::SchemaInternals::SchemaInternals(const nlohmann::json &json,
     const auto &props = json["properties"];
     for (const auto &[key, _] : props.items())
     {
-      // properties[key] =
-      // TODO: This is pizdec and something to think about. I need to reference
-      // these schemas. Maybe need to figure out how to reference relative json
-      // properties as even if i passed base uri, this doesn't let me reasonably
-      // specify where we are now. I think I need to pass a JSON Pointer from
-      // the base URI.
-
-      // TODO: Continue this function
       properties.value()[key] = pointer / "properties" / key;
     }
   }
+}
+
+std::optional<Draft07::SchemaInternals::Type> Draft07::SchemaInternals::stringToType(const std::string &s)
+{
+  static const std::unordered_map<std::string, Type> typeMap = {
+      {"string", Type::STRING},
+      {"number", Type::NUMBER},
+      {"integer", Type::INTEGER},
+      {"boolean", Type::BOOLEAN},
+      {"object", Type::OBJECT},
+      {"array", Type::ARRAY},
+      {"null", Type::NULL_}};
+
+  auto it = typeMap.find(s);
+  if (it != typeMap.end())
+  {
+    return it->second;
+  }
+  return std::nullopt;
 }
 
 std::string Draft07::createArrayStruct() const
@@ -143,35 +155,6 @@ std::string Draft07::createObjectStruct() const
 
   // Add the factory function
   objectStruct += "static std::optional<Object> create(const nlohmann::json &json);\n";
-  // objectStruct += "static std::optional<Object> create(const nlohmann::json &json) {\n";
-
-  // objectStruct += "Object obj;\n";
-  // // Check if the json is an object
-  // objectStruct += "if (!json.is_object()) {\n";
-  // objectStruct += "return std::nullopt;\n";
-  // objectStruct += "}\n";
-
-  // if (properties.has_value())
-  // {
-  //   for (const auto &[key, schema] : properties.value())
-  //   {
-  //     const auto identifier = std::get<std::reference_wrapper<Schema>>(schema).get().getIdentifier().value();
-  //     // if (iscxxTypeJSONPrimitive(typeName))
-  //     // {
-  //     //   objectStruct += std::format(
-  //     //       objectKeyPrimitiveAdder,
-  //     //       key, typeName, cxxTypeToJSONType(typeName));
-  //     // }
-  //     // else
-  //     // {
-  //     objectStruct += std::format(
-  //         objectKeyRequiredSchemaAdder,
-  //         key, identifier);
-  //     // }
-  //   }
-  // }
-  // objectStruct += "return obj;\n";
-  // objectStruct += "}\n";
 
   objectStruct += "};\n";
 
@@ -275,18 +258,9 @@ std::string Draft07::generateDefinition() const
     for (const auto &[key, schema] : properties.value())
     {
       const auto identifier = std::get<std::reference_wrapper<Schema>>(schema).get().getIdentifier().value();
-      // if (iscxxTypeJSONPrimitive(typeName))
-      // {
-      //   definition += std::format(
-      //       objectKeyPrimitiveAdder,
-      //       key, typeName, cxxTypeToJSONType(typeName));
-      // }
-      // else
-      // {
       definition += std::format(
           objectKeyRequiredSchemaAdder,
           key, identifier);
-      // }
     }
   }
   definition += "return obj;\n";

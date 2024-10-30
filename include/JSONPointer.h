@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <map>
 
 class JSONPointer
 {
@@ -19,383 +20,98 @@ class JSONPointer
   /// escapeString function, as this doesn't escape the '/' character.
   /// @param fragment The fragment string to escape
   /// @return The escaped fragment string
-  static std::string escapeURI(const std::string &fragment)
-  {
-    std::string escapedFragment = "";
-    for (char c : fragment)
-    {
-      if (c == '#')
-      {
-        escapedFragment += "%23";
-      }
-      else if (c == '%')
-      {
-        escapedFragment += "%25";
-      }
-      else if (c == '?')
-      {
-        escapedFragment += "%3F";
-      }
-      else if (c == '&')
-      {
-        escapedFragment += "%26";
-      }
-      else if (c == '=')
-      {
-        escapedFragment += "%3D";
-      }
-      else if (c == '"')
-      {
-        escapedFragment += "%22";
-      }
-      else if (c == '\'')
-      {
-        escapedFragment += "%27";
-      }
-      else if (c == '<')
-      {
-        escapedFragment += "%3C";
-      }
-      else if (c == '>')
-      {
-        escapedFragment += "%3E";
-      }
-      else if (c == '\\')
-      {
-        escapedFragment += "%5C";
-      }
-      else if (c == '{')
-      {
-        escapedFragment += "%7B";
-      }
-      else if (c == '}')
-      {
-        escapedFragment += "%7D";
-      }
-      else if (c == '|')
-      {
-        escapedFragment += "%7C";
-      }
-      else if (c == ' ')
-      {
-        escapedFragment += "%20";
-      }
-      else
-      {
-        escapedFragment += c;
-      }
-    }
+  static std::string escapeURI(const std::string &fragment);
 
-    return escapedFragment;
-  }
+  /// @brief Escapes a pointer token according to RFC6901
+  /// @param token The reference token to escape.
+  /// @return
+  static std::string escapePointer(const std::string &token);
 
-  static std::string escapePointer(const std::string &fragment)
-  {
-    std::string escapedFragment = "";
-    for (char c : fragment)
-    {
+  /// @brief Unescapes a URI fragment string
+  /// @param fragment The fragment string to unescape
+  /// @return The unescaped fragment string
+  static std::string unescapeURI(const std::string &fragment);
 
-      if (c == '~')
-      {
-        escapedFragment += "~0";
-      }
-      else if (c == '/')
-      {
-        escapedFragment += "~1";
-      }
-      else
-      {
-        escapedFragment += c;
-      }
-    }
-
-    return escapedFragment;
-  }
-
-  static std::string unescapeURI(const std::string &fragment)
-  {
-    std::string unescapedFragment = "";
-    for (size_t i = 0; i < fragment.size(); i++)
-    {
-      if (fragment.substr(i).starts_with("%"))
-      {
-        if (i + 2 < fragment.size())
-        {
-          std::string hexStr = fragment.substr(i + 1, 2);
-          char hexChar = static_cast<char>(std::stoi(hexStr, nullptr, 16));
-          unescapedFragment += hexChar;
-          i += 2;
-        }
-      }
-      else
-      {
-        unescapedFragment += fragment[i];
-      }
-    }
-    return unescapedFragment;
-  }
-
-  static std::string unescapeToken(const std::string &fragment)
-  {
-    std::string unescapedToken = "";
-    for (size_t i = 0; i < fragment.size(); i++)
-    {
-      // slash unescaping (JSON Pointer)
-      if (fragment.substr(i).starts_with("~1"))
-      {
-        unescapedToken += "/";
-        i += 1;
-        // tilde unescaping (JSON Pointer)
-      }
-      else if (fragment.substr(i).starts_with("~0"))
-      {
-        unescapedToken += "~";
-        i += 1;
-
-        // percent unescaping (URI)
-        // } else if (fragment.starts_with("%")) {
-        //   if (i + 2 < fragment.size()) {
-        //     std::string hexStr = fragment.substr(i + 1, 2);
-        //     char hexChar = static_cast<char>(std::stoi(hexStr, nullptr,
-        //     16)); unescapedToken += hexChar; i += 3;
-        //   }
-      }
-      else
-      {
-        unescapedToken += fragment[i];
-      }
-    }
-    return unescapedToken;
-  }
-
-public:
-  static JSONPointer fromAnchor(const std::string &anchor)
-  {
-    JSONPointer pointer;
-    pointer.anchor = anchor;
-    return pointer;
-  }
+  /// @brief Unescapes a reference token of a JSONPointer according to RFC6901
+  /// @param token The token to unescape
+  /// @return The unescaped token
+  static std::string unescapeToken(const std::string &token);
 
 private:
+  /// @brief Splits a fragment string into its reference tokens.
+  /// @param fragment The fragment string to split
+  /// @return A vector of string views that represent the tokens
+  /// @warning This function does not unescape the tokens. The returned string_views
+  /// are views into the original string and will be invalidated if the original string
+  /// is destroyed.
   static std::vector<std::string_view>
-  splitFragment(const std::string &fragment)
-  {
-    enum class State
-    {
-      None,
-      Literal,
-      Encoded
-    };
-    auto isSlash = [](std::string_view c)
-    {
-      bool isLiteral = c.starts_with("/");
-      bool isEncoded = c.starts_with("%2F") || c.starts_with("%2f");
-      if (isLiteral)
-      {
-        return State::Literal;
-      }
-      else if (isEncoded)
-      {
-        return State::Encoded;
-      }
-      else
-      {
-        return State::None;
-      }
-    };
-    std::vector<std::string_view> tokens;
-
-    auto start = fragment.begin();
-    auto end = fragment.begin();
-    for (auto it = fragment.begin(); it != fragment.end(); it++)
-    {
-      auto slash = isSlash(std::string_view(it, fragment.end()));
-      if (slash == State::Literal)
-      {
-        end = it;
-        tokens.emplace_back(std::string_view(start, end));
-        start = it + 1;
-      }
-      else if (slash == State::Encoded)
-      {
-        end = it;
-        tokens.emplace_back(std::string_view(start, end));
-        start = it + 3;
-      }
-    }
-    tokens.emplace_back(std::string_view(start, fragment.end()));
-
-    return tokens;
-  }
+  splitFragment(const std::string &fragment);
 
 public:
+  /// @brief Generates an empty JSONPointer with an anchor.
+  static JSONPointer fromAnchor(const std::string &anchor);
+
   /// @brief Parses a JSONPointer from a string. This parses the input string
   /// according to RFC6901 Section 5
-  static JSONPointer fromJSONString(const std::string &pointer)
-  {
-    JSONPointer outPointer;
-    std::string_view fragmentView = pointer;
-    const auto tokens = splitFragment(pointer);
-    // for (const auto &token : tokens) {
-    //   std::cout << std::quoted(token) << std::endl;
-    // }
-    // std::cout << "Tokens size: " << tokens.size() << std::endl;
-    if (tokens.empty())
-    {
-      return outPointer;
-    }
-    // std::cout << "Addables: " << std::endl;
+  static JSONPointer fromJSONString(const std::string &pointer);
 
-    outPointer.anchor = unescapeToken(std::string(tokens[0]));
-    for (const auto &token : tokens | std::views::drop(1))
-    {
-      // std::cout << "Adding token: "
-      //           << std::quoted(unescapeToken(std::string(token))) <<
-      //           std::endl;
-      outPointer.add(unescapeToken(std::string(token)));
-    }
-    return outPointer;
-  }
-
-  static JSONPointer fromURIString(const std::string &uri)
-  {
-    return fromJSONString(std::string(unescapeURI(uri)));
-  }
+  /// @brief Parses a JSONPointer from a URI fragment string.
+  /// @details This function treats it's input as if the string was escaped
+  /// according to RFC3986, then unescapes it and parses it as a JSONPointer.
+  static JSONPointer fromURIString(const std::string &uri);
 
   JSONPointer() : tokens() {}
 
-  void add(const std::string &token)
-  {
-    // std::cout << "Adding token: " << std::quoted(token) << std::endl;
-    tokens.push_back(token);
-  }
+  /// @brief Adds a reference token to the JSONPointer
+  /// @param token The unescaped token to add.
+  void add(const std::string &token);
 
-  void add(int index) { return add(std::to_string(index)); }
+  /// @brief Adds an index token to the JSONPointer (for arrays)
+  /// @param index The index to add
+  void add(int index);
 
-  void up()
-  {
-    if (tokens.empty())
-    {
-      return;
-    }
-    tokens.pop_back();
-  }
+  /// @brief Removes the last token from the JSONPointer
+  /// @details If the JSONPointer is empty, this function does nothing
+  void up();
 
+  /// @brief Returns the anchor of the JSONPointer
+  /// @return The anchor string
   std::string getAnchor() const { return anchor; }
+
   /// @brief Overwrites the anchor of the JSONPointer
   /// @details This will clear the path as well
   /// @param anchor
-  void setAnchor(const std::string &anchor)
+  void setAnchor(const std::string &anchor);
+
+  /// @brief Returns the unescaped path of the JSONPointer
+  /// @deprecated This function is deprecated. Why would you want to get the
+  /// unescaped path?
+  [[deprecated("Why would you want to get the unescaped path?")]]
+  std::vector<std::string> getPath() const
   {
-    this->anchor = anchor;
-    tokens.clear();
+    return tokens;
   }
-  std::vector<std::string> getPath() const { return tokens; }
 
   /// @brief Converts the JSONPointer to a fragment string. It escapes the
   /// tokens and the anchor.
-  /// @return The escaped fragment string WITH the octothorpe
-  std::string toFragment() const
-  {
-    std::string fragment = "";
-    fragment += "#" + escapePointer(escapeURI(anchor));
-    for (const auto &token : tokens)
-    {
-      fragment += "/" + escapePointer(escapeURI(token));
-    }
-    return fragment;
-  }
+  /// @param withOctothorpe If true, the fragment string will start with an
+  /// octothorpe (#). True by default.
+  /// @return The escaped fragment string
+  std::string toFragment(bool withOctothorpe = true) const;
 
   /// @brief Converts the JSONPointer to a string. Does not escape any
   /// characters
-  std::string toString() const
-  {
-    std::string fragment = "";
-    fragment += escapeURI(anchor);
-    for (const auto &token : tokens)
-    {
-      fragment += "/" + escapeURI(token);
-    }
-    return fragment;
-  }
+  std::string toString() const;
 
-  // static std::optional<std::reference_wrapper<::nlohmann::json>>
-  // findAnchor(const std::string &anchor, ::nlohmann::json &json) {
-  //   if (anchor == "") {
-  //     return json;
-  //   }
-  //   if (json.is_object()) {
-  //     if (json.contains("anchor") &&
-  //         json["anchor"].get<std::string>() == anchor) {
-  //       return json;
-  //     }
-  //     for (auto &[key, value] : json.items()) {
-  //       const auto x = findAnchor(anchor, value);
-  //       if (x.has_value()) {
-  //         return x;
-  //       }
-  //     }
-  //   } else if (json.is_array()) {
-  //     for (auto &value : json) {
-  //       const auto x = findAnchor(anchor, value);
-  //       if (x.has_value()) {
-  //         return x;
-  //       }
-  //     }
-  //   }
-  //   return std::nullopt;
-  // }
+  /// @brief Navigates a JSON object with the JSONPointer, ignoring the anchor.
+  /// @param anchoredJson The JSON object to navigate.
+  /// @return The JSON object reference that the JSONPointer points to
+  /// @details This function navigates the JSON object with the JSONPointer.
+  /// @warning This function throws an exception if the JSONPointer points to a
+  /// non-existent location.
+  nlohmann::json &navigate(::nlohmann::json &anchoredJson) const;
 
-  ::nlohmann::json &navigate(::nlohmann::json &anchoredJson) const
-  {
-    // nlohmann::json *anchorRoot = &json;
-    // if (anchor != "") {
-    //   auto anchorNode = findAnchor(anchor, json);
-    //   if (anchorNode.has_value()) {
-    //     anchorRoot = &anchorNode.value().get();
-    //   }
-    // }
-    nlohmann::json *currentNode = &anchoredJson;
-    for (const auto &token : tokens)
-    {
-      if (currentNode->is_object())
-      {
-        if (currentNode->contains(token))
-        {
-          currentNode = &(*currentNode)[token];
-        }
-        else
-        {
-          throw std::runtime_error("Token not found");
-        }
-      }
-      else if (currentNode->is_array())
-      {
-        if (token == "-")
-        {
-          throw std::runtime_error("Array index '-' not supported");
-        }
-        int index = std::stoi(token);
-        if (index < 0 || index >= currentNode->size())
-        {
-          throw std::runtime_error("Index out of bounds");
-        }
-        currentNode = &(*currentNode)[index];
-      }
-      else
-      {
-        throw std::runtime_error("Invalid JSON type");
-      }
-    }
-    return *currentNode;
-  }
-
-  JSONPointer operator/(const std::string &token)
-  {
-    JSONPointer newPointer = *this;
-    newPointer.add(token);
-    return newPointer;
-  }
+  JSONPointer operator/(const std::string &token);
 };
 
 #endif // JSONPOINTER_H

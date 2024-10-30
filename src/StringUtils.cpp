@@ -4,7 +4,19 @@
 
 std::string normalizeString(std::string s)
 {
+  static const std::string hex = "0123456789ABCDEF";
+  static const auto escapeChar = [](unsigned char c) -> std::string
+  {
+    return std::string("_") + hex[(c & 0xF0) >> 4] + hex[c & 0x0F];
+  };
   std::string outStr = "";
+
+  // Escape the first character into a hex code if it is a number.
+  if (s[0] >= '0' && s[0] <= '9')
+  {
+    outStr += escapeChar(s[0]);
+    s = s.substr(1);
+  }
   for (const auto &c : s)
   {
     if (c == ' ')
@@ -15,17 +27,14 @@ std::string normalizeString(std::string s)
     {
       outStr += "__";
     }
-    else if (!((c <= '9' && c >= '0') || (c >= 'a' && c <= 'z') ||
-               (c >= 'A' && c <= 'Z')))
+    else if ((c <= '9' && c >= '0') || (c >= 'a' && c <= 'z') ||
+             (c >= 'A' && c <= 'Z'))
     {
-      static const std::string hex = "0123456789ABCDEF";
-      outStr += "_";
-      outStr += hex[(c & 0xF0) >> 4];
-      outStr += hex[c & 0x0F];
+      outStr += c;
     }
     else
     {
-      outStr += c;
+      outStr += escapeChar(static_cast<unsigned char>(c));
     }
   }
   return outStr;

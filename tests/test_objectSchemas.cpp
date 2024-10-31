@@ -26,9 +26,10 @@ TEST_CASE("ResourceIndex correctly creates object schemas", "[ResourceIndex]")
   index.build();
   index.generateUniqueSchemaNames();
   index.resolveReferences();
-  REQUIRE(index["file:///myfile"]->schema->getIdentifier().value() ==
-          "MyThing");
-  REQUIRE(index["file:///myfile"]->schema->getTypeName() == "MyThing::Object");
+  FAIL("Not implemented");
+  // REQUIRE(index["file:///myfile"]->schema->getIdentifier().value() ==
+  //         "MyThing");
+  // REQUIRE(index["file:///myfile"]->schema->getTypeName() == "MyThing::Object");
   //   std::cout << (*index["file:///myfile"])->schema->generateDefinition()
   //             << std::endl;
 }

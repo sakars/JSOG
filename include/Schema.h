@@ -34,6 +34,9 @@ class Schema
 {
 
 public:
+  // Stage 1 - only JSON content, base URI, and pointer relative to base URI are known.
+  // At the end of this stage, all schemas that need to be built are accumulated in the index.
+  // We can generate a preferred identifier.
   struct Stage1
   {
     /// @brief The json content of the schema. This does not own the JSON
@@ -140,6 +143,7 @@ public:
         stage_);
   }
 
+  // This is used only in stage 2, after identifier has been set.
   virtual std::string getTypeName() const = 0;
 
   virtual std::string generateDefinition() const { return ""; }

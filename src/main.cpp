@@ -39,5 +39,5 @@ int main()
 
   // std::cout << (*index["file:///myfile"])->schema->getTypeName() << std::endl;
 
-  index.generateResources("./outDir");
+  // index.generateResources("./outDir");
 }

@@ -36,14 +36,32 @@ public:
     /// @brief A JSON Pointer to the resource relative to the base URI
     const JSONPointer jsonPointer;
 
-    /// @brief Which draft this schema is most likely adhering to
-    Draft draft = Draft::DRAFT_07;
+    std::set<UriWrapper> refs;
 
-    /// @brief An instance of a schema object that is generated from the  json
-    /// file.
-    /// @note This schema object may be empty if the index hasn't determined
-    /// that this is indeed a schema that should have it's object generated.
-    std::unique_ptr<Schema> schema;
+    /// @brief Returns the preferred identifier for the schema.
+    /// @return The preferred identifier for the schema.
+    /// @warning This function has to return a valid C++ identifier. Use normalizeString to ensure that.
+    std::string getPreferredIdentifier() const
+    {
+      if (json.contains("title"))
+      {
+        auto title = json["title"].get<std::string>();
+        if (title != "")
+        {
+          return normalizeString(title);
+        }
+      }
+      return "Schema";
+    }
+
+    // /// @brief Which draft this schema is most likely adhering to
+    // Draft draft = Draft::DRAFT_07;
+
+    // /// @brief An instance of a schema object that is generated from the  json
+    // /// file.
+    // /// @note This schema object may be empty if the index hasn't determined
+    // /// that this is indeed a schema that should have it's object generated.
+    // std::unique_ptr<Schema> schema;
   };
 
 private:
@@ -55,6 +73,8 @@ private:
   std::set<std::shared_ptr<Resource>> resourcesRequiringBuilding;
   /// @brief This set of pointers mark which resources have been built.
   std::set<std::shared_ptr<Resource>> resourcesBuilt;
+  std::vector<std::unique_ptr<Schema>> schemas;
+  std::map<UriWrapper, std::reference_wrapper<Schema>> schemaMap;
 
   /// @brief Normalizes a uri string to ensure best possible map key access.
   /// @details Non-normalized uris may be equivalent, but not be recognized as
@@ -131,8 +151,13 @@ public:
     // object schemas.
     if (json.is_object() || json.is_boolean())
     {
+      std::set<UriWrapper> refs_;
+      for (auto &ref : refs)
+      {
+        refs_.emplace(ref);
+      }
       auto resourcePtr = std::make_shared<Resource>(Resource(
-          std::cref(json), baseUri_, jsonPointer, draft.value(), nullptr));
+          std::cref(json), baseUri_, jsonPointer, refs_));
       for (auto &ref : refs)
       {
         std::string ref_ = UriWrapper(ref).toString().value();
@@ -237,12 +262,17 @@ public:
     while (!resourcesRequiringBuilding.empty())
     {
       auto resource = *resourcesRequiringBuilding.begin();
-      resource->schema =
-          std::move(initializeSchema(resource->json, resource->baseUri,
-                                     resource->jsonPointer, resource->draft));
-      resourcesBuilt.insert(resource);
+      auto schema = initializeSchema(resource->json, resource->baseUri,
+                                     resource->jsonPointer, identifySchemaDraft(resource->json));
+      for (auto &ref : resource->refs)
+      {
+        schemaMap.insert({ref, std::ref(*schema)});
+      }
       resourcesRequiringBuilding.erase(resource);
-      auto dependencies = resource->schema->getDeps();
+      resourcesBuilt.insert(resource);
+      auto dependencies = schema->getDeps();
+      schemas.emplace_back(std::move(schema));
+
       for (const auto &dep : dependencies)
       {
         markForBuild(dep);
@@ -255,14 +285,8 @@ public:
   void generateUniqueSchemaNames()
   {
     std::set<std::string> existingRealNames;
-    for (auto &builtResource : resourcesBuilt)
+    for (auto &schema : schemas)
     {
-      if (builtResource->schema == nullptr)
-      {
-        std::cerr << "Built resource not actually built. WTF???";
-        continue;
-      }
-      auto &schema = builtResource->schema;
       if (!std::holds_alternative<Schema::Stage1>(schema->stage_))
       {
         continue;
@@ -311,12 +335,11 @@ private:
     {
       return std::nullopt;
     }
-    auto resource = getResource(fullUriStr.value());
-    if (resource == nullptr)
+    if (!schemaMap.contains(fullUri))
     {
       return std::nullopt;
     }
-    return *(resource->schema);
+    return schemaMap.at(fullUri);
   }
 
 public:
@@ -324,130 +347,121 @@ public:
   /// that resolves references.
   void resolveReferences()
   {
-    for (auto &resource : resourcesBuilt)
+    for (auto &schema : schemas)
     {
-      if (resource->schema == nullptr)
-      {
-        continue;
-      }
-      resource->schema->resolveReferences(
+      schema->resolveReferences(
           std::bind(&ResourceIndex::resolveSchemaRequest, this,
-                    resource->baseUri, std::placeholders::_1));
+                    schema->getBaseUri(), std::placeholders::_1));
     }
   }
 
   /// @brief Extracts all schemas from the index and resets the index to a clean state.
   /// @return A vector of unique pointers to the schemas that were extracted.
-  std::vector<std::unique_ptr<Schema>> extractSchemas()
+  std::vector<std::unique_ptr<Schema>> &extractSchemas()
   {
-    std::vector<std::unique_ptr<Schema>> schemas;
-    for (auto &resource : resourcesBuilt)
-    {
-      if (resource->schema == nullptr)
-      {
-        continue;
-      }
-      schemas.push_back(std::move(resource->schema));
-    }
     return schemas;
   }
 
-  /// @brief Returns a list of declarations for a given resource.
-  std::set<std::shared_ptr<Resource>> getRequiredResources(const Resource &resource) const
-  {
-    std::set<std::shared_ptr<Resource>> dependantResources;
-    if (resource.schema == nullptr)
-    {
-      return dependantResources;
-    }
-    if (std::holds_alternative<Schema::Stage1>(resource.schema->stage_))
-    {
-      return dependantResources;
-    }
-    const auto deps = resource.schema->getDeps();
-    for (const auto &dep : deps)
-    {
-      dependantResources.insert(getResource(dep));
-    }
-    return dependantResources;
-  }
+  // TODO: Shift the commented out code to a separate entity.
+  // Resource Index shouldn't be responsible for generating code,
+  // but rather for only organizing resources and linking schemas.
 
-  std::string generateRequiredIncludes(const Resource &resource) const
-  {
-    std::string includes;
-    const auto requiredResources = getRequiredResources(resource);
-    for (const auto &reqResource : requiredResources)
-    {
-      const auto reqIdentifier = reqResource->schema->getIdentifier().value();
-      includes += std::format("#include \"{}.h\"\n", reqIdentifier);
-    }
-    includes += "#include <nlohmann/json.hpp>\n";
-    includes += "#include <variant>\n";
-    includes += "#include <optional>\n";
-    includes += "#include <vector>\n";
-    includes += "#include <string>\n";
-    includes += "#include <tuple>\n";
-    includes += "#include <map>\n";
-    includes += "#include <set>\n";
-    includes += "\n";
-    return includes;
-  }
+  // /// @brief Returns a list of declarations for a given resource.
+  // std::set<std::shared_ptr<Resource>> getRequiredResources(const Resource &resource) const
+  // {
+  //   std::set<std::shared_ptr<Resource>> dependantResources;
+  //   if (resource.schema == nullptr)
+  //   {
+  //     return dependantResources;
+  //   }
+  //   if (std::holds_alternative<Schema::Stage1>(resource.schema->stage_))
+  //   {
+  //     return dependantResources;
+  //   }
+  //   const auto deps = resource.schema->getDeps();
+  //   for (const auto &dep : deps)
+  //   {
+  //     dependantResources.insert(getResource(dep));
+  //   }
+  //   return dependantResources;
+  // }
 
-  std::string generateDeclaration(const Resource &resource) const
-  {
-    std::string declaration;
-    const auto identifier = resource.schema->getIdentifier().value();
-    declaration += generateRequiredIncludes(resource);
-    declaration += std::format("#ifndef JSOG_{}_H\n", identifier);
-    declaration += std::format("#define JSOG_{}_H\n", identifier);
-    declaration += resource.schema->generateStructs();
-    declaration += "namespace " + identifier + "{\n";
-    declaration += "std::optional<" + resource.schema->getTypeName() + "> create(const nlohmann::json &json);\n";
-    declaration += "} // namespace " + identifier + "\n\n";
-    declaration += "#endif // JSOG_" + identifier + "_H\n";
-    return declaration;
-  }
+  // std::string generateRequiredIncludes(const Resource &resource) const
+  // {
+  //   std::string includes;
+  //   const auto requiredResources = getRequiredResources(resource);
+  //   for (const auto &reqResource : requiredResources)
+  //   {
+  //     const auto reqIdentifier = reqResource->schema->getIdentifier().value();
+  //     includes += std::format("#include \"{}.h\"\n", reqIdentifier);
+  //   }
+  //   includes += "#include <nlohmann/json.hpp>\n";
+  //   includes += "#include <variant>\n";
+  //   includes += "#include <optional>\n";
+  //   includes += "#include <vector>\n";
+  //   includes += "#include <string>\n";
+  //   includes += "#include <tuple>\n";
+  //   includes += "#include <map>\n";
+  //   includes += "#include <set>\n";
+  //   includes += "\n";
+  //   return includes;
+  // }
 
-  std::string generateDefinition(const Resource &resource) const
-  {
-    std::string identifier = resource.schema->getIdentifier().value();
-    std::string definition;
+  // std::string generateDeclaration(const Resource &resource) const
+  // {
+  //   std::string declaration;
+  //   const auto identifier = resource.schema->getIdentifier().value();
+  //   declaration += generateRequiredIncludes(resource);
+  //   declaration += std::format("#ifndef JSOG_{}_H\n", identifier);
+  //   declaration += std::format("#define JSOG_{}_H\n", identifier);
+  //   declaration += resource.schema->generateStructs();
+  //   declaration += "namespace " + identifier + "{\n";
+  //   declaration += "std::optional<" + resource.schema->getTypeName() + "> create(const nlohmann::json &json);\n";
+  //   declaration += "} // namespace " + identifier + "\n\n";
+  //   declaration += "#endif // JSOG_" + identifier + "_H\n";
+  //   return declaration;
+  // }
 
-    definition += generateRequiredIncludes(resource);
-    definition += "#include \"" + identifier + ".h\"\n";
+  // std::string generateDefinition(const Resource &resource) const
+  // {
+  //   std::string identifier = resource.schema->getIdentifier().value();
+  //   std::string definition;
 
-    definition += resource.schema->generateDefinition();
-    definition += "\n";
+  //   definition += generateRequiredIncludes(resource);
+  //   definition += "#include \"" + identifier + ".h\"\n";
 
-    return definition;
-  }
+  //   definition += resource.schema->generateDefinition();
+  //   definition += "\n";
 
-  void generateResources(std::filesystem::path srcDir, std::optional<std::filesystem::path> includeDir = std::nullopt) const
-  {
-    includeDir = includeDir.value_or(srcDir);
-    if (!std::filesystem::exists(srcDir))
-    {
-      std::filesystem::create_directories(srcDir);
-    }
-    if (!std::filesystem::exists(*includeDir))
-    {
-      std::filesystem::create_directories(*includeDir);
-    }
-    for (const auto &resource : resourcesBuilt)
-    {
-      if (resource->schema == nullptr)
-      {
-        continue;
-      }
-      auto identifier = resource->schema->getIdentifier().value();
-      std::ofstream out(*includeDir / (identifier + ".h"));
-      out << generateDeclaration(*resource);
-      out.close();
-      out.open(srcDir / (identifier + ".cpp"));
-      out << generateDefinition(*resource);
-      out.close();
-    }
-  }
+  //   return definition;
+  // }
+
+  // void generateResources(std::filesystem::path srcDir, std::optional<std::filesystem::path> includeDir = std::nullopt) const
+  // {
+  //   includeDir = includeDir.value_or(srcDir);
+  //   if (!std::filesystem::exists(srcDir))
+  //   {
+  //     std::filesystem::create_directories(srcDir);
+  //   }
+  //   if (!std::filesystem::exists(*includeDir))
+  //   {
+  //     std::filesystem::create_directories(*includeDir);
+  //   }
+  //   for (const auto &resource : resourcesBuilt)
+  //   {
+  //     if (resource->schema == nullptr)
+  //     {
+  //       continue;
+  //     }
+  //     auto identifier = resource->schema->getIdentifier().value();
+  //     std::ofstream out(*includeDir / (identifier + ".h"));
+  //     out << generateDeclaration(*resource);
+  //     out.close();
+  //     out.open(srcDir / (identifier + ".cpp"));
+  //     out << generateDefinition(*resource);
+  //     out.close();
+  //   }
+  // }
 };
 
 #endif // RESOURCEINDEX_H

@@ -121,21 +121,6 @@ std::string Draft07::createArrayStruct() const
 // }}
 // )";
 
-/// @brief Format string taking key, typeName
-constexpr auto objectKeyRequiredSchemaAdder = R"(
-if (json.contains("{0}")) {{
-  obj.{1} = {2}::create(json["{0}"]).value();
-}}
-)";
-
-constexpr auto objectKeyOptionalSchemaAdder = R"(
-if (json.contains("{0}")) {{
-  obj.{1} = {2}::create(json["{0}"]).value();
-}} else {{
-  obj.{1} = std::nullopt;
-}}
-)";
-
 std::string Draft07::createObjectStruct() const
 {
   std::string objectStruct = "struct Object {\n";
@@ -171,6 +156,21 @@ std::string Draft07::generateStructs() const
   definition += "} // namespace" + getIdentifier().value() + "\n";
   return definition;
 }
+
+/// @brief Format string taking key, typeName
+constexpr auto objectKeyRequiredSchemaAdder = R"(
+if (json.contains("{0}")) {{
+  obj.{1} = {2}::create(json["{0}"]).value();
+}}
+)";
+
+constexpr auto objectKeyOptionalSchemaAdder = R"(
+if (json.contains("{0}")) {{
+  obj.{1} = {2}::create(json["{0}"]).value();
+}} else {{
+  obj.{1} = std::nullopt;
+}}
+)";
 
 std::string Draft07::generateDefinition() const
 {

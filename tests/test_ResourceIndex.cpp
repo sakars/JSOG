@@ -15,13 +15,13 @@ TEST_CASE("ResourceIndex correctly adds resources: Simple example",
 
   for (const auto &[key, value] : index)
   {
-    std::cout << key.toString().value_or("INVALID_URI") << ": " << (*value)->json.dump(1) << std::endl;
+    std::cout << key.toString().value_or("INVALID_URI") << ": " << value->json.dump(1) << std::endl;
   }
 
   REQUIRE(index.contains("http://example.com"));
   REQUIRE(index.contains("file:///root.json#fragment"));
-  REQUIRE(((*index["http://example.com"])->json) ==
-          ((*index["file:///root.json#fragment"])->json));
+  REQUIRE((index["http://example.com"]->json) ==
+          (index["file:///root.json#fragment"]->json));
 }
 
 TEST_CASE("ResourceIndex correctly adds resources: Draft07 example",
@@ -49,7 +49,7 @@ TEST_CASE("ResourceIndex correctly adds resources: Draft07 example",
 
   for (const auto &[key, value] : index)
   {
-    std::cout << key.toString().value_or("Unknown") << ": " << (*value)->json.dump(1) << std::endl;
+    std::cout << key.toString().value_or("Unknown") << ": " << value->json.dump(1) << std::endl;
   }
 
   const auto t = [&](const auto &json, const std::vector<std::string> &keys)
@@ -61,7 +61,7 @@ TEST_CASE("ResourceIndex correctly adds resources: Draft07 example",
         CAPTURE(key, json);
         REQUIRE(index.contains(key));
         REQUIRE(index[key] != nullptr);
-        REQUIRE((*index[key])->json == json);
+        REQUIRE(index[key]->json == json);
       }
     }
   };
@@ -124,17 +124,17 @@ TEST_CASE("ResourceIndex correctly builds objects", "[ResourceIndex]")
 
     // all except root4.json should have schemas as root4.json is not a required
     // schema
-    REQUIRE((*index["http://example.com/root.json"])->schema != nullptr);
-    REQUIRE((*index["http://example.com/root2.json"])->schema != nullptr);
-    REQUIRE((*index["http://example.com/root3.json"])->schema != nullptr);
-    REQUIRE((*index["http://example.com/root4.json"])->schema == nullptr);
+    REQUIRE(index["http://example.com/root.json"]->schema != nullptr);
+    REQUIRE(index["http://example.com/root2.json"]->schema != nullptr);
+    REQUIRE(index["http://example.com/root3.json"]->schema != nullptr);
+    REQUIRE(index["http://example.com/root4.json"]->schema == nullptr);
   }
 
   index.generateUniqueSchemaNames();
 
   SECTION("Unique Name stage")
   {
-    std::set<std::shared_ptr<std::optional<ResourceIndex::Resource>>> resources;
+    std::set<std::shared_ptr<ResourceIndex::Resource>> resources;
     std::set<std::string> names;
     for (const auto &[_, resource] : index)
     {
@@ -143,7 +143,7 @@ TEST_CASE("ResourceIndex correctly builds objects", "[ResourceIndex]")
         continue;
       }
       resources.emplace(resource);
-      const auto &schema = (*resource)->schema;
+      const auto &schema = resource->schema;
       if (schema)
       {
         REQUIRE(schema->getIdentifier().has_value());
@@ -160,7 +160,7 @@ TEST_CASE("ResourceIndex correctly builds objects", "[ResourceIndex]")
   SECTION("Reference resolution and correct type names")
   {
     const auto &resource = index["http://example.com/root.json"];
-    const auto &schema = (*resource)->schema;
+    const auto &schema = resource->schema;
     REQUIRE(schema != nullptr);
     const auto typeName = schema->getTypeName();
     const auto contains = [&typeName](std::string s)

@@ -10,12 +10,6 @@
 #include <string>
 #include <variant>
 
-enum class Draft
-{
-  DRAFT_07,
-  UNKNOWN
-};
-
 // TODO: Rewrite Schema Interface to have seperate stage interfaces.
 // Currently a variant with stages where each stage has the previous stage moved
 // inside it sounds pretty good. A bit complicated, sure, but not bad by any

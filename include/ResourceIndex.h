@@ -5,6 +5,7 @@
 #include "Schema.h"
 #include "SchemaInitializer.h"
 #include "UriWrapper.h"
+#include "DraftRecogniser.h"
 #include <map>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -36,7 +37,7 @@ public:
     const JSONPointer jsonPointer;
 
     /// @brief Which draft this schema is most likely adhering to
-    Draft draft = Draft::UNKNOWN;
+    Draft draft = Draft::DRAFT_07;
 
     /// @brief An instance of a schema object that is generated from the  json
     /// file.
@@ -48,12 +49,12 @@ public:
 private:
   /// @brief Main map of resources that holds URI keys that map to the shallow
   /// json reference resource.
-  std::map<UriWrapper, std::shared_ptr<std::optional<Resource>>> resources;
+  std::map<UriWrapper, std::shared_ptr<Resource>> resources;
   /// @brief This set of pointers mark which resources should be built, but yet
   /// have not been.
-  std::set<std::shared_ptr<std::optional<Resource>>> resourcesRequiringBuilding;
+  std::set<std::shared_ptr<Resource>> resourcesRequiringBuilding;
   /// @brief This set of pointers mark which resources have been built.
-  std::set<std::shared_ptr<std::optional<Resource>>> resourcesBuilt;
+  std::set<std::shared_ptr<Resource>> resourcesBuilt;
 
   /// @brief Normalizes a uri string to ensure best possible map key access.
   /// @details Non-normalized uris may be equivalent, but not be recognized as
@@ -76,44 +77,19 @@ public:
   /// @warning provided JSON must outlive the ResourceIndex object
   void addResource(const nlohmann::json &json, std::set<std::string> refs,
                    std::string baseUri, JSONPointer jsonPointer = JSONPointer(),
-                   Draft draft = Draft::UNKNOWN)
+                   std::optional<Draft> draft = std::nullopt)
   {
     // TODO: Draft recognition is a bit iffy at this stage, consider doing this
     // seperately in a previous step.
-    if (draft == Draft::UNKNOWN)
+    if (!draft.has_value())
     {
-      // If we don't know the draft, try to figure it out.
-      // This is a simple hack to make early exits work.
-      [&]()
-      {
-        // Check $schema
-        if (json.contains("$schema") && json["$schema"].is_string())
-        {
-          // normalize schema field.
-          auto schemaField = normalizeUri(json["$schema"].get<std::string>());
-          auto draft07SchemaUri =
-              normalizeUri("http://json-schema.org/draft-07/schema#");
-          if (schemaField == draft07SchemaUri)
-          {
-            draft = Draft::DRAFT_07;
-            return;
-          }
-          else
-          {
-            std::cerr << "Unknown Schema attempted resolution. Schema field: "
-                      << schemaField << "draft07 uri\n"
-                      << draft07SchemaUri << std::endl;
-          }
-        }
-
-        // TODO: Add other detection methods to know in case schema field is
-        // missing or doesn't match recognized schemas.
-      }();
+      draft = identifySchemaDraft(json);
     }
-    if (draft == Draft::UNKNOWN)
+    if (!draft.has_value())
     {
-      std::cerr << "Unknown draft version still, assuming Draft07:" << std::endl
+      std::cerr << "Unknown draft version, assuming Draft07:" << std::endl
                 << json.dump(1) << std::endl;
+      draft = Draft::DRAFT_07;
     }
     std::string baseUri_ = baseUri;
 
@@ -148,8 +124,6 @@ public:
       base.setFragment(anchor, false);
       refs.emplace(base.toString().value());
     }
-    std::optional<Resource> resource = std::make_optional<Resource>(
-        std::cref(json), baseUri_, jsonPointer, draft);
 
     // Since schemas can only be objects or booleans, we can safely assume that
     // no $ref will reference other types, since that would be an invalid JSON
@@ -157,7 +131,8 @@ public:
     // object schemas.
     if (json.is_object() || json.is_boolean())
     {
-      auto resourcePtr = std::make_shared<std::optional<Resource>>(std::move(resource));
+      auto resourcePtr = std::make_shared<Resource>(Resource(
+          std::cref(json), baseUri_, jsonPointer, draft.value(), nullptr));
       for (auto &ref : refs)
       {
         std::string ref_ = UriWrapper(ref).toString().value();
@@ -210,40 +185,39 @@ public:
     return resources.contains(normalizeUri(uri));
   }
 
-  std::shared_ptr<std::optional<Resource>> &getResource(const UriWrapper &uri)
+  std::shared_ptr<Resource> &getResource(const UriWrapper &uri)
   {
     auto uri_ = normalizeUri(uri);
     if (!resources.contains(uri_))
     {
       throw std::runtime_error(
           std::format("Resource {} not found in index", uri_.toString().value_or("INVALID_URI")));
-      resources[uri_] = std::make_shared<std::optional<Resource>>(std::nullopt);
     }
     return resources[uri_];
   }
 
-  const std::shared_ptr<std::optional<Resource>> &getResource(const UriWrapper &uri) const
+  const std::shared_ptr<Resource> &getResource(const UriWrapper &uri) const
   {
     UriWrapper uri_ = normalizeUri(uri);
     return resources.at(uri_);
   }
 
-  void setResource(const std::string &uri, std::shared_ptr<std::optional<Resource>> resource)
+  void setResource(const std::string &uri, std::shared_ptr<Resource> resource)
   {
     resources[normalizeUri(uri)] = resource;
   }
 
-  std::shared_ptr<std::optional<Resource>> &operator[](const std::string &uri)
+  std::shared_ptr<Resource> &operator[](const std::string &uri)
   {
     return getResource(uri);
   }
 
-  std::map<UriWrapper, std::shared_ptr<std::optional<Resource>>>::iterator begin()
+  std::map<UriWrapper, std::shared_ptr<Resource>>::iterator begin()
   {
     return resources.begin();
   }
 
-  std::map<UriWrapper, std::shared_ptr<std::optional<Resource>>>::iterator end()
+  std::map<UriWrapper, std::shared_ptr<Resource>>::iterator end()
   {
     return resources.end();
   }
@@ -263,12 +237,12 @@ public:
     while (!resourcesRequiringBuilding.empty())
     {
       auto resource = *resourcesRequiringBuilding.begin();
-      (*resource)->schema =
-          std::move(initializeSchema((*resource)->json, (*resource)->baseUri,
-                                     (*resource)->jsonPointer, (*resource)->draft));
+      resource->schema =
+          std::move(initializeSchema(resource->json, resource->baseUri,
+                                     resource->jsonPointer, resource->draft));
       resourcesBuilt.insert(resource);
       resourcesRequiringBuilding.erase(resource);
-      auto dependencies = (*resource)->schema->getDeps();
+      auto dependencies = resource->schema->getDeps();
       for (const auto &dep : dependencies)
       {
         markForBuild(dep);
@@ -283,12 +257,12 @@ public:
     std::set<std::string> existingRealNames;
     for (auto &builtResource : resourcesBuilt)
     {
-      if ((*builtResource)->schema == nullptr)
+      if (builtResource->schema == nullptr)
       {
         std::cerr << "Built resource not actually built. WTF???";
         continue;
       }
-      auto &schema = (*builtResource)->schema;
+      auto &schema = builtResource->schema;
       if (!std::holds_alternative<Schema::Stage1>(schema->stage_))
       {
         continue;
@@ -342,7 +316,7 @@ private:
     {
       return std::nullopt;
     }
-    return *((*resource)->schema);
+    return *(resource->schema);
   }
 
 public:
@@ -352,20 +326,36 @@ public:
   {
     for (auto &resource : resourcesBuilt)
     {
-      if ((*resource)->schema == nullptr)
+      if (resource->schema == nullptr)
       {
         continue;
       }
-      (*resource)->schema->resolveReferences(
+      resource->schema->resolveReferences(
           std::bind(&ResourceIndex::resolveSchemaRequest, this,
-                    (*resource)->baseUri, std::placeholders::_1));
+                    resource->baseUri, std::placeholders::_1));
     }
   }
 
-  /// @brief Returns a list of declarations for a given resource.
-  std::set<std::shared_ptr<std::optional<Resource>>> getRequiredResources(const Resource &resource) const
+  /// @brief Extracts all schemas from the index and resets the index to a clean state.
+  /// @return A vector of unique pointers to the schemas that were extracted.
+  std::vector<std::unique_ptr<Schema>> extractSchemas()
   {
-    std::set<std::shared_ptr<std::optional<Resource>>> dependantResources;
+    std::vector<std::unique_ptr<Schema>> schemas;
+    for (auto &resource : resourcesBuilt)
+    {
+      if (resource->schema == nullptr)
+      {
+        continue;
+      }
+      schemas.push_back(std::move(resource->schema));
+    }
+    return schemas;
+  }
+
+  /// @brief Returns a list of declarations for a given resource.
+  std::set<std::shared_ptr<Resource>> getRequiredResources(const Resource &resource) const
+  {
+    std::set<std::shared_ptr<Resource>> dependantResources;
     if (resource.schema == nullptr)
     {
       return dependantResources;
@@ -388,7 +378,7 @@ public:
     const auto requiredResources = getRequiredResources(resource);
     for (const auto &reqResource : requiredResources)
     {
-      const auto reqIdentifier = (*reqResource)->schema->getIdentifier().value();
+      const auto reqIdentifier = reqResource->schema->getIdentifier().value();
       includes += std::format("#include \"{}.h\"\n", reqIdentifier);
     }
     includes += "#include <nlohmann/json.hpp>\n";
@@ -445,16 +435,16 @@ public:
     }
     for (const auto &resource : resourcesBuilt)
     {
-      if ((*resource)->schema == nullptr)
+      if (resource->schema == nullptr)
       {
         continue;
       }
-      auto identifier = (*resource)->schema->getIdentifier().value();
+      auto identifier = resource->schema->getIdentifier().value();
       std::ofstream out(*includeDir / (identifier + ".h"));
-      out << generateDeclaration(**resource);
+      out << generateDeclaration(*resource);
       out.close();
       out.open(srcDir / (identifier + ".cpp"));
-      out << generateDefinition(**resource);
+      out << generateDefinition(*resource);
       out.close();
     }
   }

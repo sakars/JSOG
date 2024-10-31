@@ -111,6 +111,9 @@ public:
   /// non-existent location.
   nlohmann::json &navigate(::nlohmann::json &anchoredJson) const;
 
+  /// @brief appends a reference token to the JSONPointer
+  /// @param token The unescaped token to add.
+  /// @return A new JSONPointer instance with the token appended
   JSONPointer operator/(const std::string &token);
 };
 

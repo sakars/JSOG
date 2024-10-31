@@ -104,6 +104,11 @@ public:
   bool operator==(const UriWrapper &other) const;
 };
 
+/// @brief Outputs the URI to an output stream
+/// @param os The output stream to write to
+/// @param uri The URI to write
+/// @return The output stream reference
+/// @note If the URI is invalid, this function will output INVALID_URI
 std::basic_ostream<char> &operator<<(std::basic_ostream<char> &os,
                                      const UriWrapper &uri);
 

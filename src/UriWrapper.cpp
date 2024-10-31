@@ -197,7 +197,7 @@ std::optional<std::string> UriWrapper::getFragment() const
 }
 
 void UriWrapper::setFragment(const std::string &fragment,
-                             bool hasStartingOctothorpe = false)
+                             bool hasStartingOctothorpe)
 {
   auto dest = std::make_unique<UriUriA>();
   auto escapedFragment =

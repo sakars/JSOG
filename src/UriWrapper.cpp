@@ -226,3 +226,51 @@ void UriWrapper::setFragment(const std::string &fragment,
   uriFreeUriMembersA(fragmentUriA.get());
   uri_ = std::move(newUri);
 }
+
+bool UriWrapper::operator<(const UriWrapper &other) const
+{
+  // We treat a null URI as less than any other URI
+  if (!uri_)
+  {
+    return other.uri_ != nullptr;
+  }
+  if (!other.uri_)
+  {
+    return false;
+  }
+  const auto uriString = toString();
+  const auto otherUriString = other.toString();
+  if (!uriString || !otherUriString)
+  {
+    return false;
+  }
+  return uriString.value() < otherUriString.value();
+}
+
+bool UriWrapper::operator==(const UriWrapper &other) const
+{
+  if (!uri_ && !other.uri_)
+  {
+    return true;
+  }
+  if (!uri_ || !other.uri_)
+  {
+    return false;
+  }
+  const auto uriString = toString();
+  const auto otherUriString = other.toString();
+  // If either URI is invalid, we can't compare them
+  if (!uriString || !otherUriString)
+  {
+    return false;
+  }
+  return uriString.value() == otherUriString.value();
+}
+
+std::basic_ostream<char> &operator<<(std::basic_ostream<char> &os,
+                                     const UriWrapper &uri)
+{
+  auto str = uri.toString();
+  os << str.value_or("INVALID_URI");
+  return os;
+}

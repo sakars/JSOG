@@ -21,7 +21,7 @@ std::string normalizeString(std::string s)
   {
     if (c == ' ')
     {
-      outStr += "_s";
+      outStr += "_";
     }
     else if (c == '_')
     {

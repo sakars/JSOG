@@ -15,7 +15,7 @@ TEST_CASE("ResourceIndex correctly adds resources: Simple example",
 
   for (const auto &[key, value] : index)
   {
-    std::cout << key << ": " << (*value)->json.dump(1) << std::endl;
+    std::cout << key.toString().value_or("INVALID_URI") << ": " << (*value)->json.dump(1) << std::endl;
   }
 
   REQUIRE(index.contains("http://example.com"));
@@ -49,7 +49,7 @@ TEST_CASE("ResourceIndex correctly adds resources: Draft07 example",
 
   for (const auto &[key, value] : index)
   {
-    std::cout << key << ": " << (*value)->json.dump(1) << std::endl;
+    std::cout << key.toString().value_or("Unknown") << ": " << (*value)->json.dump(1) << std::endl;
   }
 
   const auto t = [&](const auto &json, const std::vector<std::string> &keys)

@@ -49,6 +49,7 @@ public:
 
   UriWrapper() {}
   UriWrapper(const std::string &str);
+  UriWrapper(const char *str) : UriWrapper(std::string(str)) {}
   UriWrapper(const UriWrapper &other) { uri_ = std::move(other.cloneUri()); }
 
   UriWrapper(UriWrapper &&other) : uri_(std::move(other.uri_)) {}
@@ -91,6 +92,19 @@ public:
   /// @note The fragment is escaped according to RFC3986 before being set
   void setFragment(const std::string &fragment,
                    bool hasStartingOctothorpe = false);
+
+  /// @brief Compares two URIs. Meant to be used in sorting algorithms and containers like map.
+  /// @param other The URI to compare to
+  /// @return True if this URI is less than the other URI
+  bool operator<(const UriWrapper &other) const;
+
+  /// @brief Compares two URIs for equality
+  /// @param other The URI to compare to
+  /// @return True if the URIs are equal
+  bool operator==(const UriWrapper &other) const;
 };
+
+std::basic_ostream<char> &operator<<(std::basic_ostream<char> &os,
+                                     const UriWrapper &uri);
 
 #endif // URIWRAPPER_H

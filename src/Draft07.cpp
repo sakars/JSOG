@@ -124,15 +124,15 @@ std::string Draft07::createArrayStruct() const
 /// @brief Format string taking key, typeName
 constexpr auto objectKeyRequiredSchemaAdder = R"(
 if (json.contains("{0}")) {{
-  obj._{0} = {1}::create(json["{0}"]).value();
+  obj.{1} = {2}::create(json["{0}"]).value();
 }}
 )";
 
 constexpr auto objectKeyOptionalSchemaAdder = R"(
 if (json.contains("{0}")) {{
-  obj._{0} = {1}::create(json["{0}"]).value();
+  obj.{1} = {2}::create(json["{0}"]).value();
 }} else {{
-  obj._{0} = std::nullopt;
+  obj.{1} = std::nullopt;
 }}
 )";
 
@@ -260,7 +260,7 @@ std::string Draft07::generateDefinition() const
       const auto identifier = std::get<std::reference_wrapper<Schema>>(schema).get().getIdentifier().value();
       definition += std::format(
           objectKeyRequiredSchemaAdder,
-          key, identifier);
+          key, normalizeString(key), identifier);
     }
   }
   definition += "return obj;\n";

@@ -48,7 +48,7 @@ public:
 private:
   /// @brief Main map of resources that holds URI keys that map to the shallow
   /// json reference resource.
-  std::map<std::string, std::shared_ptr<std::optional<Resource>>> resources;
+  std::map<UriWrapper, std::shared_ptr<std::optional<Resource>>> resources;
   /// @brief This set of pointers mark which resources should be built, but yet
   /// have not been.
   std::set<std::shared_ptr<std::optional<Resource>>> resourcesRequiringBuilding;
@@ -59,13 +59,13 @@ private:
   /// @details Non-normalized uris may be equivalent, but not be recognized as
   /// equivalent in a map. This method normalizes strings to a canonical form,
   /// so equivalent URIs are resolved to the same map.
-  static std::string normalizeUri(const std::string &uri)
+  static UriWrapper normalizeUri(const UriWrapper &uri)
   {
     UriWrapper uri_(uri);
     std::string fragment = uri_.getFragment().value_or("");
     uri_.setFragment(fragment, false);
     uri_.normalize();
-    return uri_.toString().value();
+    return uri_;
   }
 
 public:
@@ -91,7 +91,7 @@ public:
         {
           // normalize schema field.
           auto schemaField = normalizeUri(json["$schema"].get<std::string>());
-          std::string draft07SchemaUri =
+          auto draft07SchemaUri =
               normalizeUri("http://json-schema.org/draft-07/schema#");
           if (schemaField == draft07SchemaUri)
           {
@@ -210,21 +210,21 @@ public:
     return resources.contains(normalizeUri(uri));
   }
 
-  std::shared_ptr<std::optional<Resource>> &getResource(const std::string &uri)
+  std::shared_ptr<std::optional<Resource>> &getResource(const UriWrapper &uri)
   {
-    std::string uri_ = normalizeUri(uri);
+    auto uri_ = normalizeUri(uri);
     if (!resources.contains(uri_))
     {
       throw std::runtime_error(
-          std::format("Resource {} not found in index", uri_));
+          std::format("Resource {} not found in index", uri_.toString().value_or("INVALID_URI")));
       resources[uri_] = std::make_shared<std::optional<Resource>>(std::nullopt);
     }
     return resources[uri_];
   }
 
-  const std::shared_ptr<std::optional<Resource>> &getResource(const std::string &uri) const
+  const std::shared_ptr<std::optional<Resource>> &getResource(const UriWrapper &uri) const
   {
-    std::string uri_ = normalizeUri(uri);
+    UriWrapper uri_ = normalizeUri(uri);
     return resources.at(uri_);
   }
 
@@ -238,12 +238,12 @@ public:
     return getResource(uri);
   }
 
-  std::map<std::string, std::shared_ptr<std::optional<Resource>>>::iterator begin()
+  std::map<UriWrapper, std::shared_ptr<std::optional<Resource>>>::iterator begin()
   {
     return resources.begin();
   }
 
-  std::map<std::string, std::shared_ptr<std::optional<Resource>>>::iterator end()
+  std::map<UriWrapper, std::shared_ptr<std::optional<Resource>>>::iterator end()
   {
     return resources.end();
   }

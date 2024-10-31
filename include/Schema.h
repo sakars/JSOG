@@ -53,6 +53,9 @@ public:
     Stage1(const nlohmann::json &json, JSONPointer pointer, std::string baseUri)
         : json_(json), pointer_(pointer), baseUri_(baseUri) {}
 
+    /// @brief Returns the preferred identifier for the schema.
+    /// @return The preferred identifier for the schema.
+    /// @warning This function has to return a valid C++ identifier. Use normalizeString to ensure that.
     virtual std::string getPreferredIdentifier() const
     {
       if (json_.get().contains("title"))
@@ -66,7 +69,11 @@ public:
       return "Schema";
     }
 
+    /// @brief Returns the identifier for the schema.
+    /// @return The identifier for the schema.
+    /// @warning This function has to return a valid C++ identifier if not empty.
     std::optional<std::string> getIdentifier() const { return std::nullopt; }
+
     std::string getBaseUri() const { return baseUri_; }
     const nlohmann::json &getJson() const { return json_; }
     const JSONPointer &getPointer() const { return pointer_; }
@@ -77,25 +84,27 @@ public:
     Stage1 stage1_;
     std::string uniqueIdentifier_;
 
+    /// @brief Returns the identifier for the schema.
+    /// @return The identifier for the schema.
+    /// @warning This function has to return a valid C++ identifier if not empty.
     std::optional<std::string> getIdentifier() const
     {
       return uniqueIdentifier_;
     }
+
     std::string getBaseUri() const { return stage1_.baseUri_; }
     const nlohmann::json &getJson() const { return stage1_.json_; }
     const JSONPointer &getPointer() const { return stage1_.pointer_; }
   };
 
 public:
-  // std::reference_wrapper<const nlohmann::json> json_;
-  // std::string baseUri_;
-  // std::optional<std::string> realName;
-
   std::variant<Stage1, Stage2> stage_;
 
   Schema(const nlohmann::json &json, std::string baseUri, JSONPointer pointer)
       : stage_(Stage1(json, pointer, baseUri)) {}
 
+  /// @brief Returns URI strings that the schema depends on
+  /// @return A set of URI strings that the schema depends on
   virtual std::set<std::string> getDeps() const = 0;
 
 public:

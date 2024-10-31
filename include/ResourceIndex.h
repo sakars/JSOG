@@ -374,7 +374,6 @@ public:
     {
       return dependantResources;
     }
-    auto &stage2 = std::get<Schema::Stage2>(resource.schema->stage_);
     const auto deps = resource.schema->getDeps();
     for (const auto &dep : deps)
     {

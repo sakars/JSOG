@@ -153,13 +153,6 @@ public:
       depUri.setFragment(pointer.toFragment(), true);
       deps.insert(depUri.toString().value());
     };
-    const auto addStr = [&uri, &deps](const std::string &str)
-    {
-      UriWrapper depUri(uri);
-      UriWrapper strUri(str);
-      depUri = UriWrapper::applyUri(uri, strUri);
-      deps.insert(depUri.toString().value());
-    };
 
     const nlohmann::json &json = getJson();
     if (json.contains("$ref"))

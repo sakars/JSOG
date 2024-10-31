@@ -10,7 +10,6 @@ JSONPointer JSONPointer::fromAnchor(const std::string &anchor)
 JSONPointer JSONPointer::fromJSONString(const std::string &pointer)
 {
   JSONPointer outPointer;
-  std::string_view fragmentView = pointer;
   const auto tokens = splitFragment(pointer);
   if (tokens.empty())
   {
@@ -101,8 +100,8 @@ nlohmann::json &JSONPointer::navigate(::nlohmann::json &anchoredJson) const
       {
         throw std::runtime_error("Array index '-' not supported");
       }
-      int index = std::stoi(token);
-      if (index < 0 || index >= currentNode->size())
+      long index = std::stol(token);
+      if (index < 0 || (size_t)index >= currentNode->size())
       {
         throw std::runtime_error("Index out of bounds");
       }

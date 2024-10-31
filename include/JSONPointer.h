@@ -83,15 +83,6 @@ public:
   /// @param anchor
   void setAnchor(const std::string &anchor);
 
-  /// @brief Returns the unescaped path of the JSONPointer
-  /// @deprecated This function is deprecated. Why would you want to get the
-  /// unescaped path?
-  [[deprecated("Why would you want to get the unescaped path?")]]
-  std::vector<std::string> getPath() const
-  {
-    return tokens;
-  }
-
   /// @brief Converts the JSONPointer to a fragment string. It escapes the
   /// tokens and the anchor.
   /// @param withOctothorpe If true, the fragment string will start with an

@@ -121,70 +121,30 @@ TEST_CASE("ResourceIndex correctly builds objects", "[ResourceIndex]")
     REQUIRE(index.contains("http://example.com/root2.json"));
     REQUIRE(index.contains("http://example.com/root3.json"));
     REQUIRE(index.contains("http://example.com/root4.json"));
-
-    // all except root4.json should have schemas as root4.json is not a required
-    // schema
-    FAIL("Not implemented");
-    // REQUIRE(index["http://example.com/root.json"]->schema != nullptr);
-    // REQUIRE(index["http://example.com/root2.json"]->schema != nullptr);
-    // REQUIRE(index["http://example.com/root3.json"]->schema != nullptr);
-    // REQUIRE(index["http://example.com/root4.json"]->schema == nullptr);
   }
 
   index.generateUniqueSchemaNames();
-
-  SECTION("Unique Name stage")
-  {
-    FAIL("Not implemented");
-    // std::set<std::shared_ptr<ResourceIndex::Resource>> resources;
-    // std::set<std::string> names;
-    // for (const auto &[_, resource] : index)
-    // {
-    //   if (resources.contains(resource))
-    //   {
-    //     continue;
-    //   }
-    //   resources.emplace(resource);
-    //   const auto &schema = resource->schema;
-    //   if (schema)
-    //   {
-    //     REQUIRE(schema->getIdentifier().has_value());
-    //     const auto name = schema->getIdentifier().value();
-    //     CAPTURE(name, names);
-    //     REQUIRE(!names.contains(name));
-    //     names.emplace(name);
-    //   }
-    // }
-  }
-
   index.resolveReferences();
+  const auto schemas = index.extractSchemas();
 
-  SECTION("Reference resolution and correct type names")
+  SECTION("Extraction stage")
   {
-    FAIL("Not implemented");
-    // const auto &resource = index["http://example.com/root.json"];
-    // const auto &schema = resource->schema;
-    // REQUIRE(schema != nullptr);
-    // const auto typeName = schema->getTypeName();
-    // const auto contains = [&typeName](std::string s)
-    // {
-    //   for (size_t i = 0; i < typeName.size(); i++)
-    //   {
-    //     if (typeName.substr(i).starts_with(s))
-    //       return true;
-    //   }
-    //   return false;
-    // };
-    // const auto identifier = schema->getIdentifier().value();
-    // CAPTURE(typeName);
-    // REQUIRE(typeName.starts_with("std::variant<"));
-    // REQUIRE(contains("bool"));
-    // REQUIRE(contains("int"));
-    // REQUIRE(contains(identifier + "::Object"));
-    // REQUIRE(contains(identifier + "::Array"));
-    // REQUIRE(contains("double"));
-    // REQUIRE(contains("std::string"));
-    // REQUIRE(contains("std::monostate"));
-    // REQUIRE(contains(">"));
+    // has no random as it is not required to be built by any other schema
+    REQUIRE(schemas.size() == 3);
+    const auto hasJson = [](const std::vector<std::unique_ptr<Schema>> &schemas,
+                            const nlohmann::json &json) -> bool
+    {
+      for (const auto &schema : schemas)
+      {
+        if (schema.get()->getJson() == json)
+        {
+          return true;
+        }
+      }
+      return false;
+    };
+    REQUIRE(hasJson(schemas, json));
+    REQUIRE(hasJson(schemas, json["allOf"][0]));
+    REQUIRE(hasJson(schemas, json["allOf"][1]));
   }
 }

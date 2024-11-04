@@ -357,8 +357,14 @@ public:
 
   /// @brief Extracts all schemas from the index and resets the index to a clean state.
   /// @return A vector of unique pointers to the schemas that were extracted.
-  std::vector<std::unique_ptr<Schema>> &extractSchemas()
+  std::vector<std::unique_ptr<Schema>> extractSchemas()
   {
+    auto schemas = std::move(this->schemas);
+    this->schemas.clear();
+    resources.clear();
+    resourcesBuilt.clear();
+    resourcesRequiringBuilding.clear();
+    schemaMap.clear();
     return schemas;
   }
 

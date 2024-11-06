@@ -4,10 +4,11 @@
 #include <string>
 
 /// @brief Normalizes a string to be used as a C++ identifier, meaning that it
-/// only contains alphanumeric characters and underscores and starts with an alpha character or underscore.
+/// only contains alphanumeric characters and underscores and starts with an
+/// alpha character or underscore.
 /// @param s The string to normalize
 /// @return The normalized string
-std::string normalizeString(std::string s);
+std::string sanitizeString(std::string s);
 
 /// @brief Checks if a C++ type is comparabke to a JSON primitive type
 /// @param s The C++ type to check

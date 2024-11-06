@@ -4,10 +4,8 @@
 #include <memory>
 #include <vector>
 
-std::unique_ptr<UriUriA> UriWrapper::cloneUri() const
-{
-  if (uri_ == nullptr)
-  {
+std::unique_ptr<UriUriA> UriWrapper::cloneUri() const {
+  if (uri_ == nullptr) {
     return nullptr;
   }
   std::string uriString = toString().value();
@@ -18,26 +16,19 @@ std::unique_ptr<UriUriA> UriWrapper::cloneUri() const
   return cloneUri;
 }
 
-std::unique_ptr<UriUriA> UriWrapper::applyUri(const UriUriA &base,
-                                              const UriUriA &relative)
-{
+std::unique_ptr<UriUriA> UriWrapper::applyUri(const UriUriA& base,
+                                              const UriUriA& relative) {
   auto dest = std::make_unique<UriUriA>();
   std::memset(dest.get(), 0, sizeof(UriUriA));
   if (const auto code = uriAddBaseUriA(dest.get(), &relative, &base);
-      code != URI_SUCCESS)
-  {
+      code != URI_SUCCESS) {
     uriFreeUriMembersA(dest.get());
     std::cerr << "Failed to apply URI\n";
-    if (code == URI_ERROR_NULL)
-    {
+    if (code == URI_ERROR_NULL) {
       std::cerr << "Memory error\n";
-    }
-    else if (code == URI_ERROR_ADDBASE_REL_BASE)
-    {
+    } else if (code == URI_ERROR_ADDBASE_REL_BASE) {
       std::cerr << "Given base is not absolute\n";
-    }
-    else
-    {
+    } else {
       std::cerr << "Unknown error: " << code << std::endl;
     }
     return nullptr;
@@ -47,8 +38,7 @@ std::unique_ptr<UriUriA> UriWrapper::applyUri(const UriUriA &base,
   return dest;
 }
 
-std::string UriWrapper::escapeString(const std::string &str)
-{
+std::string UriWrapper::escapeString(const std::string& str) {
   // Allocate enough space for the worst case scenario
   // (space to plus and normalize breaks options are turned on)
   // As per the documentation, we need 6 times the size of the input string
@@ -58,32 +48,26 @@ std::string UriWrapper::escapeString(const std::string &str)
   return escapedUri;
 }
 
-UriWrapper UriWrapper::applyUri(const UriWrapper &base,
-                                const UriWrapper &relative)
-{
-  if (!base.uri_ || !relative.uri_)
-  {
+UriWrapper UriWrapper::applyUri(const UriWrapper& base,
+                                const UriWrapper& relative) {
+  if (!base.uri_ || !relative.uri_) {
     return UriWrapper();
   }
   auto newUri = applyUri(*base.uri_, *relative.uri_);
-  if (!newUri)
-  {
+  if (!newUri) {
     std::cerr << "Failed to apply URI\n";
     std::cerr << "Base: " << base.toString().value_or("") << std::endl;
-    std::cerr << "Relative: " << relative.toString().value_or("")
-              << std::endl;
+    std::cerr << "Relative: " << relative.toString().value_or("") << std::endl;
     return UriWrapper();
   }
   return UriWrapper(std::move(newUri));
 }
 
-UriWrapper::UriWrapper(const std::string &str)
-{
+UriWrapper::UriWrapper(const std::string& str) {
 
   uri_ = std::make_unique<UriUriA>();
-  const char *errorPos;
-  if (uriParseSingleUriA(uri_.get(), str.c_str(), &errorPos) != URI_SUCCESS)
-  {
+  const char* errorPos;
+  if (uriParseSingleUriA(uri_.get(), str.c_str(), &errorPos) != URI_SUCCESS) {
     std::string error = "\nFailed to parse URI.\n";
     error += str;
     error += "\n";
@@ -96,99 +80,80 @@ UriWrapper::UriWrapper(const std::string &str)
   uriMakeOwnerA(uri_.get());
 }
 
-UriWrapper &UriWrapper::operator=(UriWrapper &&other)
-{
-  if (this == &other)
-  {
+UriWrapper& UriWrapper::operator=(UriWrapper&& other) {
+  if (this == &other) {
     return *this;
   }
-  if (uri_)
-  {
+  if (uri_) {
     uriFreeUriMembersA(uri_.get());
   }
   uri_ = std::move(other.uri_);
   return *this;
 }
 
-UriWrapper &UriWrapper::operator=(const UriWrapper &other)
-{
-  if (this == &other)
-  {
+UriWrapper& UriWrapper::operator=(const UriWrapper& other) {
+  if (this == &other) {
     return *this;
   }
-  if (uri_)
-  {
+  if (uri_) {
     uriFreeUriMembersA(uri_.get());
   }
-  uri_ = std::move(other.cloneUri());
+  uri_ = other.cloneUri();
   return *this;
 }
 
-void UriWrapper::normalize()
-{
-  if (!uri_)
-  {
+void UriWrapper::normalize() {
+  if (!uri_) {
     return;
   }
-  if (uriNormalizeSyntaxA(uri_.get()) != URI_SUCCESS)
-  {
+  if (uriNormalizeSyntaxA(uri_.get()) != URI_SUCCESS) {
     throw std::runtime_error("Failed to normalize URI");
   }
 }
 
-std::optional<std::string> UriWrapper::toString() const noexcept
-{
-  if (!uri_)
-  {
+std::optional<std::string> UriWrapper::toString() const noexcept {
+  if (!uri_) {
     return std::nullopt;
   }
   int charsRequired = 0;
-  if (uriToStringCharsRequiredA(uri_.get(), &charsRequired) != URI_SUCCESS)
-  {
+  if (uriToStringCharsRequiredA(uri_.get(), &charsRequired) != URI_SUCCESS) {
     return std::nullopt;
   }
   charsRequired += 1;
   std::vector<char> uriString(charsRequired);
   if (uriToStringA(uriString.data(), uri_.get(), charsRequired, NULL) !=
-      URI_SUCCESS)
-  {
+      URI_SUCCESS) {
     return std::nullopt;
   }
 
   return std::string(uriString.data());
 }
 
-std::optional<std::string> UriWrapper::toFragmentlessString() const
-{
-  if (!uri_)
-  {
+std::optional<std::string> UriWrapper::toFragmentlessString() const {
+  if (!uri_) {
     return std::nullopt;
   }
   auto uriString = toString();
-  if (!uriString)
-  {
+  if (!uriString) {
     return std::nullopt;
   }
   auto uriStringView = std::string_view(uriString.value());
   auto fragmentPos = uriStringView.find('#');
-  if (fragmentPos == std::string::npos)
-  {
+  if (fragmentPos == std::string::npos) {
     return uriString;
   }
   return std::string(uriStringView.substr(0, fragmentPos));
 }
 
-std::optional<std::string> UriWrapper::getFragment() const
-{
-  if (!uri_)
-  {
+std::optional<std::string> UriWrapper::getFragment() const {
+  if (!uri_) {
     return std::nullopt;
   }
-  if (uri_->fragment.first == NULL)
-  {
+  if (uri_->fragment.first == NULL) {
     return std::nullopt;
   }
-  std::vector<char> fragment(uri_->fragment.afterLast - uri_->fragment.first + 1);
+  std::vector<char> fragment(uri_->fragment.afterLast - uri_->fragment.first +
+                             1);
   std::memcpy(fragment.data(), uri_->fragment.first,
               uri_->fragment.afterLast - uri_->fragment.first);
   fragment[uri_->fragment.afterLast - uri_->fragment.first] = '\0';
@@ -196,14 +161,12 @@ std::optional<std::string> UriWrapper::getFragment() const
   return std::string(fragment.data());
 }
 
-void UriWrapper::setFragment(const std::string &fragment,
-                             bool hasStartingOctothorpe)
-{
+void UriWrapper::setFragment(const std::string& fragment,
+                             bool hasStartingOctothorpe) {
   auto dest = std::make_unique<UriUriA>();
   auto escapedFragment =
       escapeString(fragment.substr(hasStartingOctothorpe ? 1 : 0));
-  if (escapedFragment.empty())
-  {
+  if (escapedFragment.empty()) {
     *this = UriWrapper(toFragmentlessString().value_or(""));
     return;
   }
@@ -212,14 +175,12 @@ void UriWrapper::setFragment(const std::string &fragment,
   const UriWrapper fragmentUri(escapedFragment);
   // clone the current URI
   auto fragmentUriA = fragmentUri.cloneUri();
-  if (!uri_)
-  {
+  if (!uri_) {
     uri_ = std::move(fragmentUriA);
     return;
   }
   auto newUri = applyUri(*uri_, *fragmentUriA);
-  if (!newUri)
-  {
+  if (!newUri) {
     throw std::runtime_error("Failed to apply fragment to URI");
   }
   uriFreeUriMembersA(uri_.get());
@@ -227,49 +188,64 @@ void UriWrapper::setFragment(const std::string &fragment,
   uri_ = std::move(newUri);
 }
 
-bool UriWrapper::operator<(const UriWrapper &other) const
-{
+bool UriWrapper::operator<(const UriWrapper& other) const {
   // We treat a null URI as less than any other URI
-  if (!uri_)
-  {
+  if (!uri_) {
     return other.uri_ != nullptr;
   }
-  if (!other.uri_)
-  {
+  if (!other.uri_) {
     return false;
   }
   const auto uriString = toString();
   const auto otherUriString = other.toString();
-  if (!uriString || !otherUriString)
-  {
+  if (!uriString || !otherUriString) {
     return false;
   }
   return uriString.value() < otherUriString.value();
 }
 
-bool UriWrapper::operator==(const UriWrapper &other) const
-{
-  if (!uri_ && !other.uri_)
-  {
+bool UriWrapper::operator==(const UriWrapper& other) const {
+  if (!uri_ && !other.uri_) {
     return true;
   }
-  if (!uri_ || !other.uri_)
-  {
+  if (!uri_ || !other.uri_) {
     return false;
   }
   const auto uriString = toString();
   const auto otherUriString = other.toString();
   // If either URI is invalid, we can't compare them
-  if (!uriString || !otherUriString)
-  {
+  if (!uriString || !otherUriString) {
     return false;
   }
   return uriString.value() == otherUriString.value();
 }
 
-std::basic_ostream<char> &operator<<(std::basic_ostream<char> &os,
-                                     const UriWrapper &uri)
-{
+JSONPointer UriWrapper::getPointer() const {
+  if (!uri_) {
+    return JSONPointer();
+  }
+  auto fragment = getFragment();
+  if (!fragment) {
+    return JSONPointer();
+  }
+  return JSONPointer::fromURIString(fragment.value());
+}
+
+void UriWrapper::setPointer(const JSONPointer& pointer) {
+  if (!uri_) {
+    return;
+  }
+  setFragment(pointer.toFragment(), true);
+}
+
+UriWrapper UriWrapper::withPointer(const JSONPointer& pointer) const {
+  auto newUri = *this;
+  newUri.setPointer(pointer);
+  return newUri;
+}
+
+std::basic_ostream<char>& operator<<(std::basic_ostream<char>& os,
+                                     const UriWrapper& uri) {
   auto str = uri.toString();
   os << str.value_or("INVALID_URI");
   return os;

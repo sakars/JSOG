@@ -60,10 +60,18 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(Catch2)
 
+add_custom_target(copy-samples ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/tests/samples ${CMAKE_BINARY_DIR}/samples)
+
 file(GLOB TEST_SOURCES "tests/*.cpp")
+
 
 add_executable(tests ${TEST_SOURCES} ${SOURCES_WITHOUT_MAIN})
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain JSOG_lib  nlohmann_json::nlohmann_json uriparser::uriparser)
+
+# Make tests depend on copy-samples as we need to copy the samples before running the tests
+add_dependencies(tests copy-samples)
+
 
 # Add coverage flags to the compiler options
 if(CMAKE_COMPILER_IS_GNUCXX)

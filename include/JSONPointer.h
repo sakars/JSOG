@@ -3,16 +3,15 @@
 
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <ranges>
 #include <string>
 #include <string_view>
 #include <vector>
-#include <map>
 
-class JSONPointer
-{
+class JSONPointer {
   std::vector<std::string> tokens;
   std::string anchor = "";
 
@@ -20,51 +19,51 @@ class JSONPointer
   /// escapeString function, as this doesn't escape the '/' character.
   /// @param fragment The fragment string to escape
   /// @return The escaped fragment string
-  static std::string escapeURI(const std::string &fragment);
+  static std::string escapeURI(const std::string& fragment);
 
   /// @brief Escapes a pointer token according to RFC6901
   /// @param token The reference token to escape.
   /// @return
-  static std::string escapePointer(const std::string &token);
+  static std::string escapePointer(const std::string& token);
 
   /// @brief Unescapes a URI fragment string
   /// @param fragment The fragment string to unescape
   /// @return The unescaped fragment string
-  static std::string unescapeURI(const std::string &fragment);
+  static std::string unescapeURI(const std::string& fragment);
 
   /// @brief Unescapes a reference token of a JSONPointer according to RFC6901
   /// @param token The token to unescape
   /// @return The unescaped token
-  static std::string unescapeToken(const std::string &token);
+  static std::string unescapeToken(const std::string& token);
 
 private:
   /// @brief Splits a fragment string into its reference tokens.
   /// @param fragment The fragment string to split
   /// @return A vector of string views that represent the tokens
-  /// @warning This function does not unescape the tokens. The returned string_views
-  /// are views into the original string and will be invalidated if the original string
-  /// is destroyed.
+  /// @warning This function does not unescape the tokens. The returned
+  /// string_views are views into the original string and will be invalidated if
+  /// the original string is destroyed.
   static std::vector<std::string_view>
-  splitFragment(const std::string &fragment);
+  splitFragment(const std::string& fragment);
 
 public:
   /// @brief Generates an empty JSONPointer with an anchor.
-  static JSONPointer fromAnchor(const std::string &anchor);
+  static JSONPointer fromAnchor(const std::string& anchor);
 
   /// @brief Parses a JSONPointer from a string. This parses the input string
   /// according to RFC6901 Section 5
-  static JSONPointer fromJSONString(const std::string &pointer);
+  static JSONPointer fromJSONString(const std::string& pointer);
 
   /// @brief Parses a JSONPointer from a URI fragment string.
   /// @details This function treats it's input as if the string was escaped
   /// according to RFC3986, then unescapes it and parses it as a JSONPointer.
-  static JSONPointer fromURIString(const std::string &uri);
+  static JSONPointer fromURIString(const std::string& uri);
 
   JSONPointer() : tokens() {}
 
   /// @brief Adds a reference token to the JSONPointer
   /// @param token The unescaped token to add.
-  void add(const std::string &token);
+  void add(const std::string& token);
 
   /// @brief Adds an index token to the JSONPointer (for arrays)
   /// @param index The index to add
@@ -81,7 +80,7 @@ public:
   /// @brief Overwrites the anchor of the JSONPointer
   /// @details This will clear the path as well
   /// @param anchor
-  void setAnchor(const std::string &anchor);
+  void setAnchor(const std::string& anchor);
 
   /// @brief Converts the JSONPointer to a fragment string. It escapes the
   /// tokens and the anchor.
@@ -100,12 +99,17 @@ public:
   /// @details This function navigates the JSON object with the JSONPointer.
   /// @warning This function throws an exception if the JSONPointer points to a
   /// non-existent location.
-  nlohmann::json &navigate(::nlohmann::json &anchoredJson) const;
+  nlohmann::json& navigate(::nlohmann::json& anchoredJson) const;
 
   /// @brief appends a reference token to the JSONPointer
   /// @param token The unescaped token to add.
   /// @return A new JSONPointer instance with the token appended
-  JSONPointer operator/(const std::string &token);
+  JSONPointer operator/(const std::string& token);
+
+  /// @brief Compares two JSONPointers for equality
+  /// @param other The JSONPointer to compare to
+  /// @return True if the JSONPointers are equal
+  bool operator==(const JSONPointer& other) const;
 };
 
 #endif // JSONPOINTER_H

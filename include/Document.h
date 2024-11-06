@@ -2,38 +2,45 @@
 #define DOCUMENT_H
 
 #include "UriWrapper.h"
-#include "Schema.h"
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
-#include <format>
 
 /// @brief Represents a JSON document
 /// @details This class represents a JSON document. It is a wrapper around the
 /// nlohmann::json class that provides additional functionality.
-class Document
-{
+class Document {
 public:
-  nlohmann::json json;
-  UriWrapper fileUri;
+  nlohmann::json json_;
+  UriWrapper fileUri_;
 
-  Document(const nlohmann::json &json, const UriWrapper &fileUri)
-      : json(json), fileUri(fileUri) {}
+  Document(nlohmann::json&& json, UriWrapper&& fileUri)
+      : json_(std::move(json)), fileUri_(std::move(fileUri)) {}
 
-  Document(const std::filesystem::path &path)
-  {
+  Document(const std::filesystem::path& path) {
     std::ifstream file(path);
-    if (!file.is_open())
-    {
-      throw std::runtime_error(std::format("Could not open file {}", path.string()));
+    if (!file.is_open()) {
+      throw std::runtime_error(
+          std::format("Could not open file {}", path.string()));
     }
-    file >> json;
+    file >> json_;
     const auto absPath = std::filesystem::absolute(path);
     const auto uri = "file://" + absPath.string();
-    fileUri = UriWrapper(uri);
+    fileUri_ = UriWrapper(uri);
   }
 };
+
+inline std::vector<Document>
+loadDocuments(const std::vector<std::filesystem::path>& paths) {
+  std::vector<Document> documents;
+  documents.reserve(paths.size());
+  for (const auto& path : paths) {
+    documents.emplace_back(path);
+  }
+  return documents;
+}
 
 #endif // DOCUMENT_H

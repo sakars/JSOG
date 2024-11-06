@@ -1,164 +1,42 @@
 #ifndef SCHEMA_H
 #define SCHEMA_H
 
-#include "JSONPointer.h"
-#include "StringUtils.h"
-#include <functional>
-#include <nlohmann/json.hpp>
-#include <optional>
-#include <set>
-#include <string>
-#include <variant>
+#include "BuildableSchema.h"
+#include "CodeBlock.h"
+#include <map>
+#include <memory>
 
-// TODO: Rewrite Schema Interface to have seperate stage interfaces.
-// Currently a variant with stages where each stage has the previous stage moved
-// inside it sounds pretty good. A bit complicated, sure, but not bad by any
-// measure.
-
-/**
- * @brief Represents a JSON schema
- * @details This class represents a JSON schema. It is a base class for
- * different schema versions, such as Draft07.
- *
- * Schema creation is a multi-step process:
- * 1. The schema is initialized with the JSON content. In this stage,
- *   the schema may create a new resource if it has an "$id" keyword and
- *   generate its subschemas, which are also sent through the initialization
- *   step.
- * 2. Schemas perform reference resolution as all schemas are initialized.
- *   If a schema cannot be resolved, attempt
- *
- *
- */
-class Schema
-{
+class Schema {
+  std::string identifier;
 
 public:
-  // Stage 1 - only JSON content, base URI, and pointer relative to base URI are known.
-  // At the end of this stage, all schemas that need to be built are accumulated in the index.
-  // We can generate a preferred identifier.
-  struct Stage1
-  {
-    /// @brief The json content of the schema. This does not own the JSON
-    /// content, and the JSON content must outlive this object.
-    std::reference_wrapper<const nlohmann::json> json_;
-    /// @brief Pointer to the current schema from baseUri_
-    JSONPointer pointer_;
-    /// @brief The base URI of the schema
-    std::string baseUri_;
-
-    Stage1(const nlohmann::json &json, JSONPointer pointer, std::string baseUri)
-        : json_(json), pointer_(pointer), baseUri_(baseUri) {}
-
-    /// @brief Returns the preferred identifier for the schema.
-    /// @return The preferred identifier for the schema.
-    /// @warning This function has to return a valid C++ identifier. Use normalizeString to ensure that.
-    virtual std::string getPreferredIdentifier() const
-    {
-      if (json_.get().contains("title"))
-      {
-        auto title = json_.get()["title"].get<std::string>();
-        if (title != "")
-        {
-          return normalizeString(title);
-        }
-      }
-      return "Schema";
-    }
-
-    /// @brief Returns the identifier for the schema.
-    /// @return The identifier for the schema.
-    /// @warning This function has to return a valid C++ identifier if not empty.
-    std::optional<std::string> getIdentifier() const { return std::nullopt; }
-
-    std::string getBaseUri() const { return baseUri_; }
-    const nlohmann::json &getJson() const { return json_; }
-    const JSONPointer &getPointer() const { return pointer_; }
-  };
-
-  struct Stage2
-  {
-    Stage1 stage1_;
-    std::string uniqueIdentifier_;
-
-    /// @brief Returns the identifier for the schema.
-    /// @return The identifier for the schema.
-    /// @warning This function has to return a valid C++ identifier if not empty.
-    std::optional<std::string> getIdentifier() const
-    {
-      return uniqueIdentifier_;
-    }
-
-    std::string getBaseUri() const { return stage1_.baseUri_; }
-    const nlohmann::json &getJson() const { return stage1_.json_; }
-    const JSONPointer &getPointer() const { return stage1_.pointer_; }
-  };
-
-public:
-  std::variant<Stage1, Stage2> stage_;
-
-  Schema(const nlohmann::json &json, std::string baseUri, JSONPointer pointer)
-      : stage_(Stage1(json, pointer, baseUri)) {}
-
-  /// @brief Returns URI strings that the schema depends on
-  /// @return A set of URI strings that the schema depends on
-  virtual std::set<std::string> getDeps() const = 0;
-
-public:
-  void transitionToStage2(std::string uniqueIdentifier)
-  {
-    if (!std::holds_alternative<Stage1>(stage_))
-    {
-      throw std::runtime_error("Cannot transition to Stage2 from non-Stage1");
-    }
-    auto &stage1 = std::get<Stage1>(stage_);
-    stage_ = Stage2(std::move(stage1), uniqueIdentifier);
-  }
-
-  std::optional<std::string> getIdentifier() const
-  {
-    return std::visit([](auto &&arg)
-                      { return arg.getIdentifier(); }, stage_);
-  }
-
-  std::string getBaseUri() const
-  {
-    return std::visit([](auto &&arg)
-                      { return arg.getBaseUri(); }, stage_);
-  }
-
-  const nlohmann::json &getJson() const
-  {
-    return std::visit(
-        [](auto &&arg) -> const nlohmann::json &
-        { return arg.getJson(); },
-        stage_);
-  }
-
-  const JSONPointer &getPointer() const
-  {
-    return std::visit(
-        [](auto &&arg) -> const JSONPointer &
-        { return arg.getPointer(); },
-        stage_);
-  }
-
-  // This is used only in stage 2, after identifier has been set.
-  virtual std::string getTypeName() const = 0;
-
-  virtual std::string generateDefinition() const { return ""; }
-  virtual std::string generateStructs() const { return ""; }
-
-  // TODO: implement in Draft07
-  /// @brief Resolves references in the schema
-  /// @details This function resolves references in the schema. Before calling
-  /// this function, a schema may not know which other schemas it is
-  /// referencing, only knowing their URIs. After calling this function, the
-  /// schema should have references to the actual schema objects that it
-  /// references.
-  virtual void resolveReferences(
-      std::function<
-          std::optional<std::reference_wrapper<Schema>>(std::string)>) = 0;
+  Schema(const std::string& identifier) : identifier(identifier) {}
 };
+
+std::unique_ptr<Schema> construct(const BuildableSchema& schema,
+                                  const std::string& identifier);
+
+std::map<std::string, std::unique_ptr<Schema>> generateIdentifiableSchemas(
+    std::vector<std::unique_ptr<BuildableSchema>>& schemas) {
+  std::map<std::string, std::unique_ptr<Schema>> identifiableSchemas;
+  std::set<std::string> identifiers;
+  for (const auto& schema : schemas) {
+    const std::string preferred_identifier = schema->getPreferredIdentifier();
+    std::string identifier = preferred_identifier;
+    size_t i = 0;
+    while (identifiers.count(identifier) > 0) {
+      bool preferred_identifier_has_number_at_end =
+          preferred_identifier.back() >= '0' &&
+          preferred_identifier.back() <= '9';
+      identifier = preferred_identifier +
+                   (preferred_identifier_has_number_at_end ? "_" : "") +
+                   std::to_string(i);
+      i++;
+    }
+    identifiers.insert(identifier);
+    identifiableSchemas[identifier] = construct(*schema, identifier);
+  }
+  return identifiableSchemas;
+}
 
 #endif // SCHEMA_H

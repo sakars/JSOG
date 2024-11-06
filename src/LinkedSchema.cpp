@@ -1,9 +1,9 @@
-#include "BuildableSchema.h"
-#include "BuildableDraft07.h"
+#include "LinkedSchema.h"
+#include "LinkedDraft07.h"
 
-std::unique_ptr<BuildableSchema> construct(const UnresolvedSchema& schema) {
+std::unique_ptr<LinkedSchema> construct(const UnresolvedSchema& schema) {
   if (schema.draft_ == Draft::DRAFT_07) {
-    return std::make_unique<BuildableDraft07>(schema);
+    return std::make_unique<LinkedDraft07>(schema);
   }
   throw std::runtime_error("Unrecognized schema draft");
 }
@@ -28,10 +28,10 @@ addDependencies(const std::set<UriWrapper>& dependencies,
   }
 }
 
-std::vector<std::unique_ptr<BuildableSchema>>
+std::vector<std::unique_ptr<LinkedSchema>>
 resolveDependencies(SetMap<UriWrapper, UnresolvedSchema>&& setMap,
                     const std::set<UriWrapper>& requiredReferences) {
-  SetMap<UriWrapper, BuildableSchema> resolvedSchemas;
+  SetMap<UriWrapper, LinkedSchema> resolvedSchemas;
   std::set<const UnresolvedSchema*> buildableRequiredSchemas;
   std::set<const UnresolvedSchema*> builtRequiredSchemas;
   // Set up the initial required schemas
@@ -59,7 +59,7 @@ resolveDependencies(SetMap<UriWrapper, UnresolvedSchema>&& setMap,
 
   // Fills in the dependency map of a schema
   const auto fillDepMap = [&resolvedSchemas = std::as_const(resolvedSchemas)](
-                              BuildableSchema& schema) {
+                              LinkedSchema& schema) {
     for (const auto& depUri : schema.dependenciesSet_) {
       if (resolvedSchemas.contains(depUri)) {
         schema.dependencies_.emplace(depUri,
@@ -77,7 +77,7 @@ resolveDependencies(SetMap<UriWrapper, UnresolvedSchema>&& setMap,
   }
   // Extract the schemas from setMap
   auto extracted = resolvedSchemas.extract();
-  std::vector<std::unique_ptr<BuildableSchema>> schemas;
+  std::vector<std::unique_ptr<LinkedSchema>> schemas;
   for (auto& [keys, value] : extracted) {
     schemas.push_back(std::move(value));
   }

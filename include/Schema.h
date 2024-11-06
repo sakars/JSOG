@@ -1,26 +1,30 @@
 #ifndef SCHEMA_H
 #define SCHEMA_H
 
-#include "BuildableSchema.h"
 #include "CodeBlock.h"
+#include "LinkedSchema.h"
 #include <map>
 #include <memory>
 
 class Schema {
-  std::string identifier;
+  std::unique_ptr<LinkedSchema> buildableSchema_;
+  std::string identifier_;
 
 public:
-  Schema(const std::string& identifier) : identifier(identifier) {}
+  Schema(std::unique_ptr<LinkedSchema>&& schema, const std::string& identifier)
+      : buildableSchema_(std::move(schema)), identifier_(identifier) {}
 };
 
-std::unique_ptr<Schema> construct(const BuildableSchema& schema,
+std::unique_ptr<Schema> construct(std::unique_ptr<LinkedSchema> schema,
                                   const std::string& identifier);
 
 std::map<std::string, std::unique_ptr<Schema>> generateIdentifiableSchemas(
-    std::vector<std::unique_ptr<BuildableSchema>>& schemas) {
+    std::vector<std::unique_ptr<LinkedSchema>>& buildableSchemas) {
   std::map<std::string, std::unique_ptr<Schema>> identifiableSchemas;
   std::set<std::string> identifiers;
-  for (const auto& schema : schemas) {
+  std::vector<std::unique_ptr<Schema>> schemas;
+
+  for (auto& schema : buildableSchemas) {
     const std::string preferred_identifier = schema->getPreferredIdentifier();
     std::string identifier = preferred_identifier;
     size_t i = 0;
@@ -34,7 +38,7 @@ std::map<std::string, std::unique_ptr<Schema>> generateIdentifiableSchemas(
       i++;
     }
     identifiers.insert(identifier);
-    identifiableSchemas[identifier] = construct(*schema, identifier);
+    identifiableSchemas[identifier] = construct(std::move(schema), identifier);
   }
   return identifiableSchemas;
 }

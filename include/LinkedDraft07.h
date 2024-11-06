@@ -1,11 +1,16 @@
-#include "BuildableSchema.h"
+#include "LinkedSchema.h"
 
-class BuildableDraft07 : public BuildableSchema {
+class LinkedDraft07 : public LinkedSchema {
 public:
-  BuildableDraft07(const UnresolvedSchema& unresolvedSchema)
-      : BuildableSchema(unresolvedSchema) {
+  LinkedDraft07(const UnresolvedSchema& unresolvedSchema)
+      : LinkedSchema(unresolvedSchema) {
     dependenciesSet_ = getDependencies();
   }
+  LinkedDraft07(const nlohmann::json& json, const UriWrapper& baseUri,
+                const JSONPointer& pointer, Draft draft)
+      : LinkedSchema(json, baseUri, pointer, draft) {}
+
+  void recalculateDependencies() { dependenciesSet_ = getDependencies(); }
 
   std::set<UriWrapper> getDependencies() const override {
     std::set<UriWrapper> dependencies;

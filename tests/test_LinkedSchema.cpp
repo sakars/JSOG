@@ -1,10 +1,10 @@
-#include "BuildableDraft07.h"
-#include "BuildableSchema.h"
 #include "JSONPointer.h"
+#include "LinkedDraft07.h"
+#include "LinkedSchema.h"
 #include <catch2/catch_all.hpp>
 
 SCENARIO("Buildable Schema Draft07 constructs correct deps",
-         "[Draft07][BuildableSchema]") {
+         "[Draft07][LinkedSchema]") {
   WHEN("Schema has a ref in properties") {
     nlohmann::json json = R"(
 {
@@ -19,7 +19,7 @@ SCENARIO("Buildable Schema Draft07 constructs correct deps",
     UriWrapper fileUri("file://test.json");
     JSONPointer pointer;
     UnresolvedSchema schema(json, fileUri, pointer);
-    BuildableDraft07 buildable(schema);
+    LinkedDraft07 buildable(schema);
     THEN("It is added to dependencies") {
       auto deps = buildable.getDependencies();
       REQUIRE(deps.size() == 1);
@@ -45,7 +45,7 @@ SCENARIO("Buildable Schema Draft07 constructs correct deps",
     UriWrapper fileUri("file://test.json");
     JSONPointer pointer;
     UnresolvedSchema schema(json, fileUri, pointer);
-    BuildableDraft07 buildable(schema);
+    LinkedDraft07 buildable(schema);
     THEN("It is added to dependencies") {
       auto deps = buildable.getDependencies();
       REQUIRE(deps.size() == 2);
@@ -68,7 +68,7 @@ SCENARIO("Buildable Schema Draft07 constructs correct deps",
     UriWrapper fileUri("file://test.json");
     JSONPointer pointer;
     UnresolvedSchema schema(json, fileUri, pointer);
-    BuildableDraft07 buildable(schema);
+    LinkedDraft07 buildable(schema);
     THEN("It is added to dependencies") {
       auto deps = buildable.getDependencies();
       REQUIRE(deps.size() == 1);
@@ -89,7 +89,7 @@ SCENARIO("Buildable Schema Draft07 constructs correct deps",
     UriWrapper fileUri("file://test.json");
     JSONPointer pointer;
     UnresolvedSchema schema(json, fileUri, pointer);
-    BuildableDraft07 buildable(schema);
+    LinkedDraft07 buildable(schema);
     THEN("It is added to dependencies") {
       auto deps = buildable.getDependencies();
       REQUIRE(deps.size() == 1);
@@ -99,8 +99,7 @@ SCENARIO("Buildable Schema Draft07 constructs correct deps",
   }
 }
 
-SCENARIO("Multi-file Draft07 reference resolution",
-         "[Draft07][BuildableSchema]") {
+SCENARIO("Multi-file Draft07 reference resolution", "[Draft07][LinkedSchema]") {
   GIVEN("Two schemas with a reference between them") {
     nlohmann::json json1 = R"(
 {
@@ -140,7 +139,7 @@ SCENARIO("Multi-file Draft07 reference resolution",
         const auto arrayHasSchema = [&resolved](const UriWrapper& uri) {
           return std::any_of(
               resolved.begin(), resolved.end(),
-              [&uri](const std::unique_ptr<BuildableSchema>& schema) {
+              [&uri](const std::unique_ptr<LinkedSchema>& schema) {
                 return schema->baseUri_.withPointer(schema->pointer_) == uri;
               });
         };
@@ -153,8 +152,8 @@ SCENARIO("Multi-file Draft07 reference resolution",
   }
 }
 
-SCENARIO("Full pipeline run up to BuildableSchema",
-         "[Draft07][filesystem][BuildableSchema][DraftRecognisedDocument]["
+SCENARIO("Full pipeline run up to LinkedSchema",
+         "[Draft07][filesystem][LinkedSchema][DraftRecognisedDocument]["
          "Document]") {
   std::vector<std::filesystem::path> files{"samples/document_1.json",
                                            "samples/document_2.json"};
@@ -189,7 +188,7 @@ SCENARIO("Full pipeline run up to BuildableSchema",
             .withPointer(JSONPointer() / "properties" / "ref"));
     CAPTURE(uri);
     REQUIRE(std::any_of(resolved.begin(), resolved.end(),
-                        [uri](const std::unique_ptr<BuildableSchema>& schema) {
+                        [uri](const std::unique_ptr<LinkedSchema>& schema) {
                           return schema->baseUri_.withPointer(
                                      schema->pointer_) == uri;
                         }));

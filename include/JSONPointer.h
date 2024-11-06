@@ -104,7 +104,7 @@ public:
   /// @brief appends a reference token to the JSONPointer
   /// @param token The unescaped token to add.
   /// @return A new JSONPointer instance with the token appended
-  JSONPointer operator/(const std::string& token);
+  JSONPointer operator/(const std::string& token) const;
 
   /// @brief Compares two JSONPointers for equality
   /// @param other The JSONPointer to compare to

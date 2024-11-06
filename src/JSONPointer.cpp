@@ -85,7 +85,7 @@ nlohmann::json& JSONPointer::navigate(::nlohmann::json& anchoredJson) const {
   return *currentNode;
 }
 
-JSONPointer JSONPointer::operator/(const std::string& token) {
+JSONPointer JSONPointer::operator/(const std::string& token) const {
   JSONPointer newPointer = *this;
   newPointer.add(token);
   return newPointer;

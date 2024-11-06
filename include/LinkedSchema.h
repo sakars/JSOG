@@ -13,27 +13,33 @@
 #include <string>
 #include <vector>
 
-class BuildableSchema {
+/// @brief A fully instantiated instance of LinkedSchema has its dependencies
+/// set and is ready to be fully constructed.
+class LinkedSchema {
 public:
   const std::reference_wrapper<const nlohmann::json> json_;
   const UriWrapper baseUri_;
   const JSONPointer pointer_;
   Draft draft_;
 
-  std::map<UriWrapper, std::reference_wrapper<const BuildableSchema>>
+  std::map<UriWrapper, std::reference_wrapper<const LinkedSchema>>
       dependencies_;
   std::set<UriWrapper> dependenciesSet_;
 
-  BuildableSchema(const UnresolvedSchema& unresolvedSchema)
+  LinkedSchema(const UnresolvedSchema& unresolvedSchema)
       : json_(unresolvedSchema.json_), baseUri_(unresolvedSchema.baseUri_),
         pointer_(unresolvedSchema.pointer_), draft_(unresolvedSchema.draft_) {}
+
+  LinkedSchema(const nlohmann::json& json, const UriWrapper& baseUri,
+               const JSONPointer& pointer, Draft draft)
+      : json_(json), baseUri_(baseUri), pointer_(pointer), draft_(draft) {}
 
 protected:
   virtual std::set<UriWrapper> getDependencies() const = 0;
 
 public:
-  BuildableSchema(const BuildableSchema&) = delete;
-  virtual ~BuildableSchema() = default;
+  LinkedSchema(const LinkedSchema&) = delete;
+  virtual ~LinkedSchema() = default;
 
   /// @brief Returns the preferred identifier for the schema.
   /// @return The preferred identifier for the schema.
@@ -50,9 +56,9 @@ public:
   }
 };
 
-std::unique_ptr<BuildableSchema> construct(const UnresolvedSchema& schema);
+std::unique_ptr<LinkedSchema> construct(const UnresolvedSchema& schema);
 
-std::vector<std::unique_ptr<BuildableSchema>>
+std::vector<std::unique_ptr<LinkedSchema>>
 resolveDependencies(SetMap<UriWrapper, UnresolvedSchema>&& setMap,
                     const std::set<UriWrapper>& requiredReferences);
 

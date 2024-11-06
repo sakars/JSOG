@@ -5,10 +5,9 @@
 #include <vector>
 
 class CodeBlock {
-  std::vector<std::variant<std::string, CodeBlock>> lines;
-  std::reference_wrapper<CodeBlock> parent = *this;
   struct _Inc_Ty {};
   struct _Dec_ty {};
+  std::vector<std::variant<std::string, _Inc_Ty, _Dec_ty>> lines;
 
 public:
   static constexpr _Inc_Ty inc = _Inc_Ty();
@@ -24,30 +23,33 @@ public:
   }
 
   CodeBlock& operator<<(const CodeBlock& block) {
-    lines.push_back(block);
+    lines.insert(lines.end(), block.lines.begin(), block.lines.end());
     return *this;
   }
 
   CodeBlock& operator<<(const _Inc_Ty&) {
-    CodeBlock block(indent);
-    block.parent = *this;
-    lines.push_back(block);
-    return std::get<CodeBlock>(lines.back());
+    lines.push_back(_Inc_Ty());
+    return *this;
   }
 
-  CodeBlock& operator<<(const _Dec_ty&) { return parent; }
+  CodeBlock& operator<<(const _Dec_ty&) {
+    lines.push_back(_Dec_ty());
+    return *this;
+  }
 
   std::string str() const {
     std::ostringstream out;
+    size_t indent_level = 0;
     for (const auto& line : lines) {
       if (std::holds_alternative<std::string>(line)) {
-        out << std::get<std::string>(line) << std::endl;
-      } else if (std::holds_alternative<CodeBlock>(line)) {
-        std::istringstream stream(std::get<CodeBlock>(line).str());
-        std::string line;
-        while (std::getline(stream, line, '\n')) {
-          out << indent << line << '\n';
+        for (size_t i = 0; i < indent_level; i++) {
+          out << indent;
         }
+        out << std::get<std::string>(line) << std::endl;
+      } else if (std::holds_alternative<_Inc_Ty>(line)) {
+        indent_level++;
+      } else if (std::holds_alternative<_Dec_ty>(line)) {
+        indent_level--;
       } else {
         throw std::runtime_error("Unknown type in lines");
       }

@@ -17,8 +17,8 @@ public:
   IdentifiableSchema(const nlohmann::json& json, const UriWrapper& baseUri,
                      const JSONPointer& pointer, Draft draft,
                      const std::string& identifier)
-      : json_(json), baseUri_(baseUri), pointer_(pointer), draft_(draft),
-        identifier_(identifier) {}
+      : identifier_(identifier), json_(json), baseUri_(baseUri),
+        pointer_(pointer), draft_(draft) {}
 
   static std::vector<std::unique_ptr<IdentifiableSchema>>
   transition(std::vector<std::unique_ptr<LinkedSchema>>&& linkedSchemas) {

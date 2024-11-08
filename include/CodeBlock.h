@@ -7,11 +7,14 @@
 class CodeBlock {
   struct _Inc_Ty {};
   struct _Dec_ty {};
-  std::vector<std::variant<std::string, _Inc_Ty, _Dec_ty>> lines;
+  struct _Discard_Ty {};
+  std::vector<std::variant<std::string, _Inc_Ty, _Dec_ty, _Discard_Ty>> lines;
 
 public:
   static constexpr _Inc_Ty inc = _Inc_Ty();
   static constexpr _Dec_ty dec = _Dec_ty();
+  /// @brief Discard the next newline
+  static constexpr _Discard_Ty dis = _Discard_Ty();
 
   std::string indent;
 
@@ -37,19 +40,37 @@ public:
     return *this;
   }
 
+  CodeBlock& operator<<(const _Discard_Ty&) {
+    lines.push_back(_Discard_Ty());
+    return *this;
+  }
+
   std::string str() const {
     std::ostringstream out;
-    size_t indent_level = 0;
+    size_t indentLevel = 0;
+    bool skipNewline = false;
+    bool skipIndent = false;
     for (const auto& line : lines) {
       if (std::holds_alternative<std::string>(line)) {
-        for (size_t i = 0; i < indent_level; i++) {
-          out << indent;
+        if (!skipIndent) {
+          for (size_t i = 0; i < indentLevel; i++) {
+            out << indent;
+          }
         }
-        out << std::get<std::string>(line) << std::endl;
+        skipIndent = false;
+        out << std::get<std::string>(line);
+        if (!skipNewline) {
+          out << std::endl;
+        } else {
+          skipNewline = false;
+          skipIndent = true;
+        }
       } else if (std::holds_alternative<_Inc_Ty>(line)) {
-        indent_level++;
+        indentLevel++;
       } else if (std::holds_alternative<_Dec_ty>(line)) {
-        indent_level--;
+        indentLevel--;
+      } else if (std::holds_alternative<_Discard_Ty>(line)) {
+        skipNewline = true;
       } else {
         throw std::runtime_error("Unknown type in lines");
       }

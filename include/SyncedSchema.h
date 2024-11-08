@@ -10,7 +10,8 @@
 /// generate code that is not dependent on the Draft version of the schema.
 class SyncedSchema {
 public:
-  std::string identifier;
+  std::string identifier_;
+  std::string filename_;
 
   // Non-type specific properties
 
@@ -21,7 +22,7 @@ public:
   /// @brief If set, the schema is interpreted as a reference to another schema
   std::optional<std::reference_wrapper<SyncedSchema>> ref_;
 
-  enum class Type { Null, Boolean, Object, Array, Number, String };
+  enum class Type { Null, Boolean, Object, Array, Number, String, Integer };
 
   std::optional<std::set<Type>> type_;
 
@@ -70,6 +71,7 @@ public:
 
   std::optional<std::reference_wrapper<SyncedSchema>> propertyNames_;
 
+  // Conditional properties
   std::optional<std::reference_wrapper<SyncedSchema>> if_;
   std::optional<std::reference_wrapper<SyncedSchema>> then_;
   std::optional<std::reference_wrapper<SyncedSchema>> else_;
@@ -107,10 +109,22 @@ public:
 
   std::optional<std::vector<nlohmann::json>> examples_;
 
-  SyncedSchema(const std::string& identifier) : identifier(identifier) {}
+  SyncedSchema(const std::string& identifier)
+      : identifier_(identifier), filename_(identifier) {}
 
   /// @brief Generates the declaration of the schema
   CodeBlock generateDeclaration() const;
   CodeBlock generateDefinition() const;
-  std::string generateType() const;
+  CodeBlock generateDependencies() const;
+
+  std::string getHeaderFileName() const;
+  std::string getSourceFileName() const;
+  std::string getType() const;
+  std::string getObjectType() const;
+  std::string getArrayType() const;
+  std::string getNumberType() const;
+  std::string getStringType() const;
+  std::string getBooleanType() const;
+  std::string getNullType() const;
+  std::string getIntegerType() const;
 };

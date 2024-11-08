@@ -166,6 +166,7 @@ CodeBlock SyncedSchema::generateDefinition() const {
       types.insert(Type::Array);
       types.insert(Type::Number);
       types.insert(Type::String);
+      types.insert(Type::Integer);
     }
 
     if (types.contains(Type::Null)) {
@@ -253,6 +254,7 @@ std::string SyncedSchema::getType() const {
     types.insert(Type::Array);
     types.insert(Type::Number);
     types.insert(Type::String);
+    types.insert(Type::Integer);
   }
   if (types.size() == 1) {
     switch (*types.begin()) {

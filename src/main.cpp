@@ -1,4 +1,4 @@
-#include "ResourceIndex.h"
+#include "SyncedSchema.h"
 #include "UriWrapper.h"
 #include <fstream>
 #include <iostream>

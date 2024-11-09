@@ -42,7 +42,9 @@ public:
     }
 
     // Construct the identifiable schemas
-    std::set<std::string> identifiers;
+    // Note: We add True to the identifiers to avoid conflicts with the
+    // predefined True schema.
+    std::set<std::string> identifiers{"True", "False"};
     std::vector<std::unique_ptr<IdentifiableSchema>> identifiableSchemas;
     for (size_t i = 0; i < linkedSchemas.size(); i++) {
       const auto& linkedSchema = linkedSchemas[i];

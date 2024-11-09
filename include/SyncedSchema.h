@@ -5,11 +5,22 @@
 #include <string>
 #include <vector>
 
+struct CodeProperties {
+  enum class HeaderGuard { Pragma, Ifndef };
+  HeaderGuard headerGuardType_ = HeaderGuard::Ifndef;
+  std::string indent_ = "  ";
+  std::optional<std::string> globalNamespace_ = "JSOG";
+  std::optional<std::string> define_prefix_ = "JSOG_";
+};
+
 /// @brief A class to represent a schema that holds information to generate code
 /// @details This class is used to represent a schema that holds information to
 /// generate code that is not dependent on the Draft version of the schema.
 class SyncedSchema {
 public:
+  std::reference_wrapper<const CodeProperties> codeProperties =
+      std::cref(getDefaultCodeProperties());
+
   std::string identifier_;
   std::string filename_;
 
@@ -49,7 +60,7 @@ public:
   std::optional<std::vector<std::reference_wrapper<SyncedSchema>>>
       tupleableItems_;
   /// @brief The object that matches non-tupleable items in the array
-  std::optional<std::reference_wrapper<SyncedSchema>> items_;
+  std::reference_wrapper<const SyncedSchema> items_ = std::ref(*this);
   std::optional<size_t> maxItems_;
   std::optional<size_t> minItems_;
   std::optional<bool> uniqueItems_;
@@ -110,8 +121,16 @@ public:
   std::optional<std::vector<nlohmann::json>> examples_;
 
   SyncedSchema(const std::string& identifier)
-      : identifier_(identifier), filename_(identifier) {}
+      : identifier_(identifier), filename_(identifier) {
+    items_ = std::ref(getTrueSchema());
+  }
 
+private:
+  /// @brief Private constructor to create default schemas
+  /// without causing undefined behavior
+  SyncedSchema() : identifier_(""), filename_("") {}
+
+public:
   /// @brief Generates the declaration of the schema
   CodeBlock generateDeclaration() const;
   CodeBlock generateDefinition() const;
@@ -127,4 +146,15 @@ public:
   std::string getBooleanType() const;
   std::string getNullType() const;
   std::string getIntegerType() const;
+
+  static const CodeProperties& getDefaultCodeProperties() {
+    static CodeProperties properties;
+    return properties;
+  }
+
+  static const SyncedSchema& getTrueSchema() {
+    static SyncedSchema schema;
+    schema.definedAsBooleanSchema_ = true;
+    return schema;
+  }
 };

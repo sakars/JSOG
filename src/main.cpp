@@ -12,7 +12,8 @@
 // known.
 // 5. IdentifiableSchema - Represents a schema with it's unique identifier.
 // 6. DraftXSchemaInterpreter - Interprets the schema according to the draft
-// version and outputs an IndexedSyncedSchema.
+// version and outputs an IndexedSyncedSchema. Last point where both draft and
+// the json schema itself are used.
 // 7. IndexedSyncedSchema - Represents a schema that is ready to be generated
 // but links aren't connected directly yet.
 // 8. SyncedSchema - Represents a schema that is ready to be generated and

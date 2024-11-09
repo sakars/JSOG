@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+/// @brief A fully instantiated instance of IndexedSyncedSchema fully represents
+/// an interpreted JSON schema regardless of its Draft version.
 class IndexedSyncedSchema {
 public:
   std::string identifier_;

@@ -726,3 +726,139 @@ std::string SyncedSchema::getIntegerType() const {
   }
   return "int64_t";
 }
+
+std::vector<std::unique_ptr<SyncedSchema>>
+SyncedSchema::resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas) {
+  std::vector<std::unique_ptr<SyncedSchema>> syncedSchemas;
+  for (auto& schema : schemas) {
+    std::unique_ptr<SyncedSchema> syncedSchema =
+        std::make_unique<SyncedSchema>(schema.identifier_);
+  }
+  for (size_t i = 0; i < schemas.size(); i++) {
+    auto& schema = schemas[i];
+    auto syncedSchema = *syncedSchemas[i];
+    syncedSchema.definedAsBooleanSchema_ = schema.definedAsBooleanSchema_;
+    if (schema.ref_.has_value()) {
+      syncedSchema.ref_ = *syncedSchemas[schema.ref_.value()];
+    } else {
+      syncedSchema.ref_ = std::nullopt;
+    }
+    syncedSchema.type_ = schema.type_;
+    syncedSchema.enum_ = schema.enum_;
+    syncedSchema.const_ = schema.const_;
+    syncedSchema.description_ = schema.description_;
+    syncedSchema.multipleOf_ = schema.multipleOf_;
+    syncedSchema.maximum_ = schema.maximum_;
+    syncedSchema.exclusiveMaximum_ = schema.exclusiveMaximum_;
+    syncedSchema.minimum_ = schema.minimum_;
+    syncedSchema.exclusiveMinimum_ = schema.exclusiveMinimum_;
+    syncedSchema.maxLength_ = schema.maxLength_;
+    syncedSchema.minLength_ = schema.minLength_;
+    syncedSchema.pattern_ = schema.pattern_;
+    if (schema.tupleableItems_.has_value()) {
+      const auto& indices = schema.tupleableItems_.value();
+      syncedSchema.tupleableItems_ =
+          std::vector<std::reference_wrapper<const SyncedSchema>>();
+      for (size_t index : indices) {
+        syncedSchema.tupleableItems_.value().push_back(*syncedSchemas[index]);
+      }
+    }
+    if (schema.items_.has_value()) {
+      syncedSchema.items_ = *syncedSchemas[schema.items_.value()];
+    } else {
+      syncedSchema.items_ = getTrueSchema();
+    }
+    syncedSchema.maxItems_ = schema.maxItems_;
+    syncedSchema.minItems_ = schema.minItems_;
+    syncedSchema.uniqueItems_ = schema.uniqueItems_;
+    if (schema.contains_.has_value()) {
+      syncedSchema.contains_ = *syncedSchemas[schema.contains_.value()];
+    } else {
+      syncedSchema.contains_ = std::nullopt;
+    }
+    syncedSchema.maxProperties_ = schema.maxProperties_;
+    syncedSchema.minProperties_ = schema.minProperties_;
+    syncedSchema.required_ = schema.required_;
+    for (const auto& [propertyName, index] : schema.properties_) {
+      syncedSchema.properties_.emplace(propertyName,
+                                       std::cref(*syncedSchemas[index]));
+    }
+    if (schema.patternProperties_.has_value()) {
+      syncedSchema.patternProperties_ =
+          std::map<std::string, std::reference_wrapper<const SyncedSchema>>();
+      for (const auto& [pattern, index] : schema.patternProperties_.value()) {
+        syncedSchema.patternProperties_.value().emplace(pattern,
+                                                        *syncedSchemas[index]);
+      }
+    }
+    if (schema.additionalProperties_.has_value()) {
+      syncedSchema.additionalProperties_ =
+          *syncedSchemas[schema.additionalProperties_.value()];
+    } else {
+      syncedSchema.additionalProperties_ = getTrueSchema();
+    }
+    syncedSchema.propertyDependencies_ = schema.propertyDependencies_;
+    // syncedSchema.schemaDependencies_ = schema.schemaDependencies_;
+    if (schema.schemaDependencies_.has_value()) {
+      syncedSchema.schemaDependencies_ =
+          std::map<std::string, std::reference_wrapper<const SyncedSchema>>();
+      for (const auto& [propertyName, index] :
+           schema.schemaDependencies_.value()) {
+        syncedSchema.schemaDependencies_.value().emplace(propertyName,
+                                                         *syncedSchemas[index]);
+      }
+    }
+    // syncedSchema.propertyNames_ = schema.propertyNames_;
+    if (schema.propertyNames_.has_value()) {
+      syncedSchema.propertyNames_ =
+          *syncedSchemas[schema.propertyNames_.value()];
+    } else {
+      syncedSchema.propertyNames_ = std::nullopt;
+    }
+    // syncedSchema.if_ = schema.if_;
+    if (schema.if_.has_value()) {
+      syncedSchema.if_ = *syncedSchemas[schema.if_.value()];
+    } else {
+      syncedSchema.if_ = std::nullopt;
+    }
+    if (schema.then_.has_value()) {
+      syncedSchema.then_ = *syncedSchemas[schema.then_.value()];
+    } else {
+      syncedSchema.then_ = std::nullopt;
+    }
+    if (schema.else_.has_value()) {
+      syncedSchema.else_ = *syncedSchemas[schema.else_.value()];
+    } else {
+      syncedSchema.else_ = std::nullopt;
+    }
+    if (schema.allOf_.has_value()) {
+      syncedSchema.allOf_ =
+          std::vector<std::reference_wrapper<const SyncedSchema>>();
+      for (size_t index : schema.allOf_.value()) {
+        syncedSchema.allOf_.value().push_back(*syncedSchemas[index]);
+      }
+    }
+    if (schema.anyOf_.has_value()) {
+      syncedSchema.anyOf_ =
+          std::vector<std::reference_wrapper<const SyncedSchema>>();
+      for (size_t index : schema.anyOf_.value()) {
+        syncedSchema.anyOf_.value().push_back(*syncedSchemas[index]);
+      }
+    }
+    if (schema.oneOf_.has_value()) {
+      syncedSchema.oneOf_ =
+          std::vector<std::reference_wrapper<const SyncedSchema>>();
+      for (size_t index : schema.oneOf_.value()) {
+        syncedSchema.oneOf_.value().push_back(*syncedSchemas[index]);
+      }
+    }
+    if (schema.not_.has_value()) {
+      syncedSchema.not_ = *syncedSchemas[schema.not_.value()];
+    } else {
+      syncedSchema.not_ = std::nullopt;
+    }
+    syncedSchema.format_ = schema.format_;
+    syncedSchema.default_ = schema.default_;
+  }
+  return syncedSchemas;
+}

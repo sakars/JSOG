@@ -4,8 +4,7 @@
 class IdentifiableSchema {
 
 public:
-  std::map<UriWrapper, std::reference_wrapper<IdentifiableSchema>>
-      dependencies_;
+  std::map<UriWrapper, size_t> dependencies_;
 
   const std::string identifier_;
   const std::reference_wrapper<const nlohmann::json> json_;
@@ -22,28 +21,10 @@ public:
 
   static std::vector<std::unique_ptr<IdentifiableSchema>>
   transition(std::vector<std::unique_ptr<LinkedSchema>>&& linkedSchemas) {
-    // Perform schema link indexing.
-    std::vector<std::map<UriWrapper, size_t>> linkedSchemaDependencyIndices;
-    for (const auto& linkedSchema : linkedSchemas) {
-      std::map<UriWrapper, size_t> dependencyIndices;
-      for (const auto& [uri, dep] : linkedSchema->dependencies_) {
-        auto it =
-            std::find_if(linkedSchemas.begin(), linkedSchemas.end(),
-                         [&dep](const std::unique_ptr<LinkedSchema>& schema) {
-                           return &dep.get() == schema.get();
-                         });
-        if (it != linkedSchemas.end()) {
-          dependencyIndices[uri] = std::distance(linkedSchemas.begin(), it);
-        } else {
-          throw std::runtime_error("Dependency not found in linkedSchemas");
-        }
-      }
-      linkedSchemaDependencyIndices.push_back(dependencyIndices);
-    }
 
     // Construct the identifiable schemas
-    // Note: We add True to the identifiers to avoid conflicts with the
-    // predefined True schema.
+    // Note: We add reserved identifiers to the identifiers to avoid conflicts
+    // with the predefined schemas.
     std::set<std::string> identifiers{"True", "False"};
     std::vector<std::unique_ptr<IdentifiableSchema>> identifiableSchemas;
     for (size_t i = 0; i < linkedSchemas.size(); i++) {
@@ -65,16 +46,8 @@ public:
       auto schema = std::make_unique<IdentifiableSchema>(
           linkedSchema->json_, linkedSchema->baseUri_, linkedSchema->pointer_,
           linkedSchema->draft_, identifier);
+      schema->dependencies_ = linkedSchema->dependencies_;
       identifiableSchemas.push_back(std::move(schema));
-    }
-
-    // Relink the schemas
-    for (size_t i = 0; i < identifiableSchemas.size(); i++) {
-      auto& schema = identifiableSchemas[i];
-      for (const auto& [uri, index] : linkedSchemaDependencyIndices[i]) {
-        schema->dependencies_.emplace(uri,
-                                      std::ref(*identifiableSchemas[index]));
-      }
     }
     return identifiableSchemas;
   }

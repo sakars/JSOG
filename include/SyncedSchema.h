@@ -1,4 +1,5 @@
 #include "CodeBlock.h"
+#include "IndexedSyncedSchema.h"
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <set>
@@ -18,6 +19,8 @@ struct CodeProperties {
 /// generate code that is not dependent on the Draft version of the schema.
 class SyncedSchema {
 public:
+  using Type = IndexedSyncedSchema::Type;
+  using Format = IndexedSyncedSchema::Format;
   std::reference_wrapper<const CodeProperties> codeProperties =
       std::cref(getDefaultCodeProperties());
 
@@ -33,9 +36,7 @@ public:
   /// @brief If set, the schema is interpreted as a reference to another schema
   std::optional<std::reference_wrapper<SyncedSchema>> ref_;
 
-  enum class Type { Null, Boolean, Object, Array, Number, String, Integer };
-
-  std::optional<std::set<Type>> type_;
+  std::optional<std::set<IndexedSyncedSchema::Type>> type_;
 
   std::optional<std::vector<nlohmann::json>> enum_;
 
@@ -94,27 +95,7 @@ public:
   std::optional<std::vector<std::reference_wrapper<const SyncedSchema>>> oneOf_;
   std::optional<std::reference_wrapper<const SyncedSchema>> not_;
 
-  enum class Format {
-    DateTime,
-    Date,
-    Time,
-    Email,
-    IdnEmail,
-    Hostname,
-    IdnHostname,
-    IpV4,
-    IpV6,
-    Uri,
-    UriReference,
-    Iri,
-    IriReference,
-    UriTemplate,
-    JsonPointer,
-    RelativeJsonPointer,
-    Regex
-  };
-
-  std::optional<Format> format_;
+  std::optional<IndexedSyncedSchema::Format> format_;
   std::optional<nlohmann::json> default_;
 
   std::optional<bool> readOnly_;
@@ -162,4 +143,7 @@ public:
     schema.definedAsBooleanSchema_ = true;
     return schema;
   }
+
+  static std::vector<std::unique_ptr<SyncedSchema>>
+  resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas);
 };

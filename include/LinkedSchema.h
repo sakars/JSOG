@@ -22,8 +22,7 @@ public:
   const JSONPointer pointer_;
   Draft draft_;
 
-  std::map<UriWrapper, std::reference_wrapper<const LinkedSchema>>
-      dependencies_;
+  std::map<UriWrapper, size_t> dependencies_;
   std::set<UriWrapper> dependenciesSet_;
 
   LinkedSchema(const UnresolvedSchema& unresolvedSchema)

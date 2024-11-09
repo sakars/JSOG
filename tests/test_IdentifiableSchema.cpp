@@ -27,16 +27,14 @@ TEST_CASE("IdentifiableSchema") {
     linkedSchemas[1]->dependenciesSet_.insert(
         baseUri.withPointer(pointer / "properties" / "a"));
     linkedSchemas[1]->dependencies_.insert(
-        {baseUri.withPointer(pointer / "properties" / "a"), *linkedSchemas[0]});
+        {baseUri.withPointer(pointer / "properties" / "a"), 0});
     auto identifiableSchemas =
         IdentifiableSchema::transition(std::move(linkedSchemas));
     REQUIRE(identifiableSchemas.size() == 2);
     REQUIRE(identifiableSchemas[1]->dependencies_.contains(
         baseUri.withPointer(pointer / "properties" / "a")));
-    REQUIRE(&identifiableSchemas[1]
-                 ->dependencies_
-                 .at(baseUri.withPointer(pointer / "properties" / "a"))
-                 .get() == identifiableSchemas[0].get());
+    REQUIRE(identifiableSchemas[1]->dependencies_.at(
+                baseUri.withPointer(pointer / "properties" / "a")) == 0);
     // Identifiers are unique
 
     REQUIRE(identifiableSchemas[1]->identifier_ !=

@@ -11,6 +11,7 @@ template <typename K, typename V> class SetMap {
   std::set<std::unique_ptr<V>> set;
 
 public:
+  const std::set<std::unique_ptr<V>>& getSet() const { return set; }
   class iterator {
     friend class SetMap;
     using InternalIterator = std::set<std::unique_ptr<V>>::iterator;

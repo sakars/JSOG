@@ -57,40 +57,42 @@ public:
 
   // Array properties
   /// @brief The first items in the array
-  std::optional<std::vector<std::reference_wrapper<SyncedSchema>>>
+  std::optional<std::vector<std::reference_wrapper<const SyncedSchema>>>
       tupleableItems_;
   /// @brief The object that matches non-tupleable items in the array
-  std::reference_wrapper<const SyncedSchema> items_ = std::ref(*this);
+  std::reference_wrapper<const SyncedSchema> items_;
   std::optional<size_t> maxItems_;
   std::optional<size_t> minItems_;
   std::optional<bool> uniqueItems_;
-  std::optional<std::reference_wrapper<SyncedSchema>> contains_;
+  std::optional<std::reference_wrapper<const SyncedSchema>> contains_;
 
   // Object initialization properties
   std::optional<size_t> maxProperties_;
   std::optional<size_t> minProperties_;
   std::optional<std::set<std::string>> required_;
-  std::map<std::string, std::reference_wrapper<SyncedSchema>> properties_;
-  std::optional<std::map<std::string, std::reference_wrapper<SyncedSchema>>>
+  std::map<std::string, std::reference_wrapper<const SyncedSchema>> properties_;
+  std::optional<
+      std::map<std::string, std::reference_wrapper<const SyncedSchema>>>
       patternProperties_;
-  std::optional<std::reference_wrapper<SyncedSchema>> additionalProperties_;
+  std::reference_wrapper<const SyncedSchema> additionalProperties_;
 
   std::optional<std::map<std::string, std::vector<std::string>>>
       propertyDependencies_;
-  std::optional<std::map<std::string, std::reference_wrapper<SyncedSchema>>>
+  std::optional<
+      std::map<std::string, std::reference_wrapper<const SyncedSchema>>>
       schemaDependencies_;
 
-  std::optional<std::reference_wrapper<SyncedSchema>> propertyNames_;
+  std::optional<std::reference_wrapper<const SyncedSchema>> propertyNames_;
 
   // Conditional properties
-  std::optional<std::reference_wrapper<SyncedSchema>> if_;
-  std::optional<std::reference_wrapper<SyncedSchema>> then_;
-  std::optional<std::reference_wrapper<SyncedSchema>> else_;
+  std::optional<std::reference_wrapper<const SyncedSchema>> if_;
+  std::optional<std::reference_wrapper<const SyncedSchema>> then_;
+  std::optional<std::reference_wrapper<const SyncedSchema>> else_;
 
-  std::optional<std::vector<std::reference_wrapper<SyncedSchema>>> allOf_;
-  std::optional<std::vector<std::reference_wrapper<SyncedSchema>>> anyOf_;
-  std::optional<std::vector<std::reference_wrapper<SyncedSchema>>> oneOf_;
-  std::optional<std::reference_wrapper<SyncedSchema>> not_;
+  std::optional<std::vector<std::reference_wrapper<const SyncedSchema>>> allOf_;
+  std::optional<std::vector<std::reference_wrapper<const SyncedSchema>>> anyOf_;
+  std::optional<std::vector<std::reference_wrapper<const SyncedSchema>>> oneOf_;
+  std::optional<std::reference_wrapper<const SyncedSchema>> not_;
 
   enum class Format {
     DateTime,
@@ -121,14 +123,15 @@ public:
   std::optional<std::vector<nlohmann::json>> examples_;
 
   SyncedSchema(const std::string& identifier)
-      : identifier_(identifier), filename_(identifier) {
-    items_ = std::ref(getTrueSchema());
-  }
+      : identifier_(identifier), filename_(identifier), items_(getTrueSchema()),
+        additionalProperties_(getTrueSchema()) {}
 
 private:
   /// @brief Private constructor to create default schemas
   /// without causing undefined behavior
-  SyncedSchema() : identifier_(""), filename_("") {}
+  SyncedSchema()
+      : identifier_(""), filename_(""), items_(*this),
+        additionalProperties_(*this) {}
 
 public:
   /// @brief Generates the declaration of the schema
@@ -154,6 +157,8 @@ public:
 
   static const SyncedSchema& getTrueSchema() {
     static SyncedSchema schema;
+    schema.identifier_ = "True";
+    schema.filename_ = "True";
     schema.definedAsBooleanSchema_ = true;
     return schema;
   }

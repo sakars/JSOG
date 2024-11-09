@@ -8,6 +8,7 @@ class CodeBlock {
   struct _Inc_Ty {};
   struct _Dec_ty {};
   struct _Discard_Ty {};
+
   std::vector<std::variant<std::string, _Inc_Ty, _Dec_ty, _Discard_Ty>> lines;
 
 public:
@@ -118,4 +119,9 @@ public:
   //   } while (!blockStack.empty());
   //   return out.str();
   // }
+};
+struct Indent {
+  CodeBlock& block;
+  Indent(CodeBlock& block) : block(block) { block << CodeBlock::inc; }
+  ~Indent() { block << CodeBlock::dec; }
 };

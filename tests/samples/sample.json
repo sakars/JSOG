@@ -1,0 +1,168 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://example.com/product.schema.json",
+  "title": "Product",
+  "type": "object",
+  "required": ["id", "name", "price", "availability", "categories"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the product",
+      "pattern": "^[A-Z0-9]{8,12}$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Name of the product",
+      "minLength": 3,
+      "maxLength": 100
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of the product",
+      "maxLength": 1000
+    },
+    "price": {
+      "type": "object",
+      "description": "Pricing details",
+      "required": ["currency", "amount"],
+      "properties": {
+        "currency": {
+          "type": "string",
+          "enum": ["USD", "EUR", "GBP", "JPY"],
+          "description": "Currency code for the price"
+        },
+        "amount": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Price amount in specified currency"
+        },
+        "discount": {
+          "type": "object",
+          "description": "Discount details if applicable",
+          "properties": {
+            "percentage": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Discount percentage"
+            },
+            "valid_until": {
+              "type": "string",
+              "format": "date",
+              "description": "Date until discount is valid"
+            }
+          },
+          "required": ["percentage"]
+        }
+      }
+    },
+    "availability": {
+      "type": "string",
+      "description": "Availability status of the product",
+      "enum": ["in_stock", "out_of_stock", "preorder"]
+    },
+    "dimensions": {
+      "type": "object",
+      "description": "Physical dimensions of the product",
+      "properties": {
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Weight in kilograms"
+        },
+        "length": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Length in centimeters"
+        },
+        "width": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Width in centimeters"
+        },
+        "height": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Height in centimeters"
+        }
+      }
+    },
+    "images": {
+      "type": "array",
+      "description": "List of product images",
+      "items": {
+        "type": "object",
+        "required": ["url", "alt"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL of the image"
+          },
+          "alt": {
+            "type": "string",
+            "description": "Alt text for the image",
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    "categories": {
+      "type": "array",
+      "description": "Categories the product belongs to",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "description": "Category name"
+      }
+    },
+    "specifications": {
+      "type": "object",
+      "description": "Technical specifications of the product",
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Model number or identifier"
+        },
+        "manufacturer": {
+          "type": "string",
+          "description": "Name of the manufacturer"
+        },
+        "warranty": {
+          "type": "string",
+          "description": "Warranty period for the product"
+        }
+      }
+    },
+    "reviews": {
+      "type": "array",
+      "description": "Customer reviews of the product",
+      "items": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "User who provided the review"
+          },
+          "rating": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "Rating given by the user (1-5)"
+          },
+          "comment": {
+            "type": "string",
+            "description": "Review comment",
+            "maxLength": 500
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date of the review"
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

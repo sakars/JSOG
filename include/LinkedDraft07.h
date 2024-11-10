@@ -24,7 +24,7 @@ public:
     }
     if (json_.get().contains("items")) {
       auto items = json_.get().at("items");
-      if (items.is_object()) {
+      if (items.is_object() || items.is_boolean()) {
         auto itemPointer = pointer / "items";
         auto itemUri = baseUri_.withPointer(itemPointer);
         dependencies.insert(itemUri);
@@ -46,7 +46,8 @@ public:
     }
     if (json_.get().contains("additionalProperties")) {
       auto additionalProperties = json_.get().at("additionalProperties");
-      if (additionalProperties.is_object()) {
+      if (additionalProperties.is_object() ||
+          additionalProperties.is_boolean()) {
         auto additionalPropertiesPointer = pointer / "additionalProperties";
         auto additionalPropertiesUri =
             baseUri_.withPointer(additionalPropertiesPointer);
@@ -81,18 +82,21 @@ public:
       auto containsUri = baseUri_.withPointer(containsPointer);
       dependencies.insert(containsUri);
     }
-    if (json_.get().contains("const")) {
-      auto constValue = json_.get().at("const");
-      auto constPointer = pointer / "const";
-      auto constUri = baseUri_.withPointer(constPointer);
-      dependencies.insert(constUri);
-    }
-    if (json_.get().contains("enum")) {
-      auto enumValue = json_.get().at("enum");
-      auto enumPointer = pointer / "enum";
-      auto enumUri = baseUri_.withPointer(enumPointer);
-      dependencies.insert(enumUri);
-    }
+    // Note: These 2 aren't actually schemas so no reason to add them as
+    // dependencies
+
+    // if (json_.get().contains("const")) {
+    //   auto constValue = json_.get().at("const");
+    //   auto constPointer = pointer / "const";
+    //   auto constUri = baseUri_.withPointer(constPointer);
+    //   dependencies.insert(constUri);
+    // }
+    // if (json_.get().contains("enum")) {
+    //   auto enumValue = json_.get().at("enum");
+    //   auto enumPointer = pointer / "enum";
+    //   auto enumUri = baseUri_.withPointer(enumPointer);
+    //   dependencies.insert(enumUri);
+    // }
     if (json_.get().contains("not")) {
       auto notValue = json_.get().at("not");
       auto notPointer = pointer / "not";

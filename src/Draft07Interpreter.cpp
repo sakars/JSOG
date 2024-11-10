@@ -1,4 +1,5 @@
 #include "Draft07Interpreter.h"
+#include <stdexcept>
 
 IndexedSyncedSchema interpretDraft07IdentifiableSchema(
     const IdentifiableSchema& identifiableSchema) {
@@ -6,8 +7,25 @@ IndexedSyncedSchema interpretDraft07IdentifiableSchema(
 
   const auto relUriToDependency = [&](const std::string& relUri) {
     UriWrapper uri(relUri);
-    uri.normalize();
     UriWrapper uriApplied = UriWrapper::applyUri(base, uri);
+    uriApplied.normalize();
+    if (!identifiableSchema.dependencies_.contains(uriApplied)) {
+      std::cerr << "base: " << base.toString().value() << std::endl;
+      std::cerr << "uri: " << uri.toString().value() << std::endl;
+      std::cerr << "relUri: " << relUri << std::endl;
+      std::cerr << "uriApplied: " << uriApplied.toString().value() << std::endl
+                << std::endl;
+      for (const auto& [uri, idx] : identifiableSchema.dependencies_) {
+        std::cerr << std::format("{}: {}",
+                                 uri.toString().value_or("INVALID_URI"), idx)
+                  << std::endl;
+      }
+      throw std::runtime_error(std::format(
+          "{} dependency missing from {}", uriApplied.toString().value(),
+          identifiableSchema.baseUri_.withPointer(identifiableSchema.pointer_)
+              .toString()
+              .value()));
+    }
     return identifiableSchema.dependencies_.at(uriApplied);
   };
 

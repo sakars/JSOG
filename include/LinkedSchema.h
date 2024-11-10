@@ -53,6 +53,31 @@ public:
     }
     return "Schema";
   }
+
+  static void dumpSchemas(std::vector<std::unique_ptr<LinkedSchema>>& schemas) {
+
+    auto linkedDump = nlohmann::json::object();
+    for (const auto& lSchema : schemas) {
+      auto& uriDump = linkedDump[lSchema.get()->baseUri_.toString().value()];
+      auto& ptrDump = uriDump[lSchema.get()->pointer_.toFragment()];
+      ptrDump["depset"] = nlohmann::json::array();
+      for (const auto& dep : lSchema.get()->dependenciesSet_) {
+        ptrDump["depset"].push_back(dep.toString().value());
+      }
+      ptrDump["deps"] = nlohmann::json::object();
+      for (const auto& [uri, idx] : lSchema.get()->dependencies_) {
+        const auto idxSchema = schemas[idx].get();
+        ptrDump["deps"][uri.toString().value()] =
+            idxSchema->baseUri_.withPointer(idxSchema->pointer_)
+                .toString()
+                .value();
+      }
+    }
+
+    std::ofstream linkedDumpFile("linked.dump.json");
+    linkedDumpFile << linkedDump.dump(2);
+    linkedDumpFile.close();
+  }
 };
 
 std::unique_ptr<LinkedSchema> construct(const UnresolvedSchema& schema);

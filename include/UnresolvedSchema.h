@@ -32,11 +32,12 @@ private:
   void addChildItemToMap(SetMap<UriWrapper, UnresolvedSchema>& setMap,
                          std::set<UriWrapper> refs, std::string key,
                          const nlohmann::json& value) {
-    if (!(value.is_object() || value.is_array())) {
+    if (!(value.is_object() || value.is_array() || value.is_boolean())) {
       return;
     }
     std::set<UriWrapper> childRefs;
     for (auto childRef : refs) {
+      childRef.normalize();
       JSONPointer childPointer =
           JSONPointer::fromURIString(childRef.getFragment().value_or("")) / key;
       childRef.setFragment(childPointer.toFragment(false), false);
@@ -105,6 +106,24 @@ public:
       schema.recursiveAddToMap(setMap, refs);
     }
     return setMap;
+  }
+
+  static void
+  dumpSchemas(SetMap<UriWrapper, UnresolvedSchema>& unresolvedSchemas) {
+    nlohmann::json unresolvedSchemaDump = nlohmann::json::object();
+    for (const auto& [uris, schema] : unresolvedSchemas) {
+      auto& baseUriList =
+          unresolvedSchemaDump[schema.get().baseUri_.toString().value()];
+      baseUriList[schema.get().pointer_.toFragment()] = nlohmann::json::array();
+      for (const auto& uri : uris.get()) {
+        baseUriList[schema.get().pointer_.toFragment()].push_back(
+            nlohmann::json::array({uri.toFragmentlessString().value_or(""),
+                                   uri.getFragment().value_or("")}));
+      }
+    }
+    std::ofstream unresolvedDump("unresolved.dump.json");
+    unresolvedDump << unresolvedSchemaDump.dump(2);
+    unresolvedDump.close();
   }
 };
 

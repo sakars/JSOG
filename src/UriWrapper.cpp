@@ -76,7 +76,6 @@ UriWrapper::UriWrapper(const std::string& str) {
     std::cerr << error;
     throw std::invalid_argument(error);
   }
-
   uriMakeOwnerA(uri_.get());
 }
 
@@ -126,7 +125,21 @@ std::optional<std::string> UriWrapper::toString() const noexcept {
     return std::nullopt;
   }
 
-  return std::string(uriString.data());
+  auto str = std::string(uriString.data());
+  auto hashPos = str.find('#');
+
+  std::string strWithEscapedFragmentSlashes =
+      hashPos != std::string::npos ? str.substr(0, hashPos + 1) : str;
+  if (hashPos != std::string::npos) {
+    for (auto& c : str.substr(hashPos + 1)) {
+      if (c == '/') {
+        strWithEscapedFragmentSlashes += "%2F";
+      } else {
+        strWithEscapedFragmentSlashes += c;
+      }
+    }
+  }
+  return strWithEscapedFragmentSlashes;
 }
 
 std::optional<std::string> UriWrapper::toFragmentlessString() const {
@@ -235,7 +248,7 @@ void UriWrapper::setPointer(const JSONPointer& pointer) {
   if (!uri_) {
     return;
   }
-  setFragment(pointer.toFragment(), true);
+  setFragment(pointer.toFragment(false), false);
 }
 
 UriWrapper UriWrapper::withPointer(const JSONPointer& pointer) const {

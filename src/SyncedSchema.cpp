@@ -733,6 +733,7 @@ SyncedSchema::resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas) {
   for (auto& schema : schemas) {
     std::unique_ptr<SyncedSchema> syncedSchema =
         std::make_unique<SyncedSchema>(schema.identifier_);
+    syncedSchemas.emplace_back(std::move(syncedSchema));
   }
   for (size_t i = 0; i < schemas.size(); i++) {
     auto& schema = schemas[i];

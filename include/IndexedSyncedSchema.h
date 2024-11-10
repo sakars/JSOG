@@ -1,3 +1,6 @@
+#ifndef INDEXED_SYNCED_SCHEMA_H
+#define INDEXED_SYNCED_SCHEMA_H
+
 #include <map>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -74,4 +77,8 @@ public:
   std::optional<bool> readOnly_;
   std::optional<bool> writeOnly_;
   std::optional<std::vector<nlohmann::json>> examples_;
+  static void
+  dumpSchemas(const std::vector<IndexedSyncedSchema>& indexedSyncedSchemas);
 };
+
+#endif // INDEXED_SYNCED_SCHEMA_H

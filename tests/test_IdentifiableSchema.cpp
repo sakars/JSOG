@@ -31,16 +31,16 @@ TEST_CASE("IdentifiableSchema") {
     auto identifiableSchemas =
         IdentifiableSchema::transition(std::move(linkedSchemas));
     REQUIRE(identifiableSchemas.size() == 2);
-    REQUIRE(identifiableSchemas[1]->dependencies_.contains(
+    REQUIRE(identifiableSchemas[1].dependencies_.contains(
         baseUri.withPointer(pointer / "properties" / "a")));
-    REQUIRE(identifiableSchemas[1]->dependencies_.at(
+    REQUIRE(identifiableSchemas[1].dependencies_.at(
                 baseUri.withPointer(pointer / "properties" / "a")) == 0);
     // Identifiers are unique
 
-    REQUIRE(identifiableSchemas[1]->identifier_ !=
-            identifiableSchemas[0]->identifier_);
+    REQUIRE(identifiableSchemas[1].identifier_ !=
+            identifiableSchemas[0].identifier_);
 
-    REQUIRE(identifiableSchemas[0]->identifier_ == "Schema");
-    REQUIRE(identifiableSchemas[1]->identifier_ == "Schema0");
+    REQUIRE(identifiableSchemas[0].identifier_ == "Schema");
+    REQUIRE(identifiableSchemas[1].identifier_ == "Schema0");
   }
 }

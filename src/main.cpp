@@ -1,4 +1,12 @@
+#include "Document.h"
+#include "Draft07Interpreter.h"
+#include "DraftInterpreter.h"
+#include "DraftRecognisedDocument.h"
+#include "IdentifiableSchema.h"
+#include "IndexedSyncedSchema.h"
+#include "LinkedSchema.h"
 #include "SyncedSchema.h"
+#include "UnresolvedSchema.h"
 #include "UriWrapper.h"
 #include <fstream>
 #include <iostream>
@@ -21,75 +29,110 @@
 // 9. Header and Source files are generated for each SyncedSchema.
 
 int main() {
-  SyncedSchema subschemaS("Subs");
-  SyncedSchema subschema1("Sub1");
-  subschemaS.ref_ = std::ref(subschema1);
-  subschema1.properties_.emplace("a", std::ref(subschemaS));
-  subschema1.properties_.emplace("b", std::ref(subschemaS));
-  subschema1.required_ = {"a"};
-  subschema1.minProperties_ = 1;
-  subschema1.maxProperties_ = 4;
-  subschema1.default_ = "{\"a\": true}"_json;
-  SyncedSchema subschema2("Sub2");
-  subschema2.type_ = {IndexedSyncedSchema::Type::Boolean};
-  SyncedSchema subschema3("Sub3");
-  // subschema3.type_ = {SyncedSchema::Type::Number};
-  SyncedSchema schema("Test");
+  std::filesystem::path path = "./samples/sample.json";
+  Document doc(path);
+  DraftRecognisedDocument draftDoc(std::move(doc));
+  std::vector<DraftRecognisedDocument> draftDocs{std::move(draftDoc)};
+  auto unresolvedSchemas = UnresolvedSchema::generateSetMap(draftDocs);
 
-  schema.type_ = std::set<IndexedSyncedSchema::Type>();
-  schema.type_->insert(IndexedSyncedSchema::Type::Object);
-  schema.type_->insert(IndexedSyncedSchema::Type::Array);
-  schema.type_->insert(IndexedSyncedSchema::Type::Integer);
-  schema.tupleableItems_ = {std::ref(subschema1), std::ref(subschema2)};
-  schema.items_ = std::ref(subschema3);
-  schema.properties_.emplace("test", std::ref(subschemaS));
-  schema.const_ = R"(
-{
-  "test": "test",
-  "test2": "test2",
-  "test3": [1, 2, 3],
-  "test4": {
-    "test5": "test5"
+  UnresolvedSchema::dumpSchemas(unresolvedSchemas);
+
+  auto linkedSchemas = resolveDependencies(
+      std::move(unresolvedSchemas), {"http://example.com/product.schema.json"});
+
+  LinkedSchema::dumpSchemas(linkedSchemas);
+
+  auto identifiableSchemas =
+      IdentifiableSchema::transition(std::move(linkedSchemas));
+
+  IdentifiableSchema::dumpSchemas(identifiableSchemas);
+
+  auto indexedSyncedSchemas = interpretSchemas(identifiableSchemas);
+
+  IndexedSyncedSchema::dumpSchemas(indexedSyncedSchemas);
+
+  auto syncedSchemas =
+      SyncedSchema::resolveIndexedSchema(std::move(indexedSyncedSchemas));
+
+  for (auto& schema : syncedSchemas) {
+    std::filesystem::create_directory("./schemas");
+    std::ofstream header("./schemas/" + schema->getHeaderFileName());
+    header << schema->generateDeclaration().str();
+    header.close();
+    std::ofstream source("./schemas/" + schema->getSourceFileName());
+    source << schema->generateDefinition().str();
+    source.close();
   }
-})"_json;
 
-  std::ofstream header(schema.getHeaderFileName());
-  header << schema.generateDeclaration().str();
-  header.close();
-  std::ofstream source(schema.getSourceFileName());
-  source << schema.generateDefinition().str();
-  source.close();
-  std::ofstream sub1header(subschema1.getHeaderFileName());
-  sub1header << subschema1.generateDeclaration().str();
-  sub1header.close();
-  std::ofstream sub1source(subschema1.getSourceFileName());
-  sub1source << subschema1.generateDefinition().str();
-  sub1source.close();
-  std::ofstream sub2header(subschema2.getHeaderFileName());
-  sub2header << subschema2.generateDeclaration().str();
-  sub2header.close();
-  std::ofstream sub2source(subschema2.getSourceFileName());
-  sub2source << subschema2.generateDefinition().str();
-  sub2source.close();
-  std::ofstream sub3header(subschema3.getHeaderFileName());
-  sub3header << subschema3.generateDeclaration().str();
-  sub3header.close();
-  std::ofstream sub3source(subschema3.getSourceFileName());
-  sub3source << subschema3.generateDefinition().str();
-  sub3source.close();
-  std::ofstream subsheader(subschemaS.getHeaderFileName());
-  subsheader << subschemaS.generateDeclaration().str();
-  subsheader.close();
-  std::ofstream subssource(subschemaS.getSourceFileName());
-  subssource << subschemaS.generateDefinition().str();
-  subssource.close();
-  const SyncedSchema& true_ = SyncedSchema::getTrueSchema();
-  std::ofstream trueheader(true_.getHeaderFileName());
-  trueheader << true_.generateDeclaration().str();
-  trueheader.close();
-  std::ofstream truesource(true_.getSourceFileName());
-  truesource << true_.generateDefinition().str();
-  truesource.close();
+  //   SyncedSchema subschemaS("Subs");
+  //   SyncedSchema subschema1("Sub1");
+  //   subschemaS.ref_ = std::ref(subschema1);
+  //   subschema1.properties_.emplace("a", std::ref(subschemaS));
+  //   subschema1.properties_.emplace("b", std::ref(subschemaS));
+  //   subschema1.required_ = {"a"};
+  //   subschema1.minProperties_ = 1;
+  //   subschema1.maxProperties_ = 4;
+  //   subschema1.default_ = "{\"a\": true}"_json;
+  //   SyncedSchema subschema2("Sub2");
+  //   subschema2.type_ = {IndexedSyncedSchema::Type::Boolean};
+  //   SyncedSchema subschema3("Sub3");
+  //   // subschema3.type_ = {SyncedSchema::Type::Number};
+  //   SyncedSchema schema("Test");
+
+  //   schema.type_ = std::set<IndexedSyncedSchema::Type>();
+  //   schema.type_->insert(IndexedSyncedSchema::Type::Object);
+  //   schema.type_->insert(IndexedSyncedSchema::Type::Array);
+  //   schema.type_->insert(IndexedSyncedSchema::Type::Integer);
+  //   schema.tupleableItems_ = {std::ref(subschema1), std::ref(subschema2)};
+  //   schema.items_ = std::ref(subschema3);
+  //   schema.properties_.emplace("test", std::ref(subschemaS));
+  //   schema.const_ = R"(
+  // {
+  //   "test": "test",
+  //   "test2": "test2",
+  //   "test3": [1, 2, 3],
+  //   "test4": {
+  //     "test5": "test5"
+  //   }
+  // })"_json;
+
+  //   std::ofstream header(schema.getHeaderFileName());
+  //   header << schema.generateDeclaration().str();
+  //   header.close();
+  //   std::ofstream source(schema.getSourceFileName());
+  //   source << schema.generateDefinition().str();
+  //   source.close();
+  //   std::ofstream sub1header(subschema1.getHeaderFileName());
+  //   sub1header << subschema1.generateDeclaration().str();
+  //   sub1header.close();
+  //   std::ofstream sub1source(subschema1.getSourceFileName());
+  //   sub1source << subschema1.generateDefinition().str();
+  //   sub1source.close();
+  //   std::ofstream sub2header(subschema2.getHeaderFileName());
+  //   sub2header << subschema2.generateDeclaration().str();
+  //   sub2header.close();
+  //   std::ofstream sub2source(subschema2.getSourceFileName());
+  //   sub2source << subschema2.generateDefinition().str();
+  //   sub2source.close();
+  //   std::ofstream sub3header(subschema3.getHeaderFileName());
+  //   sub3header << subschema3.generateDeclaration().str();
+  //   sub3header.close();
+  //   std::ofstream sub3source(subschema3.getSourceFileName());
+  //   sub3source << subschema3.generateDefinition().str();
+  //   sub3source.close();
+  //   std::ofstream subsheader(subschemaS.getHeaderFileName());
+  //   subsheader << subschemaS.generateDeclaration().str();
+  //   subsheader.close();
+  //   std::ofstream subssource(subschemaS.getSourceFileName());
+  //   subssource << subschemaS.generateDefinition().str();
+  //   subssource.close();
+  //   const SyncedSchema& true_ = SyncedSchema::getTrueSchema();
+  //   std::ofstream trueheader(true_.getHeaderFileName());
+  //   trueheader << true_.generateDeclaration().str();
+  //   trueheader.close();
+  //   std::ofstream truesource(true_.getSourceFileName());
+  //   truesource << true_.generateDefinition().str();
+  //   truesource.close();
 
   //   nlohmann::json schema = R"(
   // {

@@ -34,8 +34,10 @@ RUN apt-get install -y \
 g++ \
 libboost-all-dev
 
+
 RUN apt-get install -y lcov
 
+RUN apt-get install -y clang-format
 
 # Build nlohmann/json
 WORKDIR /json

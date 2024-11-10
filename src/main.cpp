@@ -54,6 +54,8 @@ int main() {
   auto syncedSchemas =
       SyncedSchema::resolveIndexedSchema(std::move(indexedSyncedSchemas));
 
+  SyncedSchema::dumpSchemas(syncedSchemas);
+
   for (auto& schema : syncedSchemas) {
     std::filesystem::create_directory("./schemas");
     std::ofstream header("./schemas/" + schema->getHeaderFileName());

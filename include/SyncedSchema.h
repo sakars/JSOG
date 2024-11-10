@@ -146,4 +146,6 @@ public:
 
   static std::vector<std::unique_ptr<SyncedSchema>>
   resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas);
+
+  static void dumpSchemas(std::vector<std::unique_ptr<SyncedSchema>>& schemas);
 };

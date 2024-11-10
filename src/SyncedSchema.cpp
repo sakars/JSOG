@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <format>
+#include <fstream>
 #include <limits>
 
 #ifndef __FILE_NAME__
@@ -737,7 +738,7 @@ SyncedSchema::resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas) {
   }
   for (size_t i = 0; i < schemas.size(); i++) {
     auto& schema = schemas[i];
-    auto syncedSchema = *syncedSchemas[i];
+    auto& syncedSchema = *syncedSchemas[i];
     syncedSchema.definedAsBooleanSchema_ = schema.definedAsBooleanSchema_;
     if (schema.ref_.has_value()) {
       syncedSchema.ref_ = *syncedSchemas[schema.ref_.value()];
@@ -861,5 +862,187 @@ SyncedSchema::resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas) {
     syncedSchema.format_ = schema.format_;
     syncedSchema.default_ = schema.default_;
   }
+  syncedSchemas.emplace_back(std::make_unique<SyncedSchema>(getTrueSchema()));
   return syncedSchemas;
+}
+
+void SyncedSchema::dumpSchemas(
+    std::vector<std::unique_ptr<SyncedSchema>>& schemas) {
+  auto schemasDump = nlohmann::json::array();
+  for (const auto& schema : schemas) {
+    auto schemaDump = nlohmann::json::object();
+    schemaDump["identifier"] = schema->identifier_;
+    if (schema->definedAsBooleanSchema_.has_value()) {
+      schemaDump["definedAsBooleanSchema"] =
+          schema->definedAsBooleanSchema_.value();
+    }
+    if (schema->ref_.has_value()) {
+      schemaDump["ref"] = schema->ref_.value().get().identifier_;
+    }
+    if (schema->type_.has_value()) {
+      auto typeDump = nlohmann::json::array();
+      for (const auto& type : schema->type_.value()) {
+        typeDump.push_back(static_cast<int>(type));
+      }
+      schemaDump["type"] = typeDump;
+    }
+    if (schema->enum_.has_value()) {
+      schemaDump["enum"] = schema->enum_.value();
+    }
+    if (schema->const_.has_value()) {
+      schemaDump["const"] = schema->const_.value();
+    }
+    if (schema->description_.has_value()) {
+      schemaDump["description"] = schema->description_.value();
+    }
+    if (schema->multipleOf_.has_value()) {
+      schemaDump["multipleOf"] = schema->multipleOf_.value();
+    }
+    if (schema->maximum_.has_value()) {
+      schemaDump["maximum"] = schema->maximum_.value();
+    }
+    if (schema->exclusiveMaximum_.has_value()) {
+      schemaDump["exclusiveMaximum"] = schema->exclusiveMaximum_.value();
+    }
+    if (schema->minimum_.has_value()) {
+      schemaDump["minimum"] = schema->minimum_.value();
+    }
+    if (schema->exclusiveMinimum_.has_value()) {
+      schemaDump["exclusiveMinimum"] = schema->exclusiveMinimum_.value();
+    }
+    if (schema->maxLength_.has_value()) {
+      schemaDump["maxLength"] = schema->maxLength_.value();
+    }
+    if (schema->minLength_.has_value()) {
+      schemaDump["minLength"] = schema->minLength_.value();
+    }
+    if (schema->pattern_.has_value()) {
+      schemaDump["pattern"] = schema->pattern_.value();
+    }
+    if (schema->tupleableItems_.has_value()) {
+      auto tupleableItemsDump = nlohmann::json::array();
+      for (auto& index : schema->tupleableItems_.value()) {
+        tupleableItemsDump.push_back(index.get().identifier_);
+      }
+      schemaDump["tupleableItems"] = tupleableItemsDump;
+    }
+    schemaDump["items"] = schema->items_.get().identifier_;
+
+    if (schema->maxItems_.has_value()) {
+      schemaDump["maxItems"] = schema->maxItems_.value();
+    }
+    if (schema->minItems_.has_value()) {
+      schemaDump["minItems"] = schema->minItems_.value();
+    }
+    if (schema->uniqueItems_.has_value()) {
+      schemaDump["uniqueItems"] = schema->uniqueItems_.value();
+    }
+    if (schema->contains_.has_value()) {
+      schemaDump["contains"] = schema->contains_.value().get().identifier_;
+    }
+    if (schema->maxProperties_.has_value()) {
+      schemaDump["maxProperties"] = schema->maxProperties_.value();
+    }
+    if (schema->minProperties_.has_value()) {
+      schemaDump["minProperties"] = schema->minProperties_.value();
+    }
+    if (schema->required_.has_value()) {
+      auto requiredDump = nlohmann::json::array();
+      for (const auto& required : schema->required_.value()) {
+        requiredDump.push_back(required);
+      }
+      schemaDump["required"] = requiredDump;
+    }
+    auto propertiesDump = nlohmann::json::object();
+    for (const auto& [propertyName, index] : schema->properties_) {
+      propertiesDump[propertyName] = index.get().identifier_;
+    }
+    schemaDump["properties"] = propertiesDump;
+    if (schema->patternProperties_.has_value()) {
+      auto patternPropertiesDump = nlohmann::json::object();
+      for (const auto& [pattern, index] : schema->patternProperties_.value()) {
+        patternPropertiesDump[pattern] = index.get().identifier_;
+      }
+      schemaDump["patternProperties"] = patternPropertiesDump;
+    }
+    schemaDump["additionalProperties"] =
+        schema->additionalProperties_.get().identifier_;
+    if (schema->propertyDependencies_.has_value()) {
+      auto propertyDependenciesDump = nlohmann::json::object();
+      for (const auto& [propertyName, index] :
+           schema->propertyDependencies_.value()) {
+
+        propertyDependenciesDump[propertyName] = nlohmann::json::array();
+        for (const auto& dependency : index) {
+          propertyDependenciesDump[propertyName].push_back(dependency);
+        }
+      }
+    }
+    if (schema->propertyDependencies_.has_value()) {
+      auto propertyDependenciesDump = nlohmann::json::object();
+      for (const auto& [propertyName, index] :
+           schema->propertyDependencies_.value()) {
+        propertyDependenciesDump[propertyName] = nlohmann::json::array();
+        for (const auto& dependency : index) {
+          propertyDependenciesDump[propertyName].push_back(dependency);
+        }
+      }
+      schemaDump["propertyDependencies"] = propertyDependenciesDump;
+    }
+    if (schema->schemaDependencies_.has_value()) {
+      auto schemaDependenciesDump = nlohmann::json::object();
+      for (const auto& [propertyName, index] :
+           schema->schemaDependencies_.value()) {
+        schemaDependenciesDump[propertyName] = index.get().identifier_;
+      }
+      schemaDump["schemaDependencies"] = schemaDependenciesDump;
+    }
+    if (schema->propertyNames_.has_value()) {
+      schemaDump["propertyNames"] =
+          schema->propertyNames_.value().get().identifier_;
+    }
+    if (schema->if_.has_value()) {
+      schemaDump["if"] = schema->if_.value().get().identifier_;
+    }
+    if (schema->then_.has_value()) {
+      schemaDump["then"] = schema->then_.value().get().identifier_;
+    }
+    if (schema->else_.has_value()) {
+      schemaDump["else"] = schema->else_.value().get().identifier_;
+    }
+    if (schema->allOf_.has_value()) {
+      auto allOfDump = nlohmann::json::array();
+      for (const auto& index : schema->allOf_.value()) {
+        allOfDump.push_back(index.get().identifier_);
+      }
+      schemaDump["allOf"] = allOfDump;
+    }
+    if (schema->anyOf_.has_value()) {
+      auto anyOfDump = nlohmann::json::array();
+      for (const auto& index : schema->anyOf_.value()) {
+        anyOfDump.push_back(index.get().identifier_);
+      }
+      schemaDump["anyOf"] = anyOfDump;
+    }
+    if (schema->oneOf_.has_value()) {
+      auto oneOfDump = nlohmann::json::array();
+      for (const auto& index : schema->oneOf_.value()) {
+        oneOfDump.push_back(index.get().identifier_);
+      }
+      schemaDump["oneOf"] = oneOfDump;
+    }
+    if (schema->not_.has_value()) {
+      schemaDump["not"] = schema->not_.value().get().identifier_;
+    }
+    if (schema->format_.has_value()) {
+      schemaDump["format"] = static_cast<size_t>(schema->format_.value());
+    }
+    if (schema->default_.has_value()) {
+      schemaDump["default"] = schema->default_.value();
+    }
+    schemasDump.push_back(schemaDump);
+  }
+  std::ofstream ofs("synced.dump.json");
+  ofs << schemasDump.dump(2);
+  ofs.close();
 }

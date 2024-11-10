@@ -131,6 +131,8 @@ JSONPointer::splitFragment(const std::string& fragment) {
 }
 
 std::string JSONPointer::escapeURI(const std::string& fragment) {
+  if (fragment.empty())
+    return "";
   static const std::map<char, std::string> uriEscapeMap = {
       {'#', "%23"}, {'%', "%25"},  {'?', "%3F"}, {'&', "%26"}, {'=', "%3D"},
       {'"', "%22"}, {'\'', "%27"}, {'<', "%3C"}, {'>', "%3E"}, {'\\', "%5C"},

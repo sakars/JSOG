@@ -85,11 +85,11 @@ class UriWrapper:
 
 def uri_struct_printer(val):
     try:
-        if str(val.type) == 'UriUriStructA *':
+        if str(val.type) == 'UriUriStructA *' and val:
             return UriUriStructA(val.dereference())
         if str(val.type) == 'UriUriStructA':
             return UriUriStructA(val)
-        if str(val.type) == 'UriTextRangeA *':
+        if str(val.type) == 'UriTextRangeA *' and val:
             return TextRange(val.dereference())
         if str(val.type) == 'UriTextRangeA':
             return TextRange(val)

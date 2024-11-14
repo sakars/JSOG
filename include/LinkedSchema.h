@@ -1,5 +1,5 @@
-#ifndef BUILDABLESCHEMA_H
-#define BUILDABLESCHEMA_H
+#ifndef LINKED_SCHEMA_H
+#define LINKED_SCHEMA_H
 
 #include "DraftRecognisedDocument.h"
 #include "JSONPointer.h"
@@ -23,22 +23,27 @@ public:
   Draft draft_;
 
   std::map<UriWrapper, size_t> dependencies_;
-  std::set<UriWrapper> dependenciesSet_;
 
-  LinkedSchema(const UnresolvedSchema& unresolvedSchema)
+  LinkedSchema(const UnresolvedSchema& unresolvedSchema,
+               std::map<UriWrapper, size_t>& dependencies)
       : json_(unresolvedSchema.json_), baseUri_(unresolvedSchema.baseUri_),
-        pointer_(unresolvedSchema.pointer_), draft_(unresolvedSchema.draft_) {}
+        pointer_(unresolvedSchema.pointer_), draft_(unresolvedSchema.draft_),
+        dependencies_(dependencies) {}
+
+  LinkedSchema(const UnresolvedSchema& unresolvedSchema,
+               std::map<UriWrapper, size_t>&& dependencies)
+      : json_(unresolvedSchema.json_), baseUri_(unresolvedSchema.baseUri_),
+        pointer_(unresolvedSchema.pointer_), draft_(unresolvedSchema.draft_),
+        dependencies_(dependencies) {}
 
   LinkedSchema(const nlohmann::json& json, const UriWrapper& baseUri,
-               const JSONPointer& pointer, Draft draft)
-      : json_(json), baseUri_(baseUri), pointer_(pointer), draft_(draft) {}
-
-protected:
-  virtual std::set<UriWrapper> getDependencies() const = 0;
+               const JSONPointer& pointer, Draft draft,
+               std::map<UriWrapper, size_t> dependencies)
+      : json_(json), baseUri_(baseUri), pointer_(pointer), draft_(draft),
+        dependencies_(dependencies) {}
 
 public:
   LinkedSchema(const LinkedSchema&) = delete;
-  virtual ~LinkedSchema() = default;
 
   /// @brief Returns the preferred identifier for the schema.
   /// @return The preferred identifier for the schema.
@@ -60,10 +65,6 @@ public:
     for (const auto& lSchema : schemas) {
       auto& uriDump = linkedDump[lSchema.get()->baseUri_.toString().value()];
       auto& ptrDump = uriDump[lSchema.get()->pointer_.toFragment()];
-      ptrDump["depset"] = nlohmann::json::array();
-      for (const auto& dep : lSchema.get()->dependenciesSet_) {
-        ptrDump["depset"].push_back(dep.toString().value());
-      }
       ptrDump["deps"] = nlohmann::json::object();
       for (const auto& [uri, idx] : lSchema.get()->dependencies_) {
         const auto idxSchema = schemas[idx].get();
@@ -80,10 +81,15 @@ public:
   }
 };
 
-std::unique_ptr<LinkedSchema> construct(const UnresolvedSchema& schema);
+// std::unique_ptr<LinkedSchema> construct(const UnresolvedSchema& schema);
+
+extern std::map<Draft,
+                std::set<UriWrapper> (*)(const nlohmann::json&,
+                                         const UriWrapper&, const JSONPointer&)>
+    linkers;
 
 std::vector<std::unique_ptr<LinkedSchema>>
 resolveDependencies(SetMap<UriWrapper, UnresolvedSchema>&& setMap,
                     const std::set<UriWrapper>& requiredReferences);
 
-#endif // BUILDABLESCHEMA_H
+#endif // LINKED_SCHEMA_H

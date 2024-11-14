@@ -1,27 +1,28 @@
+#include "Draft07.h"
 #include "JSONPointer.h"
-#include "LinkedDraft07.h"
 #include "LinkedSchema.h"
 #include <catch2/catch_all.hpp>
 
 SCENARIO("Buildable Schema Draft07 constructs correct deps",
          "[Draft07][LinkedSchema]") {
+  // FAIL("Refactors needed");
   WHEN("Schema has a ref in properties") {
     nlohmann::json json = R"(
-{
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Core schema meta-schema",
-    "properties": {
-      "test": {
-        "#ref": "#"
+  {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Core schema meta-schema",
+      "properties": {
+        "test": {
+          "#ref": "#"
+        }
       }
-    }
-})"_json;
+  })"_json;
     UriWrapper fileUri("file://test.json");
     JSONPointer pointer;
     UnresolvedSchema schema(json, fileUri, pointer);
-    LinkedDraft07 buildable(schema);
+    LinkedSchema buildable(schema, std::map<UriWrapper, size_t>{});
     THEN("It is added to dependencies") {
-      auto deps = buildable.getDependencies();
+      auto deps = getDraft07Dependencies(json, fileUri, pointer);
       REQUIRE(deps.size() == 1);
       REQUIRE(deps.count(
                   fileUri.withPointer(pointer / "properties" / "test")) == 1);
@@ -30,24 +31,24 @@ SCENARIO("Buildable Schema Draft07 constructs correct deps",
 
   WHEN("Schema has an array of items") {
     nlohmann::json json = R"(
-{
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Core schema meta-schema",
-    "items": [
-      {
-        "$id": "http://example.com/root2.json"
-      },
-      {
-        "$id": "http://example.com/root3.json"
-      }
-    ]
-})"_json;
+  {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Core schema meta-schema",
+      "items": [
+        {
+          "$id": "http://example.com/root2.json"
+        },
+        {
+          "$id": "http://example.com/root3.json"
+        }
+      ]
+  })"_json;
     UriWrapper fileUri("file://test.json");
     JSONPointer pointer;
     UnresolvedSchema schema(json, fileUri, pointer);
-    LinkedDraft07 buildable(schema);
+    LinkedSchema buildable(schema, {});
     THEN("It is added to dependencies") {
-      auto deps = buildable.getDependencies();
+      auto deps = getDraft07Dependencies(json, fileUri, pointer);
       REQUIRE(deps.size() == 2);
       REQUIRE(deps.count(fileUri.withPointer(pointer / "items" / "0")) == 1);
       REQUIRE(deps.count(fileUri.withPointer(pointer / "items" / "1")) == 1);
@@ -56,21 +57,21 @@ SCENARIO("Buildable Schema Draft07 constructs correct deps",
 
   WHEN("Schema has an object of properties") {
     nlohmann::json json = R"(
-{
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Core schema meta-schema",
-    "properties": {
-      "test": {
-        "$id": "http://example.com/root2.json"
+  {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Core schema meta-schema",
+      "properties": {
+        "test": {
+          "$id": "http://example.com/root2.json"
+        }
       }
-    }
-})"_json;
+  })"_json;
     UriWrapper fileUri("file://test.json");
     JSONPointer pointer;
     UnresolvedSchema schema(json, fileUri, pointer);
-    LinkedDraft07 buildable(schema);
+    LinkedSchema buildable(schema, {});
     THEN("It is added to dependencies") {
-      auto deps = buildable.getDependencies();
+      auto deps = getDraft07Dependencies(json, fileUri, pointer);
       REQUIRE(deps.size() == 1);
       REQUIRE(deps.count(
                   fileUri.withPointer(pointer / "properties" / "test")) == 1);
@@ -79,19 +80,19 @@ SCENARIO("Buildable Schema Draft07 constructs correct deps",
 
   WHEN("Schema has additional properties") {
     nlohmann::json json = R"(
-{
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Core schema meta-schema",
-    "additionalProperties": {
-      "$id": "http://example.com/root2.json"
-    }
-})"_json;
+  {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Core schema meta-schema",
+      "additionalProperties": {
+        "$id": "http://example.com/root2.json"
+      }
+  })"_json;
     UriWrapper fileUri("file://test.json");
     JSONPointer pointer;
     UnresolvedSchema schema(json, fileUri, pointer);
-    LinkedDraft07 buildable(schema);
+    LinkedSchema buildable(schema, {});
     THEN("It is added to dependencies") {
-      auto deps = buildable.getDependencies();
+      auto deps = getDraft07Dependencies(json, fileUri, pointer);
       REQUIRE(deps.size() == 1);
       REQUIRE(deps.count(
                   fileUri.withPointer(pointer / "additionalProperties")) == 1);
@@ -133,7 +134,8 @@ SCENARIO("Multi-file Draft07 reference resolution", "[Draft07][LinkedSchema]") {
     setMap.bulkInsert({fileUri2}, std::move(schema2));
 
     WHEN("Resolving the references") {
-      auto resolved = resolveDependencies(std::move(setMap), {fileUri1});
+      std::set<UriWrapper> refs{fileUri1};
+      auto resolved = resolveDependencies(std::move(setMap), refs);
       THEN("The reference is resolved") {
         REQUIRE(resolved.size() == 3);
         const auto arrayHasSchema = [&resolved](const UriWrapper& uri) {

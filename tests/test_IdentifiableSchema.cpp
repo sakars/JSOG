@@ -1,7 +1,7 @@
 #include <catch2/catch_all.hpp>
 
 #include "IdentifiableSchema.h"
-#include "LinkedDraft07.h"
+#include "LinkedSchema.h"
 #include "UriWrapper.h"
 
 TEST_CASE("IdentifiableSchema") {
@@ -20,14 +20,13 @@ TEST_CASE("IdentifiableSchema") {
     const JSONPointer pointer = JSONPointer();
     const Draft draft = Draft::DRAFT_07;
     std::vector<std::unique_ptr<LinkedSchema>> linkedSchemas;
-    linkedSchemas.push_back(std::make_unique<LinkedDraft07>(
-        json["properties"]["a"], baseUri, pointer / "properties" / "a", draft));
-    linkedSchemas.push_back(
-        std::make_unique<LinkedDraft07>(json, baseUri, pointer, draft));
-    linkedSchemas[1]->dependenciesSet_.insert(
-        baseUri.withPointer(pointer / "properties" / "a"));
-    linkedSchemas[1]->dependencies_.insert(
-        {baseUri.withPointer(pointer / "properties" / "a"), 0});
+    linkedSchemas.emplace_back(std::make_unique<LinkedSchema>(
+        json["properties"]["a"], baseUri, pointer / "properties" / "a", draft,
+        std::map<UriWrapper, size_t>{}));
+    linkedSchemas.emplace_back(std::make_unique<LinkedSchema>(
+        json, baseUri, pointer, draft,
+        std::map<UriWrapper, size_t>{
+            {baseUri.withPointer(pointer / "properties" / "a"), 0}}));
     auto identifiableSchemas =
         IdentifiableSchema::transition(std::move(linkedSchemas));
     REQUIRE(identifiableSchemas.size() == 2);

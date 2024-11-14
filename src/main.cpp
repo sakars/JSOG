@@ -23,7 +23,8 @@
 // version and outputs an IndexedSyncedSchema. Last point where both draft and
 // the json schema itself are used.
 // 7. IndexedSyncedSchema - Represents a schema that is ready to be generated
-// but links aren't connected directly yet.
+// but links aren't connected directly yet. This schema completely abstracts
+// the draft version.
 // 8. SyncedSchema - Represents a schema that is ready to be generated and
 // linked to other schemas directly.
 // 9. Header and Source files are generated for each SyncedSchema.

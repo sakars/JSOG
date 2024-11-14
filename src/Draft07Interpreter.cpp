@@ -1,4 +1,5 @@
 #include "Draft07Interpreter.h"
+#include <regex>
 #include <stdexcept>
 
 IndexedSyncedSchema interpretDraft07IdentifiableSchema(
@@ -345,4 +346,394 @@ IndexedSyncedSchema interpretDraft07IdentifiableSchema(
   }
 
   return indexedSyncedSchema;
+}
+
+std::vector<std::string>
+issuesWithDraft07Schema(const IdentifiableSchema& schema) {
+  const auto& baseUri = schema.baseUri_;
+  const auto& pointer = schema.pointer_;
+  const auto location = [&baseUri](const JSONPointer& pointer) {
+    return std::format("{} : {} :\t", baseUri.toString().value(),
+                       pointer.toString());
+  };
+  std::vector<std::string> issues;
+
+  const auto& json = schema.json_.get();
+  if (json.is_boolean()) {
+    return issues;
+  }
+
+  if (!json.is_object()) {
+    issues.push_back(std::format("{} Schema is not an object nor boolean",
+                                 location(pointer)));
+    return issues;
+  }
+
+  // Type
+  if (json.contains("type")) {
+    const auto& type = json.at("type");
+    if (type.is_string()) {
+      if (type != "null" && type != "boolean" && type != "object" &&
+          type != "array" && type != "number" && type != "string" &&
+          type != "integer") {
+        issues.push_back(std::format("{} Invalid type value: {}",
+                                     location(pointer / "type"),
+                                     type.get<std::string>()));
+      }
+    } else if (type.is_array()) {
+      for (size_t i = 0; i < type.size(); i++) {
+        const auto& typeValue = type.at(i);
+        if (typeValue != "null" && typeValue != "boolean" &&
+            typeValue != "object" && typeValue != "array" &&
+            typeValue != "number" && typeValue != "string" &&
+            typeValue != "integer") {
+          issues.push_back(
+              std::format("{} Invalid type value: {}",
+                          location(pointer / "type" / std::to_string(i)),
+                          typeValue.get<std::string>()));
+        }
+      }
+    } else {
+      issues.push_back(
+          std::format("{} Invalid type value: {}, expected string or array",
+                      location(pointer / "type"), type.dump()));
+    }
+  } else {
+    issues.push_back(
+        std::format("{} Warning: type not specified, defaulting to all types",
+                    location(pointer)));
+  }
+
+  // Enum
+  if (json.contains("enum")) {
+    const auto& enumValue = json.at("enum");
+    if (!enumValue.is_array()) {
+      issues.push_back(
+          std::format("{} Invalid type of property enum: {}, expected array",
+                      location(pointer / "enum"), enumValue.dump()));
+    }
+  }
+
+  // Const: no validation needed
+
+  // MultipleOf
+  if (json.contains("multipleOf")) {
+    const auto& multipleOf = json.at("multipleOf");
+    if (!multipleOf.is_number()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property multipleOf: {}, expected number",
+          location(pointer / "multipleOf"), multipleOf.dump()));
+    }
+  }
+
+  // Maximum
+  if (json.contains("maximum")) {
+    const auto& maximum = json.at("maximum");
+    if (!maximum.is_number()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property maximum: {}, expected number",
+          location(pointer / "maximum"), maximum.dump()));
+    }
+  }
+
+  // ExclusiveMaximum
+  if (json.contains("exclusiveMaximum")) {
+    const auto& exclusiveMaximum = json.at("exclusiveMaximum");
+    if (!exclusiveMaximum.is_boolean()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property exclusiveMaximum: {}, expected boolean",
+          location(pointer / "exclusiveMaximum"), exclusiveMaximum.dump()));
+    }
+  }
+
+  // Minimum
+  if (json.contains("minimum")) {
+    const auto& minimum = json.at("minimum");
+    if (!minimum.is_number()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property minimum: {}, expected number",
+          location(pointer / "minimum"), minimum.dump()));
+    }
+  }
+
+  // ExclusiveMinimum
+  if (json.contains("exclusiveMinimum")) {
+    const auto& exclusiveMinimum = json.at("exclusiveMinimum");
+    if (!exclusiveMinimum.is_boolean()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property exclusiveMinimum: {}, expected boolean",
+          location(pointer / "exclusiveMinimum"), exclusiveMinimum.dump()));
+    }
+  }
+
+  // MaxLength
+  if (json.contains("maxLength")) {
+    const auto& maxLength = json.at("maxLength");
+    if (!maxLength.is_number_integer()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property maxLength: {}, expected integer",
+          location(pointer / "maxLength"), maxLength.dump()));
+    }
+  }
+
+  // MinLength
+  if (json.contains("minLength")) {
+    const auto& minLength = json.at("minLength");
+    if (!minLength.is_number_integer()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property minLength: {}, expected integer",
+          location(pointer / "minLength"), minLength.dump()));
+    }
+  }
+
+  // Pattern
+  if (json.contains("pattern")) {
+    const auto& pattern = json.at("pattern");
+    if (!pattern.is_string()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property pattern: {}, expected string",
+          location(pointer / "pattern"), pattern.dump()));
+    }
+    // Check if pattern is a valid regex (ECMA 262)
+    try {
+      std::regex(pattern.get<std::string>(), std::regex_constants::ECMAScript);
+    } catch (const std::regex_error& e) {
+      issues.push_back(std::format("{} Invalid regex pattern: {}, error: {}",
+                                   location(pointer / "pattern"),
+                                   pattern.get<std::string>(), e.what()));
+    }
+  }
+
+  // Items
+  if (json.contains("items")) {
+    const auto& items = json.at("items");
+    if (!items.is_object() && !items.is_array()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property items: {}, expected object or array",
+          location(pointer / "items"), items.dump()));
+    }
+  }
+
+  // additionalItems: no validation needed as each schema validates only itself
+
+  // MaxItems
+  if (json.contains("maxItems")) {
+    const auto& maxItems = json.at("maxItems");
+    if (!maxItems.is_number_integer()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property maxItems: {}, expected integer",
+          location(pointer / "maxItems"), maxItems.dump()));
+    }
+    if (maxItems.get<long long>() < 0) {
+      issues.push_back(std::format(
+          "{} Invalid value of property maxItems: {}, expected non-negative",
+          location(pointer / "maxItems"), maxItems.get<long long>()));
+    }
+  }
+
+  // MinItems
+  if (json.contains("minItems")) {
+    const auto& minItems = json.at("minItems");
+    if (!minItems.is_number_integer()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property minItems: {}, expected integer",
+          location(pointer / "minItems"), minItems.dump()));
+    }
+    if (minItems.get<long long>() < 0) {
+      issues.push_back(std::format(
+          "{} Invalid value of property minItems: {}, expected non-negative",
+          location(pointer / "minItems"), minItems.get<long long>()));
+    }
+  }
+
+  // UniqueItems
+  if (json.contains("uniqueItems")) {
+    const auto& uniqueItems = json.at("uniqueItems");
+    if (!uniqueItems.is_boolean()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property uniqueItems: {}, expected boolean",
+          location(pointer / "uniqueItems"), uniqueItems.dump()));
+    }
+  }
+
+  // Contains: no validation needed as each schema validates only itself
+
+  // MaxProperties
+  if (json.contains("maxProperties")) {
+    const auto& maxProperties = json.at("maxProperties");
+    if (!maxProperties.is_number_integer()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property maxProperties: {}, expected integer",
+          location(pointer / "maxProperties"), maxProperties.dump()));
+    }
+    if (maxProperties.get<long long>() < 0) {
+      issues.push_back(std::format(
+          "{} Invalid value of property maxProperties: {}, expected "
+          "non-negative",
+          location(pointer / "maxProperties"), maxProperties.get<long long>()));
+    }
+  }
+
+  // MinProperties
+  if (json.contains("minProperties")) {
+    const auto& minProperties = json.at("minProperties");
+    if (!minProperties.is_number_integer()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property minProperties: {}, expected integer",
+          location(pointer / "minProperties"), minProperties.dump()));
+    }
+    if (minProperties.get<long long>() < 0) {
+      issues.push_back(std::format(
+          "{} Invalid value of property minProperties: {}, expected "
+          "non-negative",
+          location(pointer / "minProperties"), minProperties.get<long long>()));
+    }
+  }
+
+  // Required
+  if (json.contains("required")) {
+    const auto& required = json.at("required");
+    if (!required.is_array()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property required: {}, expected array",
+          location(pointer / "required"), required.dump()));
+    }
+    for (size_t i = 0; i < required.size(); i++) {
+      const auto& requiredItem = required.at(i);
+      if (!requiredItem.is_string()) {
+        issues.push_back(std::format(
+            "{} Invalid type of property required[{}]: {}, expected string",
+            location(pointer / "required" / std::to_string(i)), i,
+            requiredItem.dump()));
+      }
+    }
+  }
+
+  // Properties
+  if (json.contains("properties")) {
+    const auto& properties = json.at("properties");
+    if (!properties.is_object()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property properties: {}, expected object",
+          location(pointer / "properties"), properties.dump()));
+    }
+    // Object properties are schemas themselves, no need to validate here
+  }
+
+  // PatternProperties
+  if (json.contains("patternProperties")) {
+    const auto& patternProperties = json.at("patternProperties");
+    if (!patternProperties.is_object()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property patternProperties: {}, expected object",
+          location(pointer / "patternProperties"), patternProperties.dump()));
+    }
+    // Object properties are schemas themselves, no need to validate here
+    // But we do need to validate the keys as regex
+    for (const auto& [key, _] : patternProperties.items()) {
+      try {
+        std::regex(key, std::regex_constants::ECMAScript);
+      } catch (const std::regex_error& e) {
+        issues.push_back(std::format(
+            "{} Invalid regex pattern: {}, error: {}",
+            location(pointer / "patternProperties" / key), key, e.what()));
+      }
+    }
+  }
+
+  // AdditionalProperties: no validation needed as each schema validates only
+  // itself
+
+  // Dependencies
+  if (json.contains("dependencies")) {
+    const auto& dependencies = json.at("dependencies");
+    if (!dependencies.is_object()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property dependencies: {}, expected object",
+          location(pointer / "dependencies"), dependencies.dump()));
+    }
+    for (const auto& [key, value] : dependencies.items()) {
+      if (value.is_array()) {
+        for (size_t i = 0; i < value.size(); i++) {
+          const auto& dependency = value.at(i);
+          if (!dependency.is_string()) {
+            issues.push_back(std::format(
+                "{} Invalid type of property dependencies[{}][{}]: {}, "
+                "expected string",
+                location(pointer / "dependencies" / key / std::to_string(i)),
+                key, i, dependency.dump()));
+          }
+        }
+      }
+      // if the dependency is a schema, it will be validated by itself
+    }
+  }
+
+  // PropertyNames: no validation needed as each schema validates only itself
+
+  // If: no validation needed as each schema validates only itself
+
+  // Then: no validation needed as each schema validates only itself
+
+  // Else: no validation needed as each schema validates only itself
+
+  // AllOf
+  if (json.contains("allOf")) {
+    const auto& allOf = json.at("allOf");
+    if (!allOf.is_array()) {
+      issues.push_back(
+          std::format("{} Invalid type of property allOf: {}, expected array",
+                      location(pointer / "allOf"), allOf.dump()));
+    }
+    // Array items are schemas themselves, no need to validate here
+  }
+
+  // AnyOf
+  if (json.contains("anyOf")) {
+    const auto& anyOf = json.at("anyOf");
+    if (!anyOf.is_array()) {
+      issues.push_back(
+          std::format("{} Invalid type of property anyOf: {}, expected array",
+                      location(pointer / "anyOf"), anyOf.dump()));
+    }
+    // Array items are schemas themselves, no need to validate here
+  }
+
+  // OneOf
+  if (json.contains("oneOf")) {
+    const auto& oneOf = json.at("oneOf");
+    if (!oneOf.is_array()) {
+      issues.push_back(
+          std::format("{} Invalid type of property oneOf: {}, expected array",
+                      location(pointer / "oneOf"), oneOf.dump()));
+    }
+    // Array items are schemas themselves, no need to validate here
+  }
+
+  // Not: no validation needed as each schema validates only itself
+
+  // Format
+  if (json.contains("format")) {
+    const auto& format = json.at("format");
+    if (!format.is_string()) {
+      issues.push_back(
+          std::format("{} Invalid type of property format: {}, expected string",
+                      location(pointer / "format"), format.dump()));
+    }
+  }
+
+  // Default: no validation needed
+
+  // definitions
+  if (json.contains("definitions")) {
+    const auto& definitions = json.at("definitions");
+    if (!definitions.is_object()) {
+      issues.push_back(std::format(
+          "{} Invalid type of property definitions: {}, expected object",
+          location(pointer / "definitions"), definitions.dump()));
+    }
+    // Object properties are schemas themselves, no need to validate here
+  }
+
+  return issues;
 }

@@ -379,7 +379,7 @@ CodeBlock SyncedSchema::generateDefinition() const {
             BLOCK << "for (const auto& [key, value] : json.items()) {";
             {
               Indent _(block);
-              BLOCK << "if (!properties.contains(key)) {";
+              BLOCK << "if (properties.count(key) == 0) {";
               {
                 Indent _(block);
                 BLOCK << std::format("object.additionalProperties[key] = "

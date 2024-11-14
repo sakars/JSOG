@@ -34,8 +34,16 @@ public:
           auto itemUri = baseUri_.withPointer(itemPointer);
           dependencies.insert(itemUri);
         }
+        if (json_.get().contains("additionalItems")) {
+          auto additionalItems = json_.get().at("additionalItems");
+          auto additionalItemsPointer = pointer / "additionalItems";
+          auto additionalItemsUri =
+              baseUri_.withPointer(additionalItemsPointer);
+          dependencies.insert(additionalItemsUri);
+        }
       }
     }
+
     if (json_.get().contains("properties")) {
       auto properties = json_.get().at("properties");
       for (auto& [key, value] : properties.items()) {
@@ -82,21 +90,6 @@ public:
       auto containsUri = baseUri_.withPointer(containsPointer);
       dependencies.insert(containsUri);
     }
-    // Note: These 2 aren't actually schemas so no reason to add them as
-    // dependencies
-
-    // if (json_.get().contains("const")) {
-    //   auto constValue = json_.get().at("const");
-    //   auto constPointer = pointer / "const";
-    //   auto constUri = baseUri_.withPointer(constPointer);
-    //   dependencies.insert(constUri);
-    // }
-    // if (json_.get().contains("enum")) {
-    //   auto enumValue = json_.get().at("enum");
-    //   auto enumPointer = pointer / "enum";
-    //   auto enumUri = baseUri_.withPointer(enumPointer);
-    //   dependencies.insert(enumUri);
-    // }
     if (json_.get().contains("not")) {
       auto notValue = json_.get().at("not");
       auto notPointer = pointer / "not";
@@ -145,6 +138,18 @@ public:
       auto elseUri = baseUri_.withPointer(elsePointer);
       dependencies.insert(elseUri);
     }
+
+    if (json_.get().contains("definitions")) {
+      auto definitions = json_.get().at("definitions");
+      if (definitions.is_object()) {
+        for (auto& [key, value] : definitions.items()) {
+          auto definitionPointer = pointer / "definitions" / key;
+          auto definitionUri = baseUri_.withPointer(definitionPointer);
+          dependencies.insert(definitionUri);
+        }
+      }
+    }
+
     return dependencies;
   }
 };

@@ -1,4 +1,3 @@
-
 #include "SyncedSchema.h"
 #include "StringUtils.h"
 #include <cmath>
@@ -47,7 +46,7 @@ CodeBlock SyncedSchema::generateDeclaration() const {
   } else {
     BLOCK << std::format("#pragma once");
   }
-  BLOCK << generateDependencies();
+  BLOCK << "" << generateDependencies();
 
   // Global namespace
   if (codeProperties.get().globalNamespace_.has_value()) {
@@ -420,91 +419,111 @@ CodeBlock SyncedSchema::generateDependencies() const {
         << "#include <stdexcept>"
         << "#include <set>"
         << "#include <nlohmann/json.hpp>";
-  std::set<std::string> dependencies{getHeaderFileName()};
+  std::set<const SyncedSchema*> dependencies;
   if (ref_.has_value()) {
-    dependencies.insert(ref_.value().get().getHeaderFileName());
+    dependencies.insert(&ref_.value().get());
   }
   for (const auto& item : tupleableItems_.value_or(
            std::vector<std::reference_wrapper<const SyncedSchema>>())) {
-    dependencies.insert(item.get().getHeaderFileName());
+    dependencies.insert(&item.get());
   }
-  dependencies.insert(items_.get().getHeaderFileName());
+  dependencies.insert(&items_.get());
   if (contains_.has_value()) {
-    dependencies.insert(contains_.value().get().getHeaderFileName());
+    dependencies.insert(&contains_.value().get());
   }
   for (const auto& [_, schema] : properties_) {
-    dependencies.insert(schema.get().getHeaderFileName());
+    dependencies.insert(&schema.get());
   }
   if (patternProperties_.has_value()) {
     for (const auto& [_, schema] : patternProperties_.value()) {
-      dependencies.insert(schema.get().getHeaderFileName());
+      dependencies.insert(&schema.get());
     }
   }
-  dependencies.insert(additionalProperties_.get().getHeaderFileName());
+  dependencies.insert(&additionalProperties_.get());
 
   if (schemaDependencies_.has_value()) {
     for (const auto& [_, schema] : schemaDependencies_.value()) {
-      dependencies.insert(schema.get().getHeaderFileName());
+      dependencies.insert(&schema.get());
     }
   }
   if (propertyNames_.has_value()) {
-    dependencies.insert(propertyNames_.value().get().getHeaderFileName());
+    dependencies.insert(&propertyNames_.value().get());
   }
   if (if_.has_value()) {
-    dependencies.insert(if_.value().get().getHeaderFileName());
+    dependencies.insert(&if_.value().get());
   }
   if (then_.has_value()) {
-    dependencies.insert(then_.value().get().getHeaderFileName());
+    dependencies.insert(&then_.value().get());
   }
   if (else_.has_value()) {
-    dependencies.insert(else_.value().get().getHeaderFileName());
+    dependencies.insert(&else_.value().get());
   }
   if (allOf_.has_value()) {
     for (const auto& schema : allOf_.value()) {
-      dependencies.insert(schema.get().getHeaderFileName());
+      dependencies.insert(&schema.get());
     }
   }
   if (anyOf_.has_value()) {
     for (const auto& schema : anyOf_.value()) {
-      dependencies.insert(schema.get().getHeaderFileName());
+      dependencies.insert(&schema.get());
     }
   }
   if (oneOf_.has_value()) {
     for (const auto& schema : oneOf_.value()) {
-      dependencies.insert(schema.get().getHeaderFileName());
+      dependencies.insert(&schema.get());
     }
   }
   if (not_.has_value()) {
-    dependencies.insert(not_.value().get().getHeaderFileName());
+    dependencies.insert(&not_.value().get());
   }
 
   BLOCK << "// Local dependencies";
 
   for (const auto& dependency : dependencies) {
-    if (dependency != "") {
-      BLOCK << std::format("#include \"{}\"", dependency);
+    if (!dependency->getHeaderFileName().empty()) {
+      BLOCK << std::format("#include \"{}\"", dependency->getHeaderFileName());
     }
   }
-
-  BLOCK << "// Forward declarations";
+  bool hasForwardDeclarations = false;
+  CodeBlock forwardDeclarations;
+  forwardDeclarations << "// Forward declarations";
   if (codeProperties.get().globalNamespace_.has_value()) {
-    BLOCK << std::format("namespace {} {{",
-                         codeProperties.get().globalNamespace_.value());
+    forwardDeclarations << std::format(
+        "namespace {} {{", codeProperties.get().globalNamespace_.value());
   }
   for (const auto& dependency : dependencies) {
-    if (dependency != "") {
-      BLOCK << std::format("namespace {} {{",
-                           dependency.substr(0, dependency.size() - 2))
-            << std::format("class Object;") << std::format("class Array;")
-            << std::format("}} // namespace {}",
-                           dependency.substr(0, dependency.size() - 2));
+    bool hasForwardDeclaration = false;
+    CodeBlock forwardDeclaration;
+    forwardDeclaration << std::format("namespace {} {{",
+                                      dependency->identifier_);
+    if (!dependency->definedAsBooleanSchema_.has_value() &&
+        !dependency->ref_.has_value()) {
+      if (dependency->type_.has_value() &&
+          dependency->type_.value().contains(Type::Object)) {
+        forwardDeclaration << std::format("class Object;");
+        hasForwardDeclaration = true;
+      }
+      if (dependency->type_.has_value() &&
+          dependency->type_.value().contains(Type::Array)) {
+        forwardDeclaration << std::format("class Array;");
+        hasForwardDeclaration = true;
+      }
+    }
+    forwardDeclaration << std::format("}} // namespace {}",
+                                      dependency->identifier_);
+    if (hasForwardDeclaration) {
+      hasForwardDeclarations = true;
+      forwardDeclarations << forwardDeclaration;
     }
   }
   if (codeProperties.get().globalNamespace_.has_value()) {
-    BLOCK << std::format("}} // namespace {}",
-                         codeProperties.get().globalNamespace_.value());
+    forwardDeclarations << std::format(
+        "}} // namespace {}", codeProperties.get().globalNamespace_.value());
   }
-
+  if (hasForwardDeclarations) {
+    BLOCK << forwardDeclarations;
+  }
+  BLOCK << "";
   return block;
 }
 

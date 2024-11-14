@@ -49,13 +49,13 @@ std::string JSONPointer::toFragment(bool withOctothorpe) const {
   return fragment;
 }
 
-/// @brief Converts the JSONPointer to a string. Does not escape any
-/// characters
+/// @brief Converts the JSONPointer to a string. Escapes only characters that
+/// are required to be escaped by the JSON pointer standard (RFC6901)
 std::string JSONPointer::toString() const {
   std::string fragment = "";
-  fragment += escapeURI(anchor);
+  fragment += escapePointer(anchor);
   for (const auto& token : tokens) {
-    fragment += "/" + escapeURI(token);
+    fragment += "/" + escapePointer(token);
   }
   return fragment;
 }

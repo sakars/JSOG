@@ -58,8 +58,18 @@ CodeBlock SyncedSchema::generateDeclaration() const {
   BLOCK << std::format("namespace {} {{", identifier_);
   if (!definedAsBooleanSchema_.has_value() && !ref_.has_value()) {
     // Forward declarations
-    BLOCK << "// Forward declarations" << "class Object;" << "class Array;"
-          << "";
+    if (type_.has_value() &&
+        (type_.value().contains(IndexedSyncedSchema::Type::Object) ||
+         type_.value().contains(IndexedSyncedSchema::Type::Array))) {
+      BLOCK << "// Forward declarations";
+      if (type_.value().contains(IndexedSyncedSchema::Type::Object)) {
+        BLOCK << "class Object;";
+      }
+      if (type_.value().contains(IndexedSyncedSchema::Type::Array)) {
+        BLOCK << "class Array;";
+      }
+      BLOCK << "";
+    }
 
     // Default value declaration
     if (default_.has_value()) {
@@ -104,7 +114,7 @@ CodeBlock SyncedSchema::generateDeclaration() const {
             "friend std::optional<{}> construct(const nlohmann::json&);",
             getType());
         // Tupleable item declaration
-        BLOCK << CodeBlock::dec << "private:" << CodeBlock::inc;
+        BLOCK << CodeBlock::dec << "public:" << CodeBlock::inc;
         if (tupleableItems_.has_value()) {
           for (size_t i = 0; i < tupleableItems_->size(); i++) {
             BLOCK << std::format("std::optional<{}> item{};",
@@ -420,6 +430,8 @@ CodeBlock SyncedSchema::generateDefinition() const {
 
 CodeBlock SyncedSchema::generateDependencies() const {
   CodeBlock block(codeProperties.get().indent_);
+  BLOCK << "#ifndef JSOG_SYS_DEPS";
+  BLOCK << "#define JSOG_SYS_DEPS";
   BLOCK << "// System dependencies"
         << "#include <optional>"
         << "#include <variant>"
@@ -429,6 +441,7 @@ CodeBlock SyncedSchema::generateDependencies() const {
         << "#include <stdexcept>"
         << "#include <set>"
         << "#include <nlohmann/json.hpp>";
+  BLOCK << "#endif // JSOG_SYS_DEPS" << "";
   std::set<const SyncedSchema*> dependencies;
   if (ref_.has_value()) {
     dependencies.insert(&ref_.value().get());

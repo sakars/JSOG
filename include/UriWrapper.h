@@ -123,9 +123,7 @@ public:
   /// @warning This function does not check if the URI is valid nor does it
   /// check if the path is absolute. This distinction is important as a URI can
   /// be valid and have an absolute path, but not be absolute itself.
-  bool isAbsolute() const {
-    return uri_ && uri_->scheme.first && uri_->scheme.afterLast;
-  }
+  bool isAbsolute() const { return uri_ && uri_->scheme.first; }
 
   /// @brief Checks if the URI is relative
   /// @ref isAbsolute

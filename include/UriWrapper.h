@@ -118,6 +118,18 @@ public:
   void setPointer(const JSONPointer& pointer);
 
   UriWrapper withPointer(const JSONPointer& pointer) const;
+
+  /// @brief Checks if the URI is absolute
+  /// @warning This function does not check if the URI is valid nor does it
+  /// check if the path is absolute. This distinction is important as a URI can
+  /// be valid and have an absolute path, but not be absolute itself.
+  bool isAbsolute() const {
+    return uri_ && uri_->scheme.first && uri_->scheme.afterLast;
+  }
+
+  /// @brief Checks if the URI is relative
+  /// @ref isAbsolute
+  bool isRelative() const { return !isAbsolute(); }
 };
 
 /// @brief Outputs the URI to an output stream

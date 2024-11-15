@@ -79,6 +79,9 @@ public:
     linkedDumpFile << linkedDump.dump(2);
     linkedDumpFile.close();
   }
+
+  static std::vector<std::string>
+  generateIssuesList(const std::vector<std::unique_ptr<LinkedSchema>>& schemas);
 };
 
 // std::unique_ptr<LinkedSchema> construct(const UnresolvedSchema& schema);
@@ -87,6 +90,9 @@ extern std::map<Draft,
                 std::set<UriWrapper> (*)(const nlohmann::json&,
                                          const UriWrapper&, const JSONPointer&)>
     linkers;
+
+extern std::map<Draft, std::vector<std::string> (*)(const LinkedSchema&)>
+    issueCheckers;
 
 std::vector<std::unique_ptr<LinkedSchema>>
 resolveDependencies(SetMap<UriWrapper, UnresolvedSchema>&& setMap,

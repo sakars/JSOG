@@ -1,5 +1,5 @@
 #include "Document.h"
-#include "Draft07Interpreter.h"
+#include "Draft07.h"
 #include "DraftInterpreter.h"
 #include "DraftRecognisedDocument.h"
 #include "IdentifiableSchema.h"
@@ -39,9 +39,20 @@ int main() {
   UnresolvedSchema::dumpSchemas(unresolvedSchemas);
 
   auto linkedSchemas = resolveDependencies(
-      std::move(unresolvedSchemas), {"http://example.com/product.schema.json"});
+      std::move(unresolvedSchemas),
+      {"file://" + std::filesystem::absolute(path).string()});
 
   LinkedSchema::dumpSchemas(linkedSchemas);
+  const auto issues = LinkedSchema::generateIssuesList(linkedSchemas);
+  if (!issues.empty()) {
+    std::cerr << "Issues with the schemas:" << std::endl;
+    for (const auto& issue : issues) {
+      std::cerr << issue << std::endl;
+    }
+    std::cerr << std::endl;
+    std::cerr << "Exiting due to issues with the schemas." << std::endl;
+    return 1;
+  }
 
   auto identifiableSchemas =
       IdentifiableSchema::transition(std::move(linkedSchemas));
@@ -58,11 +69,11 @@ int main() {
   SyncedSchema::dumpSchemas(syncedSchemas);
 
   for (auto& schema : syncedSchemas) {
-    std::filesystem::create_directory("./schemas");
-    std::ofstream header("./schemas/" + schema->getHeaderFileName());
+    std::filesystem::create_directory("../locals/schemas");
+    std::ofstream header("../locals/schemas/" + schema->getHeaderFileName());
     header << schema->generateDeclaration().str();
     header.close();
-    std::ofstream source("./schemas/" + schema->getSourceFileName());
+    std::ofstream source("../locals/schemas/" + schema->getSourceFileName());
     source << schema->generateDefinition().str();
     source.close();
   }

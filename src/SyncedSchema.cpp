@@ -65,89 +65,99 @@ CodeBlock SyncedSchema::generateDeclaration() const {
     if (default_.has_value()) {
       BLOCK << "extern const nlohmann::json default_;";
     }
+    if (type_.has_value() &&
+        type_.value().contains(IndexedSyncedSchema::Type::Object)) {
 
-    // Object declaration
-    BLOCK << "class Object {" << CodeBlock::inc;
-    {
-      // Declare the construct function to be a friend, so it can fill out
-      // private members
-      BLOCK << std::format(
-          "friend std::optional<{}> construct(const nlohmann::json&);",
-          getType());
-      BLOCK << CodeBlock::dec << "public:" << CodeBlock::inc;
-      for (const auto& [propertyName, schema] : properties_) {
-        if (required_.has_value() &&
-            required_.value().count(propertyName) > 0) {
-          BLOCK << std::format("{} {};", schema.get().getType(),
-                               sanitizeString(propertyName) + "_");
-        } else {
-          BLOCK << std::format("std::optional<{}> {};", schema.get().getType(),
-                               sanitizeString(propertyName) + "_");
-        }
-      }
-      BLOCK << std::format("std::map<std::string, {}> additionalProperties;",
-                           additionalProperties_.get().getType());
-    }
-    BLOCK << CodeBlock::dec << "};" << "" << "class Array {" << CodeBlock::inc;
-    {
-      // Declare the construct function to be a friend, so it can fill out
-      // private members
-      BLOCK << std::format(
-          "friend std::optional<{}> construct(const nlohmann::json&);",
-          getType());
-      // Tupleable item declaration
-      BLOCK << CodeBlock::dec << "private:" << CodeBlock::inc;
-      if (tupleableItems_.has_value()) {
-        for (size_t i = 0; i < tupleableItems_->size(); i++) {
-          BLOCK << std::format("std::optional<{}> item{};",
-                               (*tupleableItems_)[i].get().getType(), i);
-        }
-      }
-      BLOCK << std::format("std::vector<{}> items;", items_.get().getType());
-
-      BLOCK << CodeBlock::dec << "public:" << CodeBlock::inc;
-      BLOCK << "template <size_t N>";
-      BLOCK << "auto get() const {";
-      BLOCK << CodeBlock::inc;
+      // Object declaration
+      BLOCK << "class Object {" << CodeBlock::inc;
       {
-        if (tupleableItems_.has_value() && tupleableItems_->size() > 0) {
+        // Declare the construct function to be a friend, so it can fill out
+        // private members
+        BLOCK << std::format(
+            "friend std::optional<{}> construct(const nlohmann::json&);",
+            getType());
+        BLOCK << CodeBlock::dec << "public:" << CodeBlock::inc;
+        for (const auto& [propertyName, schema] : properties_) {
+          if (required_.has_value() &&
+              required_.value().count(propertyName) > 0) {
+            BLOCK << std::format("{} {};", schema.get().getType(),
+                                 sanitizeString(propertyName) + "_");
+          } else {
+            BLOCK << std::format("std::optional<{}> {};",
+                                 schema.get().getType(),
+                                 sanitizeString(propertyName) + "_");
+          }
+        }
+        BLOCK << std::format("std::map<std::string, {}> additionalProperties;",
+                             additionalProperties_.get().getType());
+      }
+      BLOCK << CodeBlock::dec << "};" << "";
+    }
+    if (type_.has_value() &&
+        type_.value().contains(IndexedSyncedSchema::Type::Array)) {
+      // Array declaration
+      BLOCK << "class Array {" << CodeBlock::inc;
+      {
+        // Declare the construct function to be a friend, so it can fill out
+        // private members
+        BLOCK << std::format(
+            "friend std::optional<{}> construct(const nlohmann::json&);",
+            getType());
+        // Tupleable item declaration
+        BLOCK << CodeBlock::dec << "private:" << CodeBlock::inc;
+        if (tupleableItems_.has_value()) {
           for (size_t i = 0; i < tupleableItems_->size(); i++) {
-            BLOCK << std::format("if constexpr(N == {}) {{", i)
+            BLOCK << std::format("std::optional<{}> item{};",
+                                 (*tupleableItems_)[i].get().getType(), i);
+          }
+        }
+        BLOCK << std::format("std::vector<{}> items;", items_.get().getType());
+
+        BLOCK << CodeBlock::dec << "public:" << CodeBlock::inc;
+        BLOCK << "template <size_t N>";
+        BLOCK << "auto get() const {";
+        BLOCK << CodeBlock::inc;
+        {
+          if (tupleableItems_.has_value() && tupleableItems_->size() > 0) {
+            for (size_t i = 0; i < tupleableItems_->size(); i++) {
+              BLOCK << std::format("if constexpr(N == {}) {{", i)
+                    << CodeBlock::inc;
+              {
+                BLOCK << std::format("if (item{}.has_value()) {{", i)
+                      << CodeBlock::inc
+                      << std::format("return item{}.value();", i)
+                      << CodeBlock::dec << "}";
+              }
+              BLOCK << CodeBlock::dec << CodeBlock::dis << "} else ";
+            }
+            BLOCK << "{" << CodeBlock::inc
+                  << std::format("if(N - {} < items.size()) {{",
+                                 tupleableItems_->size())
                   << CodeBlock::inc;
             {
-              BLOCK << std::format("if (item{}.has_value()) {{", i)
-                    << CodeBlock::inc
-                    << std::format("return item{}.value();", i)
-                    << CodeBlock::dec << "}";
+              BLOCK << std::format("return items[N - {}];",
+                                   tupleableItems_->size());
             }
-            BLOCK << CodeBlock::dec << CodeBlock::dis << "} else ";
+            BLOCK << CodeBlock::dec << "}" << CodeBlock::dec << "}";
+          } else {
+            BLOCK << "if(N < items.size()) {" << CodeBlock::inc
+                  << "return items[N];" << CodeBlock::dec << "}";
           }
-          BLOCK << "{" << CodeBlock::inc
-                << std::format("if(N - {} < items.size()) {{",
-                               tupleableItems_->size())
-                << CodeBlock::inc;
-          {
-            BLOCK << std::format("return items[N - {}];",
-                                 tupleableItems_->size());
-          }
-          BLOCK << CodeBlock::dec << "}" << CodeBlock::dec << "}";
-        } else {
-          BLOCK << "if(N < items.size()) {" << CodeBlock::inc
-                << "return items[N];" << CodeBlock::dec << "}";
+          BLOCK << "throw std::range_error(std::string(\"Item \") + "
+                   "std::to_string(N) + \" out of range\");";
         }
-        BLOCK << "throw std::range_error(std::string(\"Item \") + "
-                 "std::to_string(N) + \" out of range\");";
-      }
-      BLOCK << CodeBlock::dec << "}";
-      BLOCK << std::format("inline {} get(size_t n) {{", items_.get().getType())
+        BLOCK << CodeBlock::dec << "}";
+        BLOCK
+            << std::format("inline {} get(size_t n) {{", items_.get().getType())
             << CodeBlock::inc << "if(n >= items.size()) {"
             << "throw std::range_error(\"Item \" + std::to_string(n) + \" out "
                "of range\");"
             << "}"
             << "return items[n];" << CodeBlock::dec << "}";
+      }
+      BLOCK << CodeBlock::dec;
+      BLOCK << "};";
     }
-    BLOCK << CodeBlock::dec;
-    BLOCK << "};";
   }
   BLOCK << std::format("using {} = {};", identifier_, getType());
   if (default_.has_value()) {

@@ -6,6 +6,11 @@ std::map<Draft, std::set<UriWrapper> (*)(const nlohmann::json&,
         {Draft::DRAFT_07, getDraft07Dependencies},
     };
 
+std::map<Draft, std::vector<std::string> (*)(const LinkedSchema&)>
+    issueCheckers{
+        {Draft::DRAFT_07, issuesWithDraft07Schema},
+    };
+
 std::vector<std::unique_ptr<LinkedSchema>>
 resolveDependencies(SetMap<UriWrapper, UnresolvedSchema>&& setMap,
                     const std::set<UriWrapper>& requiredReferences) {
@@ -93,76 +98,15 @@ resolveDependencies(SetMap<UriWrapper, UnresolvedSchema>&& setMap,
   }
 
   return linkedSchemas;
+}
 
-  // Set up the initial required schemas
-
-  // SetMap<UriWrapper, LinkedSchema> resolvedSchemas;
-  // std::set<const UnresolvedSchema*> buildableRequiredSchemas;
-  // std::set<const UnresolvedSchema*> builtRequiredSchemas;
-  // // Set up the initial required schemas
-  // for (const auto& ref : requiredReferences) {
-  //   if (setMap.contains(ref)) {
-  //     buildableRequiredSchemas.insert(&setMap[ref]);
-  //   } else {
-  //     std::cerr << "Warning: Required reference not found in setMap: " << ref
-  //               << std::endl;
-  //   }
-  // }
-
-  // // Build each dependency, adding new dependencies as they are found
-  // while (!buildableRequiredSchemas.empty()) {
-  //   auto schema = *buildableRequiredSchemas.begin();
-  //   buildableRequiredSchemas.erase(schema);
-  //   builtRequiredSchemas.insert(schema);
-  //   auto buildableSchema = construct(*schema);
-  //   auto& deps = buildableSchema->dependenciesSet_;
-  //   addDependencies(deps, setMap, buildableRequiredSchemas,
-  //                   builtRequiredSchemas);
-  //   std::set<UriWrapper> schemaKeys = setMap.keysOfValue(*schema);
-  //   resolvedSchemas.bulkInsert(schemaKeys, std::move(buildableSchema));
-  // }
-
-  // std::vector<LinkedSchema*> schemaPtrs;
-  // for (const auto& schema : resolvedSchemas.getSet()) {
-  //   schemaPtrs.push_back(schema.get());
-  // }
-
-  // // Fills in the dependency map of a schema
-  // const auto fillDepMap =
-  //     [&resolvedSchemas = std::as_const(resolvedSchemas),
-  //      &schemaPtrs = std::as_const(schemaPtrs)](LinkedSchema& schema) {
-  //       for (const auto& depUri : schema.dependenciesSet_) {
-  //         if (resolvedSchemas.contains(depUri)) {
-  //           const auto depSchemaPtr = &resolvedSchemas[depUri];
-  //           size_t index = std::distance(
-  //               schemaPtrs.begin(),
-  //               std::find(schemaPtrs.begin(), schemaPtrs.end(),
-  //               depSchemaPtr));
-  //           schema.dependencies_.emplace(depUri, index);
-  //           // schema.dependencies_.emplace(depUri,
-  //           // std::cref(resolvedSchemas[depUri]));
-  //         } else {
-  //           std::cerr << "Warning: Dependency not found in resolvedSchemas: "
-  //                     << depUri << std::endl;
-  //         }
-  //       }
-  //     };
-
-  // // Fill in the dependency map of each schema
-  // for (const auto [_, schemaRef] : resolvedSchemas) {
-  //   fillDepMap(schemaRef);
-  // }
-
-  // // Extract the schemas from setMap
-  // auto extracted = resolvedSchemas.extract();
-
-  // std::vector<std::unique_ptr<LinkedSchema>> schemas;
-  // schemas.resize(extracted.size());
-  // for (auto& [keys, value] : extracted) {
-  //   const auto index = std::distance(
-  //       schemaPtrs.begin(),
-  //       std::find(schemaPtrs.begin(), schemaPtrs.end(), value.get()));
-  //   schemas[index] = std::move(value);
-  // }
-  // return schemas;
+std::vector<std::string> LinkedSchema::generateIssuesList(
+    const std::vector<std::unique_ptr<LinkedSchema>>& schemas) {
+  std::vector<std::string> issues;
+  for (const auto& schema : schemas) {
+    const auto& issueChecker = issueCheckers.at(schema->draft_);
+    const auto schemaIssues = issueChecker(*schema);
+    issues.insert(issues.end(), schemaIssues.begin(), schemaIssues.end());
+  }
+  return issues;
 }

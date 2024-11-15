@@ -6,47 +6,56 @@
   "required": ["id", "name", "price", "availability", "categories"],
   "properties": {
     "id": {
+      "title": "Product ID",
       "type": "string",
       "description": "Unique identifier for the product",
       "pattern": "^[A-Z0-9]{8,12}$"
     },
     "name": {
+      "title": "Product Name",
       "type": "string",
       "description": "Name of the product",
       "minLength": 3,
       "maxLength": 100
     },
     "description": {
+      "title": "Product Description",
       "type": "string",
       "description": "Detailed description of the product",
       "maxLength": 1000
     },
     "price": {
+      "title": "Product Price",
       "type": "object",
       "description": "Pricing details",
       "required": ["currency", "amount"],
       "properties": {
         "currency": {
+          "title": "Currency",
           "type": "string",
           "enum": ["USD", "EUR", "GBP", "JPY"],
           "description": "Currency code for the price"
         },
         "amount": {
+          "title": "Amount",
           "type": "number",
           "minimum": 0,
           "description": "Price amount in specified currency"
         },
         "discount": {
+          "title": "Discount",
           "type": "object",
           "description": "Discount details if applicable",
           "properties": {
             "percentage": {
+              "title": "Discount Percentage",
               "type": "number",
               "minimum": 0,
               "maximum": 100,
               "description": "Discount percentage"
             },
             "valid_until": {
+              "title": "Valid Until",
               "type": "string",
               "format": "date",
               "description": "Date until discount is valid"
@@ -57,30 +66,36 @@
       }
     },
     "availability": {
+      "title": "Availability",
       "type": "string",
       "description": "Availability status of the product",
       "enum": ["in_stock", "out_of_stock", "preorder"]
     },
     "dimensions": {
+      "title": "Dimensions",
       "type": "object",
       "description": "Physical dimensions of the product",
       "properties": {
         "weight": {
+          "title": "Weight",
           "type": "number",
           "minimum": 0,
           "description": "Weight in kilograms"
         },
         "length": {
+          "title": "Length",
           "type": "number",
           "minimum": 0,
           "description": "Length in centimeters"
         },
         "width": {
+          "title": "Width",
           "type": "number",
           "minimum": 0,
           "description": "Width in centimeters"
         },
         "height": {
+          "title": "Height",
           "type": "number",
           "minimum": 0,
           "description": "Height in centimeters"
@@ -88,6 +103,7 @@
       }
     },
     "images": {
+      "title": "Images",
       "type": "array",
       "description": "List of product images",
       "items": {
@@ -95,11 +111,13 @@
         "required": ["url", "alt"],
         "properties": {
           "url": {
+            "title": "Image URL",
             "type": "string",
             "format": "uri",
             "description": "URL of the image"
           },
           "alt": {
+            "title": "Alt Text",
             "type": "string",
             "description": "Alt text for the image",
             "maxLength": 200
@@ -108,6 +126,7 @@
       }
     },
     "categories": {
+      "title": "Categories",
       "type": "array",
       "description": "Categories the product belongs to",
       "minItems": 1,
@@ -117,45 +136,55 @@
       }
     },
     "specifications": {
+      "title": "Specifications",
       "type": "object",
       "description": "Technical specifications of the product",
       "properties": {
         "model": {
+          "title": "Model",
           "type": "string",
           "description": "Model number or identifier"
         },
         "manufacturer": {
+          "title": "Manufacturer",
           "type": "string",
           "description": "Name of the manufacturer"
         },
         "warranty": {
+          "title": "Warranty",
           "type": "string",
           "description": "Warranty period for the product"
         }
       }
     },
     "reviews": {
+      "title": "Reviews",
       "type": "array",
       "description": "Customer reviews of the product",
       "items": {
         "type": "object",
         "properties": {
           "user": {
+            "title": "User",
             "type": "string",
             "description": "User who provided the review"
           },
           "rating": {
-            "type": "integer",
+            "title": "Rating",
+            "type": "number",
             "minimum": 1,
             "maximum": 5,
+            "multipleOf": 0.5,
             "description": "Rating given by the user (1-5)"
           },
           "comment": {
+            "title": "Comment",
             "type": "string",
             "description": "Review comment",
             "maxLength": 500
           },
           "date": {
+            "title": "Review Date",
             "type": "string",
             "format": "date",
             "description": "Date of the review"

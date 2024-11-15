@@ -98,8 +98,12 @@ CodeBlock SyncedSchema::generateDeclaration() const {
                                  sanitizeString(propertyName) + "_");
           }
         }
-        BLOCK << std::format("std::map<std::string, {}> additionalProperties;",
-                             additionalProperties_.get().getType());
+        if (additionalProperties_.get().definedAsBooleanSchema_.value_or(
+                true) != false) {
+          BLOCK << std::format(
+              "std::map<std::string, {}> additionalProperties;",
+              additionalProperties_.get().getType());
+        }
       }
       BLOCK << CodeBlock::dec << "};" << "";
     }
@@ -401,9 +405,15 @@ CodeBlock SyncedSchema::generateDefinition() const {
               BLOCK << "if (properties.count(key) == 0) {";
               {
                 Indent _(block);
-                BLOCK << std::format("object.additionalProperties[key] = "
-                                     "{}::construct(value).value();",
-                                     additionalProperties_.get().identifier_);
+                // If additionalProperties
+                if (additionalProperties_.get()
+                        .definedAsBooleanSchema_.value_or(true) == false) {
+                  BLOCK << "return std::nullopt;";
+                } else {
+                  BLOCK << std::format("object.additionalProperties[key] = "
+                                       "{}::construct(value).value();",
+                                       additionalProperties_.get().identifier_);
+                }
               }
               BLOCK << "}";
             }
@@ -428,7 +438,7 @@ CodeBlock SyncedSchema::generateDefinition() const {
   return block;
 }
 
-CodeBlock SyncedSchema::generateDependencies() const {
+CodeBlock SyncedSchema::generateSystemDependencies() const {
   CodeBlock block(codeProperties.get().indent_);
   BLOCK << "#ifndef JSOG_SYS_DEPS";
   BLOCK << "#define JSOG_SYS_DEPS";
@@ -442,6 +452,12 @@ CodeBlock SyncedSchema::generateDependencies() const {
         << "#include <set>"
         << "#include <nlohmann/json.hpp>";
   BLOCK << "#endif // JSOG_SYS_DEPS" << "";
+  return block;
+}
+
+CodeBlock SyncedSchema::generateDependencies() const {
+  CodeBlock block(codeProperties.get().indent_);
+  block << generateSystemDependencies();
   std::set<const SyncedSchema*> dependencies;
   if (ref_.has_value()) {
     dependencies.insert(&ref_.value().get());

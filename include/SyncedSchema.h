@@ -118,6 +118,7 @@ public:
   /// @brief Generates the declaration of the schema
   CodeBlock generateDeclaration() const;
   CodeBlock generateDefinition() const;
+  CodeBlock generateSystemDependencies() const;
   CodeBlock generateDependencies() const;
 
   std::string getHeaderFileName() const;

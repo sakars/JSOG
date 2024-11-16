@@ -12,9 +12,20 @@
 
 #define JSOG_DEBUG 0
 #if JSOG_DEBUG
+static std::string centerPadString(const std::string& s, size_t width) {
+  if (s.size() >= width) {
+    return s;
+  }
+  size_t leftPad = (width - s.size()) / 2;
+  size_t rightPad = width - s.size() - leftPad;
+  return std::string(leftPad, ' ') + s + std::string(rightPad, ' ');
+}
 #define BLOCK                                                                  \
-  block << CodeBlock::dis                                                      \
-        << std::format("/*{}:{}*/", __FILE_NAME__, __LINE__);                  \
+  {                                                                            \
+    block << CodeBlock::dis                                                    \
+          << centerPadString(                                                  \
+                 std::format("/*{}:{}*/", __FILE_NAME__, __LINE__), 40);       \
+  }                                                                            \
   block
 #else
 #define BLOCK block
@@ -182,6 +193,7 @@ CodeBlock SyncedSchema::generateDeclaration() const {
     BLOCK << std::format("std::optional<{}> construct(const nlohmann::json&);",
                          getType());
   }
+  BLOCK << std::format("nlohmann::json deconstruct(const {}&);", getType());
   BLOCK << std::format("}} // namespace {}", identifier_);
 
   if (codeProperties.get().globalNamespace_.has_value()) {
@@ -366,7 +378,7 @@ CodeBlock SyncedSchema::generateDefinition() const {
                     << CodeBlock::inc << "return std::nullopt;"
                     << CodeBlock::dec << "}";
             }
-            BLOCK << "std::set<std::string> properties = {";
+            BLOCK << "static const std::set<std::string> properties = {";
             for (const auto& [propertyName, schema] : properties_) {
               Indent _(block);
               BLOCK << std::format("\"{}\",", propertyName);
@@ -427,8 +439,230 @@ CodeBlock SyncedSchema::generateDefinition() const {
       BLOCK << "return std::nullopt;";
     }
   }
-  BLOCK << CodeBlock::dec << "}"
-        << std::format("}} // namespace {}", identifier_);
+  BLOCK << CodeBlock::dec << "}";
+
+  // Deconstruct function
+  BLOCK << std::format("nlohmann::json deconstruct(const {}& schema) {{",
+                       getType());
+  {
+    Indent _(block);
+
+    if (definedAsBooleanSchema_.has_value()) {
+      if (definedAsBooleanSchema_.value()) {
+        // If the schema is defined as true, then the type is an nllohmann::json
+        // object and we can just return it
+        BLOCK << "return schema;";
+      } else {
+        // If the schema is defined as false, then any deconstruction should
+        // fail, however this is the non-failing deconstruction function, so
+        // we'll just return null
+        BLOCK << "return nullptr;";
+      }
+    } else {
+
+      std::set<Type> types;
+      if (type_) {
+        types.insert(type_.value().begin(), type_.value().end());
+      }
+      if (types.size() == 0) {
+        types.insert(Type::Object);
+        types.insert(Type::Null);
+        types.insert(Type::Boolean);
+        types.insert(Type::Array);
+        types.insert(Type::Number);
+        types.insert(Type::String);
+        types.insert(Type::Integer);
+      }
+      if (types.size() > 1) {
+        if (types.contains(Type::Null)) {
+          BLOCK << "if (std::holds_alternative<std::monostate>(schema)) {";
+          {
+            Indent _(block);
+            BLOCK << "return nullptr;";
+          }
+          BLOCK << "}";
+        }
+        if (types.contains(Type::Number)) {
+          BLOCK << "if (std::holds_alternative<double>(schema)) {";
+          {
+            Indent _(block);
+            BLOCK << "return std::get<double>(schema);";
+          }
+          BLOCK << "}";
+        }
+        if (types.contains(Type::Integer)) {
+          BLOCK << std::format("if (std::holds_alternative<{}>(schema)) {{",
+                               getIntegerType());
+          {
+            Indent _(block);
+            BLOCK << std::format("return std::get<{}>(schema);",
+                                 getIntegerType());
+          }
+          BLOCK << "}";
+        }
+        if (types.contains(Type::String)) {
+          BLOCK << "if (std::holds_alternative<std::string>(schema)) {";
+          {
+            Indent _(block);
+            BLOCK << "return std::get<std::string>(schema);";
+          }
+          BLOCK << "}";
+        }
+        if (types.contains(Type::Boolean)) {
+          BLOCK << "if (std::holds_alternative<bool>(schema)) {";
+          {
+            Indent _(block);
+            BLOCK << "return std::get<bool>(schema);";
+          }
+          BLOCK << "}";
+        }
+        if (types.contains(Type::Array)) {
+          BLOCK << "if (std::holds_alternative<Array>(schema)) {";
+          {
+            Indent _(block);
+            BLOCK << "auto json = nlohmann::json::array();";
+            BLOCK << "auto& array = std::get<Array>(schema);";
+            if (tupleableItems_.has_value()) {
+              for (size_t i = 0; i < tupleableItems_->size(); i++) {
+                const auto& item = (*tupleableItems_)[i].get();
+                BLOCK << std::format("if(array.item{}.has_value()) {{", i);
+                BLOCK << CodeBlock::inc;
+                BLOCK << std::format(
+                    "json.push_back({}::deconstruct(array.item{}"
+                    ".value()));",
+                    item.identifier_, i);
+                BLOCK << CodeBlock::dec << "}";
+              }
+            }
+            BLOCK << "for (const auto& item : array.items) {";
+            {
+              Indent _(block);
+              BLOCK << std::format("json.push_back({}::deconstruct(item));",
+                                   items_.get().identifier_);
+            }
+            BLOCK << "}";
+            BLOCK << "return json;";
+          }
+          BLOCK << "}";
+        }
+        if (types.contains(Type::Object)) {
+          BLOCK << "if (std::holds_alternative<Object>(schema)) {";
+          {
+            Indent _(block);
+            BLOCK << "auto& object = std::get<Object>(schema);";
+            BLOCK << "auto json = nlohmann::json::object();";
+            for (const auto& [propertyName, schema] : properties_) {
+              const auto is_required =
+                  required_.has_value() &&
+                  required_.value().count(propertyName) > 0;
+              if (!is_required) {
+                BLOCK << std::format("if (object.{}.has_value()) {{",
+                                     sanitizeString(propertyName) + "_")
+                      << CodeBlock::inc;
+              }
+              BLOCK << std::format(
+                  "json[\"{}\"] = {}::deconstruct(object.{}{});", propertyName,
+                  schema.get().identifier_, sanitizeString(propertyName) + "_",
+                  is_required ? "" : ".value()");
+
+              if (!is_required) {
+                BLOCK << CodeBlock::dec << "}";
+              }
+            }
+            if (additionalProperties_.get().definedAsBooleanSchema_.value_or(
+                    true) != false) {
+              BLOCK << "for (const auto& [key, value] : "
+                       "object.additionalProperties) {";
+              {
+                Indent _(block);
+                BLOCK << std::format("json[key] = {}::deconstruct(value);",
+                                     additionalProperties_.get().identifier_);
+              }
+              BLOCK << "}";
+            }
+            BLOCK << "return json;";
+          }
+          BLOCK << "}";
+        }
+
+      } else {
+        const auto type = *types.begin();
+        if (type == Type::Null) {
+          BLOCK << "return nullptr;";
+        } else if (type == Type::Number) {
+          BLOCK << "return schema;";
+        } else if (type == Type::Integer) {
+          BLOCK << "return schema;";
+        } else if (type == Type::String) {
+          BLOCK << "return schema;";
+        } else if (type == Type::Boolean) {
+          BLOCK << "return schema;";
+        } else if (type == Type::Array) {
+          BLOCK << "auto json = nlohmann::json::array();";
+          BLOCK << "auto& array = schema;";
+          if (tupleableItems_.has_value()) {
+            for (size_t i = 0; i < tupleableItems_->size(); i++) {
+              const auto& item = (*tupleableItems_)[i].get();
+              BLOCK << std::format("if(array.item{}.has_value()) {{", i);
+              BLOCK << CodeBlock::inc;
+              BLOCK << std::format("json.push_back({}::deconstruct(array.item{}"
+                                   ".value()));",
+                                   item.identifier_, i);
+              BLOCK << CodeBlock::dec << "}";
+            }
+          }
+          BLOCK << "for (const auto& item : array.items) {";
+          {
+            Indent _(block);
+            BLOCK << std::format("json.push_back({}::deconstruct(item));",
+                                 items_.get().identifier_);
+          }
+          BLOCK << "}";
+          BLOCK << "return json;";
+        } else if (type == Type::Object) {
+          BLOCK << "auto& object = schema;";
+          BLOCK << "auto json = nlohmann::json::object();";
+          for (const auto& [propertyName, schema] : properties_) {
+            const auto is_required = required_.has_value() &&
+                                     required_.value().count(propertyName) > 0;
+            if (!is_required) {
+              BLOCK << std::format("if (object.{}.has_value()) {{",
+                                   sanitizeString(propertyName) + "_")
+                    << CodeBlock::inc;
+            }
+            BLOCK << std::format("json[\"{}\"] = {}::deconstruct(object.{}{});",
+                                 propertyName, schema.get().identifier_,
+                                 sanitizeString(propertyName) + "_",
+                                 is_required ? "" : ".value()");
+
+            if (!is_required) {
+              BLOCK << CodeBlock::dec << "}";
+            }
+          }
+          if (additionalProperties_.get().definedAsBooleanSchema_.value_or(
+                  true) != false) {
+            BLOCK << "for (const auto& [key, value] : "
+                     "object.additionalProperties) {";
+            {
+              Indent _(block);
+              BLOCK << std::format("json[key] = {}::deconstruct(value);",
+                                   additionalProperties_.get().identifier_);
+            }
+            BLOCK << "}";
+          }
+          BLOCK << "return json;";
+        } else {
+          throw std::runtime_error("Unknown type");
+        }
+      }
+      // A throw guard to report invalid function definition
+      BLOCK << "throw std::runtime_error(\"Unreachable, likely a bug in the "
+               "autogenerated code.\");";
+    }
+  }
+  BLOCK << "}";
+
+  BLOCK << std::format("}} // namespace {}", identifier_);
 
   if (codeProperties.get().globalNamespace_.has_value()) {
     BLOCK << std::format("}} // namespace {}",
@@ -590,16 +824,9 @@ std::string SyncedSchema::getType() const {
                                            : "std::nullptr_t";
   }
 
-  // If the schema is a reference, return the reference type wrapped in a unique
-  // pointer, as there might be issues with the type being incomplete.
+  // If the schema is a reference, return the reference type wrapped in a
+  // unique pointer, as there might be issues with the type being incomplete.
   if (ref_.has_value()) {
-    // if (codeProperties.get().globalNamespace_.has_value()) {
-    //   return std::format("std::unique_ptr<::{0}::{1}::{1}>",
-    //                      codeProperties.get().globalNamespace_.value(),
-    //                      ref_.value().get().identifier_);
-    // }
-    // return std::format("std::unique_ptr<::{0}::{0}>",
-    //                    ref_.value().get().identifier_);
     return std::format("std::unique_ptr<{}>", ref_.value().get().getType());
   }
 
@@ -693,22 +920,12 @@ std::string SyncedSchema::getBooleanType() const { return "bool"; }
 
 std::string SyncedSchema::getNullType() const { return "std::monostate"; }
 
-enum class IntegerType {
-  INT8,
-  UINT8,
-  INT16,
-  UINT16,
-  INT32,
-  UINT32,
-  INT64,
-  UINT64,
-  NONE
-};
-
-static IntegerType smallestIntegerType(std::optional<double> minimum,
-                                       std::optional<double> maximum,
-                                       std::optional<double> exclusiveMinimum,
-                                       std::optional<double> exclusiveMaximum) {
+static SyncedSchema::IntegerType
+smallestIntegerType(std::optional<double> minimum,
+                    std::optional<double> maximum,
+                    std::optional<double> exclusiveMinimum,
+                    std::optional<double> exclusiveMaximum) {
+  using IntegerType = SyncedSchema::IntegerType;
   // Initialize effective bounds with provided values or defaults
   double adjustedMin = minimum.value_or(std::numeric_limits<int64_t>::min());
   double adjustedMax = maximum.value_or(std::numeric_limits<int64_t>::max());
@@ -760,8 +977,7 @@ static IntegerType smallestIntegerType(std::optional<double> minimum,
 }
 
 std::string SyncedSchema::getIntegerType() const {
-  IntegerType type = smallestIntegerType(minimum_, maximum_, exclusiveMinimum_,
-                                         exclusiveMaximum_);
+  IntegerType type = getIntegerEnum();
 
   switch (type) {
   case IntegerType::INT8:
@@ -784,6 +1000,11 @@ std::string SyncedSchema::getIntegerType() const {
     return "int64_t";
   }
   return "int64_t";
+}
+
+SyncedSchema::IntegerType SyncedSchema::getIntegerEnum() const {
+  return smallestIntegerType(minimum_, maximum_, exclusiveMinimum_,
+                             exclusiveMaximum_);
 }
 
 std::vector<std::unique_ptr<SyncedSchema>>

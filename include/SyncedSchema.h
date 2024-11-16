@@ -115,6 +115,17 @@ private:
         additionalProperties_(*this) {}
 
 public:
+  enum class IntegerType {
+    INT8,
+    UINT8,
+    INT16,
+    UINT16,
+    INT32,
+    UINT32,
+    INT64,
+    UINT64,
+    NONE
+  };
   /// @brief Generates the declaration of the schema
   CodeBlock generateDeclaration() const;
   CodeBlock generateDefinition() const;
@@ -131,6 +142,7 @@ public:
   std::string getBooleanType() const;
   std::string getNullType() const;
   std::string getIntegerType() const;
+  IntegerType getIntegerEnum() const;
 
   static const CodeProperties& getDefaultCodeProperties() {
     static CodeProperties properties;

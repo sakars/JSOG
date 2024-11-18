@@ -216,10 +216,6 @@ std::vector<std::string> issuesWithDraft07Schema(const LinkedSchema& schema) {
           std::format("{} Invalid type value: {}, expected string or array",
                       location(pointer / "type"), type.dump()));
     }
-  } else {
-    issues.push_back(
-        std::format("{} Warning: type not specified, defaulting to all types",
-                    location(pointer)));
   }
 
   // Enum

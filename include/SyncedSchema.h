@@ -36,7 +36,7 @@ public:
   /// @brief If set, the schema is interpreted as a reference to another schema
   std::optional<std::reference_wrapper<SyncedSchema>> ref_;
 
-  std::optional<std::set<IndexedSyncedSchema::Type>> type_;
+  std::set<IndexedSyncedSchema::Type> type_;
 
   std::optional<std::vector<nlohmann::json>> enum_;
 

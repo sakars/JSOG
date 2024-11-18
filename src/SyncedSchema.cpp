@@ -69,14 +69,13 @@ CodeBlock SyncedSchema::generateDeclaration() const {
   BLOCK << std::format("namespace {} {{", identifier_);
   if (!definedAsBooleanSchema_.has_value() && !ref_.has_value()) {
     // Forward declarations
-    if (type_.has_value() &&
-        (type_.value().contains(IndexedSyncedSchema::Type::Object) ||
-         type_.value().contains(IndexedSyncedSchema::Type::Array))) {
+    if (type_.contains(IndexedSyncedSchema::Type::Object) ||
+        type_.contains(IndexedSyncedSchema::Type::Array)) {
       BLOCK << "// Forward declarations";
-      if (type_.value().contains(IndexedSyncedSchema::Type::Object)) {
+      if (type_.contains(IndexedSyncedSchema::Type::Object)) {
         BLOCK << "class Object;";
       }
-      if (type_.value().contains(IndexedSyncedSchema::Type::Array)) {
+      if (type_.contains(IndexedSyncedSchema::Type::Array)) {
         BLOCK << "class Array;";
       }
       BLOCK << "";
@@ -86,8 +85,7 @@ CodeBlock SyncedSchema::generateDeclaration() const {
     if (default_.has_value()) {
       BLOCK << "extern const nlohmann::json default_;";
     }
-    if (type_.has_value() &&
-        type_.value().contains(IndexedSyncedSchema::Type::Object)) {
+    if (type_.contains(IndexedSyncedSchema::Type::Object)) {
 
       // Object declaration
       BLOCK << "class Object {" << CodeBlock::inc;
@@ -118,8 +116,7 @@ CodeBlock SyncedSchema::generateDeclaration() const {
       }
       BLOCK << CodeBlock::dec << "};" << "";
     }
-    if (type_.has_value() &&
-        type_.value().contains(IndexedSyncedSchema::Type::Array)) {
+    if (type_.contains(IndexedSyncedSchema::Type::Array)) {
       // Array declaration
       BLOCK << "class Array {" << CodeBlock::inc;
       {
@@ -280,9 +277,8 @@ CodeBlock SyncedSchema::generateDefinition() const {
         }
 
         std::set<Type> types;
-        if (type_) {
-          types.insert(type_.value().begin(), type_.value().end());
-        }
+        types.insert(type_.begin(), type_.end());
+
         if (types.size() == 0) {
           types.insert(Type::Object);
           types.insert(Type::Null);
@@ -461,9 +457,8 @@ CodeBlock SyncedSchema::generateDefinition() const {
     } else {
 
       std::set<Type> types;
-      if (type_) {
-        types.insert(type_.value().begin(), type_.value().end());
-      }
+      types.insert(type_.begin(), type_.end());
+
       if (types.size() == 0) {
         types.insert(Type::Object);
         types.insert(Type::Null);
@@ -771,13 +766,11 @@ CodeBlock SyncedSchema::generateDependencies() const {
                                       dependency->identifier_);
     if (!dependency->definedAsBooleanSchema_.has_value() &&
         !dependency->ref_.has_value()) {
-      if (dependency->type_.has_value() &&
-          dependency->type_.value().contains(Type::Object)) {
+      if (dependency->type_.contains(Type::Object)) {
         forwardDeclaration << std::format("class Object;");
         hasForwardDeclaration = true;
       }
-      if (dependency->type_.has_value() &&
-          dependency->type_.value().contains(Type::Array)) {
+      if (dependency->type_.contains(Type::Array)) {
         forwardDeclaration << std::format("class Array;");
         hasForwardDeclaration = true;
       }
@@ -831,9 +824,8 @@ std::string SyncedSchema::getType() const {
   }
 
   std::set<Type> types;
-  if (type_) {
-    types.insert(type_.value().begin(), type_.value().end());
-  }
+  types.insert(type_.begin(), type_.end());
+
   if (types.size() == 0) {
     types.insert(Type::Object);
     types.insert(Type::Null);
@@ -1024,7 +1016,9 @@ SyncedSchema::resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas) {
     } else {
       syncedSchema.ref_ = std::nullopt;
     }
-    syncedSchema.type_ = schema.type_;
+    syncedSchema.type_ = schema.type_.value_or(
+        std::set<Type>{Type::Object, Type::Array, Type::Boolean, Type::Integer,
+                       Type::Null, Type::Number, Type::String});
     syncedSchema.enum_ = schema.enum_;
     syncedSchema.const_ = schema.const_;
     syncedSchema.description_ = schema.description_;
@@ -1158,13 +1152,12 @@ void SyncedSchema::dumpSchemas(
     if (schema->ref_.has_value()) {
       schemaDump["ref"] = schema->ref_.value().get().identifier_;
     }
-    if (schema->type_.has_value()) {
       auto typeDump = nlohmann::json::array();
-      for (const auto& type : schema->type_.value()) {
+    for (const auto& type : schema->type_) {
         typeDump.push_back(static_cast<int>(type));
       }
       schemaDump["type"] = typeDump;
-    }
+
     if (schema->enum_.has_value()) {
       schemaDump["enum"] = schema->enum_.value();
     }

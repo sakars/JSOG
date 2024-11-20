@@ -145,6 +145,26 @@ SCENARIO("Multi-file Draft07 reference resolution", "[Draft07][LinkedSchema]") {
                 return schema->baseUri_.withPointer(schema->pointer_) == uri;
               });
         };
+        CAPTURE(fileUri1.toString().value(),
+                resolved[0]->baseUri_.toString().value(),
+                resolved[0]->pointer_.toString(),
+                resolved[0]
+                    ->baseUri_.withPointer(resolved[0]->pointer_)
+                    .toString()
+                    .value(),
+                resolved[1]->baseUri_.toString().value(),
+                resolved[1]->pointer_.toString(),
+                resolved[1]
+                    ->baseUri_.withPointer(resolved[1]->pointer_)
+                    .toString()
+                    .value(),
+                resolved[2]->baseUri_.toString().value(),
+                resolved[2]->pointer_.toString(),
+                resolved[2]
+                    ->baseUri_.withPointer(resolved[2]->pointer_)
+                    .toString()
+                    .value());
+
         REQUIRE(arrayHasSchema(fileUri1));
         REQUIRE(arrayHasSchema(
             fileUri1.withPointer(pointer1 / "properties" / "test")));

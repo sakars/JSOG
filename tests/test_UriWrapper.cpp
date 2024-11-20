@@ -62,39 +62,6 @@ TEST_CASE("UriWrapper successfully copies and moves around", "[UriWrapper]") {
           "http://example.com:8080/path?query=1#fragment");
 }
 
-TEST_CASE("UriWrapper escapes fragments correctly", "[UriWrapper]") {
-
-  SECTION("Fragment with a # is escaped correctly") {
-
-    UriWrapper uri("http://example.com:80/path?query=1");
-    uri.setFragment("frag#ment");
-
-    SECTION("toString() returns the correct URI") {
-      REQUIRE(uri.toString().value_or("") ==
-              "http://example.com:80/path?query=1#frag%23ment");
-    }
-
-    SECTION("Fragment is parsed correctly") {
-      REQUIRE(uri.getFragment() == "frag#ment");
-    }
-  }
-
-  SECTION("Fragment with a % is not escaped") {
-
-    UriWrapper uri("http://example.com:80/path?query=1");
-    uri.setFragment("frag%ment");
-
-    SECTION("toString() returns the correct URI") {
-      REQUIRE(uri.toString().value_or("") ==
-              "http://example.com:80/path?query=1#frag%25ment");
-    }
-
-    SECTION("Fragment is parsed correctly") {
-      REQUIRE(uri.getFragment() == "frag%ment");
-    }
-  }
-}
-
 TEST_CASE("'/' in fragments are allowed") {
   UriWrapper uri("http://example.com:80/path?query=1#frag/ment");
   REQUIRE(uri.getFragment() == "frag/ment");

@@ -39,7 +39,9 @@ private:
     for (auto childRef : refs) {
       childRef.normalize();
       JSONPointer childPointer =
-          JSONPointer::fromURIString(childRef.getFragment().value_or("")) / key;
+          JSONPointer::fromURIString(childRef.getFragment().value_or(""),
+                                     false) /
+          key;
       childRef.setFragment(childPointer.toFragment(false), false);
       childRefs.emplace(childRef);
     }

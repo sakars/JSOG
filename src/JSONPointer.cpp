@@ -1,27 +1,29 @@
 #include "JSONPointer.h"
+#include "UriWrapper.h"
 
-JSONPointer JSONPointer::fromAnchor(const std::string& anchor) {
+JSONPointer JSONPointer::fromURIString(const std::string& uri,
+                                       bool hasOctothorpe) {
+  std::string processedUri = uri;
+  if (hasOctothorpe) {
+    if (processedUri.empty() || processedUri[0] != '#') {
+      throw std::runtime_error(
+          "URI does not start with octothorpe, but configured to remove it.");
+    }
+    processedUri = processedUri.substr(1);
+  }
+  std::string unescapedUri = UriWrapper::unescapeString(processedUri);
   JSONPointer pointer;
-  pointer.anchor = anchor;
-  return pointer;
-}
-
-JSONPointer JSONPointer::fromJSONString(const std::string& pointer) {
-  JSONPointer outPointer;
-  const auto tokens = splitFragment(pointer);
+  auto tokens = splitFragment(unescapedUri);
   if (tokens.empty()) {
-    return outPointer;
+    return pointer;
   }
-
-  outPointer.anchor = unescapeToken(std::string(tokens[0]));
-  for (const auto& token : tokens | std::views::drop(1)) {
-    outPointer.add(unescapeToken(std::string(token)));
+  // anchors aren't a part of the pointer as per standard and thus isn't
+  // required to be unescaped
+  pointer.setAnchor(std::string(tokens[0]));
+  for (size_t i = 1; i < tokens.size(); i++) {
+    pointer.add(unescapeToken(std::string(tokens[i])));
   }
-  return outPointer;
-}
-
-JSONPointer JSONPointer::fromURIString(const std::string& uri) {
-  return fromJSONString(std::string(unescapeURI(uri)));
+  return pointer;
 }
 
 void JSONPointer::add(const std::string& token) { tokens.push_back(token); }
@@ -41,12 +43,12 @@ void JSONPointer::setAnchor(const std::string& anchor) {
 }
 
 std::string JSONPointer::toFragment(bool withOctothorpe) const {
-  std::string fragment = (withOctothorpe ? "#" : "");
-  fragment += escapePointer(escapeURI(anchor));
+  std::string fragment = ""; //(withOctothorpe ? "#" : "");
+  fragment += UriWrapper::escapeString(anchor);
   for (const auto& token : tokens) {
-    fragment += "/" + escapePointer(escapeURI(token));
+    fragment += UriWrapper::escapeString("/" + escapePointer(token));
   }
-  return fragment;
+  return (withOctothorpe ? "#" : "") + fragment;
 }
 
 /// @brief Converts the JSONPointer to a string. Escapes only characters that
@@ -96,7 +98,7 @@ bool JSONPointer::operator==(const JSONPointer& other) const {
 }
 
 std::vector<std::string_view>
-JSONPointer::splitFragment(const std::string& fragment) {
+JSONPointer::splitFragment(const std::string& ptrString) {
   enum class State { None, Literal, Encoded };
   auto isSlash = [](std::string_view c) {
     bool isLiteral = c.starts_with("/");
@@ -111,10 +113,10 @@ JSONPointer::splitFragment(const std::string& fragment) {
   };
   std::vector<std::string_view> tokens;
 
-  auto start = fragment.begin();
-  auto end = fragment.begin();
-  for (auto it = fragment.begin(); it != fragment.end(); it++) {
-    auto slash = isSlash(std::string_view(it, fragment.end()));
+  auto start = ptrString.begin();
+  auto end = ptrString.begin();
+  for (auto it = ptrString.begin(); it != ptrString.end(); it++) {
+    auto slash = isSlash(std::string_view(it, ptrString.end()));
     if (slash == State::Literal) {
       end = it;
       tokens.emplace_back(std::string_view(start, end));
@@ -125,61 +127,43 @@ JSONPointer::splitFragment(const std::string& fragment) {
       start = it + 3;
     }
   }
-  tokens.emplace_back(std::string_view(start, fragment.end()));
+  tokens.emplace_back(std::string_view(start, ptrString.end()));
 
   return tokens;
 }
 
-std::string JSONPointer::escapeURI(const std::string& fragment) {
-  if (fragment.empty())
-    return "";
-  static const std::map<char, std::string> uriEscapeMap = {
-      {'#', "%23"}, {'%', "%25"},  {'?', "%3F"}, {'&', "%26"}, {'=', "%3D"},
-      {'"', "%22"}, {'\'', "%27"}, {'<', "%3C"}, {'>', "%3E"}, {'\\', "%5C"},
-      {'{', "%7B"}, {'}', "%7D"},  {'|', "%7C"}, {' ', "%20"}};
-
-  std::string escapedFragment;
-  for (char c : fragment) {
-    if (uriEscapeMap.count(c)) {
-      escapedFragment += uriEscapeMap.at(c);
-    } else {
-      escapedFragment += c;
-    }
-  }
-  return escapedFragment;
-}
-
-std::string JSONPointer::escapePointer(const std::string& fragment) {
-  std::string escapedFragment = "";
-  for (char c : fragment) {
-
+std::string JSONPointer::escapePointer(const std::string& unescapedPtr) {
+  std::string escapedPtr = "";
+  for (char c : unescapedPtr) {
     if (c == '~') {
-      escapedFragment += "~0";
+      escapedPtr += "~0";
     } else if (c == '/') {
-      escapedFragment += "~1";
+      escapedPtr += "~1";
     } else {
-      escapedFragment += c;
+      escapedPtr += c;
     }
   }
-
-  return escapedFragment;
+  return escapedPtr;
 }
 
-std::string JSONPointer::unescapeURI(const std::string& token) {
-  std::string unescapedFragment = "";
-  for (size_t i = 0; i < token.size(); i++) {
-    if (token.substr(i).starts_with("%")) {
-      if (i + 2 < token.size()) {
-        std::string hexStr = token.substr(i + 1, 2);
-        char hexChar = static_cast<char>(std::stoi(hexStr, nullptr, 16));
-        unescapedFragment += hexChar;
-        i += 2;
-      }
+std::string JSONPointer::unescapePointer(const std::string& escapedPtr) {
+  std::string unescapedPtr = "";
+  for (size_t i = 0; i < escapedPtr.size(); i++) {
+    // Try to unescape slashes before tildes to avoid double unescaping
+    // slash unescaping (JSON Pointer)
+    if (escapedPtr.substr(i).starts_with("~1")) {
+      unescapedPtr += "/";
+      i += 1;
+    }
+    // tilde unescaping (JSON Pointer)
+    else if (escapedPtr.substr(i).starts_with("~0")) {
+      unescapedPtr += "~";
+      i += 1;
     } else {
-      unescapedFragment += token[i];
+      unescapedPtr += escapedPtr[i];
     }
   }
-  return unescapedFragment;
+  return unescapedPtr;
 }
 
 std::string JSONPointer::unescapeToken(const std::string& token) {

@@ -38,6 +38,26 @@ std::unique_ptr<UriUriA> UriWrapper::applyUri(const UriUriA& base,
   return dest;
 }
 
+std::string UriWrapper::uriToString(const UriUriA& uri) noexcept {
+  int charsRequired = 0;
+  if (uriToStringCharsRequiredA(&uri, &charsRequired) != URI_SUCCESS) {
+    return "";
+  }
+  charsRequired += 1;
+  std::vector<char> uriString(charsRequired);
+  if (uriToStringA(uriString.data(), &uri, charsRequired, NULL) !=
+      URI_SUCCESS) {
+    return "";
+  }
+  return std::string(uriString.data(), uriString.size());
+}
+
+void UriWrapper::normalizeUri(UriUriA& uri) {
+  if (uriNormalizeSyntaxA(&uri) != URI_SUCCESS) {
+    throw std::runtime_error("Failed to normalize URI");
+  }
+}
+
 std::string UriWrapper::escapeString(const std::string& str) {
   // Allocate enough space for the worst case scenario
   // (space to plus and normalize breaks options are turned on)
@@ -46,6 +66,13 @@ std::string UriWrapper::escapeString(const std::string& str) {
   auto end = uriEscapeA(str.c_str(), uriBuffer.data(), URI_TRUE, URI_TRUE);
   std::string escapedUri(uriBuffer.data(), end);
   return escapedUri;
+}
+
+std::string UriWrapper::unescapeString(const std::string& str) {
+  std::vector<char> uriBuffer(str.size() + 1);
+  strncpy(uriBuffer.data(), str.c_str(), str.size());
+  uriUnescapeInPlaceA(uriBuffer.data());
+  return std::string(uriBuffer.data());
 }
 
 UriWrapper UriWrapper::applyUri(const UriWrapper& base,
@@ -64,7 +91,6 @@ UriWrapper UriWrapper::applyUri(const UriWrapper& base,
 }
 
 UriWrapper::UriWrapper(const std::string& str) {
-
   uri_ = std::make_unique<UriUriA>();
   const char* errorPos;
   if (uriParseSingleUriA(uri_.get(), str.c_str(), &errorPos) != URI_SUCCESS) {
@@ -105,9 +131,7 @@ void UriWrapper::normalize() {
   if (!uri_) {
     return;
   }
-  if (uriNormalizeSyntaxA(uri_.get()) != URI_SUCCESS) {
-    throw std::runtime_error("Failed to normalize URI");
-  }
+  normalizeUri(*uri_);
 }
 
 std::optional<std::string> UriWrapper::toString() const noexcept {
@@ -158,6 +182,13 @@ std::optional<std::string> UriWrapper::toFragmentlessString() const {
   return std::string(uriStringView.substr(0, fragmentPos));
 }
 
+bool UriWrapper::hasFragment() const {
+  if (!uri_) {
+    return false;
+  }
+  return uri_->fragment.first != NULL;
+}
+
 std::optional<std::string> UriWrapper::getFragment() const {
   if (!uri_) {
     return std::nullopt;
@@ -165,24 +196,13 @@ std::optional<std::string> UriWrapper::getFragment() const {
   if (uri_->fragment.first == NULL) {
     return std::nullopt;
   }
-  std::vector<char> fragment(uri_->fragment.afterLast - uri_->fragment.first +
-                             1);
-  std::memcpy(fragment.data(), uri_->fragment.first,
-              uri_->fragment.afterLast - uri_->fragment.first);
-  fragment[uri_->fragment.afterLast - uri_->fragment.first] = '\0';
-  uriUnescapeInPlaceA(fragment.data());
-  return std::string(fragment.data());
+  return std::string(uri_->fragment.first, uri_->fragment.afterLast);
 }
 
 void UriWrapper::setFragment(const std::string& fragment,
                              bool hasStartingOctothorpe) {
   auto dest = std::make_unique<UriUriA>();
-  auto escapedFragment =
-      escapeString(fragment.substr(hasStartingOctothorpe ? 1 : 0));
-  if (escapedFragment.empty()) {
-    *this = UriWrapper(toFragmentlessString().value_or(""));
-    return;
-  }
+  auto escapedFragment = fragment.substr(hasStartingOctothorpe ? 1 : 0);
   escapedFragment = "#" + escapedFragment;
   // perform parsing on the fragment
   const UriWrapper fragmentUri(escapedFragment);
@@ -224,13 +244,164 @@ bool UriWrapper::operator==(const UriWrapper& other) const {
   if (!uri_ || !other.uri_) {
     return false;
   }
-  const auto uriString = toString();
-  const auto otherUriString = other.toString();
-  // If either URI is invalid, we can't compare them
-  if (!uriString || !otherUriString) {
-    return false;
+  // const auto uriString = toString() + hasFragment() ? "" : "#";
+  // const auto otherUriString = other.toString() + other.hasFragment() ? "" :
+  // "#";
+  // // If either URI is invalid, we can't compare them
+  // if (!uriString || !otherUriString) {
+  //   return false;
+  // }
+  // return uriString.value() == otherUriString.value();
+
+  {
+    const auto uri_ = cloneUri();
+    const auto otherUri_ = other.cloneUri();
+    // compare schemes
+    bool schemeExists = uri_->scheme.first != NULL &&
+                        uri_->scheme.afterLast != NULL &&
+                        uri_->scheme.first + 1 != uri_->scheme.afterLast;
+    bool otherSchemeExists =
+        other.uri_->scheme.first != NULL &&
+        other.uri_->scheme.afterLast != NULL &&
+        other.uri_->scheme.first + 1 != other.uri_->scheme.afterLast;
+    if (schemeExists != otherSchemeExists) {
+      return false;
+    }
+    if (schemeExists && otherSchemeExists) {
+      std::string_view scheme(uri_->scheme.first, uri_->scheme.afterLast);
+      std::string_view otherScheme(other.uri_->scheme.first,
+                                   other.uri_->scheme.afterLast);
+      if (scheme.compare(otherScheme) != 0) {
+        return false;
+      }
+    }
+
+    // compare userInfo
+    bool userInfo = uri_->userInfo.first != NULL &&
+                    uri_->userInfo.afterLast != NULL &&
+                    uri_->userInfo.first != uri_->userInfo.afterLast;
+    bool otherUserInfoExists =
+        other.uri_->userInfo.first != NULL &&
+        other.uri_->userInfo.afterLast != NULL &&
+        other.uri_->userInfo.first != other.uri_->userInfo.afterLast;
+    if (userInfo != otherUserInfoExists) {
+      return false;
+    }
+    if (userInfo && otherUserInfoExists) {
+      std::string_view userInfo(uri_->userInfo.first, uri_->userInfo.afterLast);
+      std::string_view otherUserInfo(other.uri_->userInfo.first,
+                                     other.uri_->userInfo.afterLast);
+      if (userInfo.compare(otherUserInfo) != 0) {
+        return false;
+      }
+    }
+
+    // compare host
+    bool hostExists = uri_->hostText.first != NULL &&
+                      uri_->hostText.afterLast != NULL &&
+                      uri_->hostText.first != uri_->hostText.afterLast;
+    bool otherHostExists =
+        other.uri_->hostText.first != NULL &&
+        other.uri_->hostText.afterLast != NULL &&
+        other.uri_->hostText.first != other.uri_->hostText.afterLast;
+    if (hostExists != otherHostExists) {
+      return false;
+    }
+    if (hostExists && otherHostExists) {
+      std::string_view host(uri_->hostText.first, uri_->hostText.afterLast);
+      std::string_view otherHost(other.uri_->hostText.first,
+                                 other.uri_->hostText.afterLast);
+      if (host.compare(otherHost) != 0) {
+        return false;
+      }
+    }
+
+    // compare port
+    bool portExists = uri_->portText.first != NULL &&
+                      uri_->portText.afterLast != NULL &&
+                      uri_->portText.first != uri_->portText.afterLast;
+    bool otherPortExists =
+        other.uri_->portText.first != NULL &&
+        other.uri_->portText.afterLast != NULL &&
+        other.uri_->portText.first != other.uri_->portText.afterLast;
+    if (portExists != otherPortExists) {
+      return false;
+    }
+    if (portExists && otherPortExists) {
+      std::string_view port(uri_->portText.first, uri_->portText.afterLast);
+      std::string_view otherPort(other.uri_->portText.first,
+                                 other.uri_->portText.afterLast);
+      if (port.compare(otherPort) != 0) {
+        return false;
+      }
+    }
+
+    // compare path
+    bool pathExists = uri_->pathHead != NULL && uri_->pathTail != NULL;
+    bool otherPathExists =
+        other.uri_->pathHead != NULL && other.uri_->pathTail != NULL;
+    if (pathExists != otherPathExists) {
+      return false;
+    }
+
+    auto path = uri_->pathHead;
+    auto otherPath = other.uri_->pathHead;
+
+    while (path != uri_->pathTail && otherPath != other.uri_->pathTail) {
+      std::string_view pathSegment(path->text.first, path->text.afterLast);
+      std::string_view otherPathSegment(otherPath->text.first,
+                                        otherPath->text.afterLast);
+      if (pathSegment.compare(otherPathSegment) != 0) {
+        return false;
+      }
+      path = path->next;
+      otherPath = otherPath->next;
+    }
+    if (path != uri_->pathTail || otherPath != other.uri_->pathTail) {
+      return false;
+    }
+
+    // compare query
+    bool queryExists =
+        uri_->query.first != NULL && uri_->query.afterLast != NULL;
+    bool otherQueryExists =
+        other.uri_->query.first != NULL && other.uri_->query.afterLast != NULL;
+    if (queryExists != otherQueryExists) {
+      return false;
+    }
+
+    if (queryExists && otherQueryExists) {
+      std::string_view query(uri_->query.first, uri_->query.afterLast);
+      std::string_view otherQuery(other.uri_->query.first,
+                                  other.uri_->query.afterLast);
+      if (query.compare(otherQuery) != 0) {
+        return false;
+      }
+    }
+
+    // compare fragment
+    bool fragmentExists = uri_->fragment.first != NULL &&
+                          uri_->fragment.afterLast != NULL &&
+                          uri_->fragment.first != uri_->fragment.afterLast;
+    bool otherFragmentExists =
+        other.uri_->fragment.first != NULL &&
+        other.uri_->fragment.afterLast != NULL &&
+        other.uri_->fragment.first != other.uri_->fragment.afterLast;
+    if (fragmentExists != otherFragmentExists) {
+      return false;
+    }
+
+    if (fragmentExists && otherFragmentExists) {
+      std::string_view fragment(uri_->fragment.first, uri_->fragment.afterLast);
+      std::string_view otherFragment(other.uri_->fragment.first,
+                                     other.uri_->fragment.afterLast);
+      if (fragment.compare(otherFragment) != 0) {
+        return false;
+      }
+    }
+
+    return true;
   }
-  return uriString.value() == otherUriString.value();
 }
 
 JSONPointer UriWrapper::getPointer() const {

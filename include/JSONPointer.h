@@ -12,24 +12,23 @@
 #include <vector>
 
 class JSONPointer {
+  /// @brief Fully unescaped reference tokens.
+  /// They don't contain neither the leading slash nor the anchor, nor any URI
+  /// or JSON Pointer escaping.
   std::vector<std::string> tokens;
   std::string anchor = "";
 
-  /// @brief Escapes a fragment text. This is slightly different from the
-  /// escapeString function, as this doesn't escape the '/' character.
-  /// @param fragment The fragment string to escape
-  /// @return The escaped fragment string
-  static std::string escapeURI(const std::string& fragment);
-
-  /// @brief Escapes a pointer token according to RFC6901
+  /// @brief Escapes a pointer token according to RFC6901 (JSON Pointer)
   /// @param token The reference token to escape.
-  /// @return
+  /// @return The escaped token string
+  /// @note This function does not perform URI escaping.
   static std::string escapePointer(const std::string& token);
 
-  /// @brief Unescapes a URI fragment string
-  /// @param fragment The fragment string to unescape
-  /// @return The unescaped fragment string
-  static std::string unescapeURI(const std::string& fragment);
+  /// @brief Unescapes a pointer token according to RFC6901 (JSON Pointer)
+  /// @param token The reference token to unescape.
+  /// @return The unescaped token string
+  /// @note This function does not perform URI unescaping.
+  static std::string unescapePointer(const std::string& token);
 
   /// @brief Unescapes a reference token of a JSONPointer according to RFC6901
   /// @param token The token to unescape
@@ -37,27 +36,22 @@ class JSONPointer {
   static std::string unescapeToken(const std::string& token);
 
 private:
-  /// @brief Splits a fragment string into its reference tokens.
-  /// @param fragment The fragment string to split
-  /// @return A vector of string views that represent the tokens
-  /// @warning This function does not unescape the tokens. The returned
-  /// string_views are views into the original string and will be invalidated if
-  /// the original string is destroyed.
+  /// @brief Splits a JSON Pointer string into tokens
+  /// @note Requires that fragment has JSON Pointer escaping,
+  /// but does not have URI escaping nor the leading octothorpe (#)
+  /// @warning Returned output must not outlive the input string
+  /// @param fragment The JSON Pointer string to split
+  /// @return A vector of string views that point to the tokens in the input
+  /// No escaping is done on the tokens
   static std::vector<std::string_view>
   splitFragment(const std::string& fragment);
 
 public:
-  /// @brief Generates an empty JSONPointer with an anchor.
-  static JSONPointer fromAnchor(const std::string& anchor);
-
-  /// @brief Parses a JSONPointer from a string. This parses the input string
-  /// according to RFC6901 Section 5
-  static JSONPointer fromJSONString(const std::string& pointer);
-
   /// @brief Parses a JSONPointer from a URI fragment string.
-  /// @details This function treats it's input as if the string was escaped
-  /// according to RFC3986, then unescapes it and parses it as a JSONPointer.
-  static JSONPointer fromURIString(const std::string& uri);
+  /// @details This function unescapes input
+  /// according to RFC3986, then unescapes it according to RFC6901 and parses it
+  static JSONPointer fromURIString(const std::string& uri,
+                                   bool hasOctothorpe = true);
 
   JSONPointer() : tokens() {}
 
@@ -78,12 +72,13 @@ public:
   std::string getAnchor() const { return anchor; }
 
   /// @brief Overwrites the anchor of the JSONPointer
-  /// @details This will clear the path as well
+  /// This will clear the path as well
   /// @param anchor
   void setAnchor(const std::string& anchor);
 
-  /// @brief Converts the JSONPointer to a fragment string. It escapes the
-  /// tokens and the anchor.
+  /// @brief Converts the JSONPointer to a URI fragment string. It escapes the
+  /// tokens with JSON Pointer encoding and URI encoding and the anchor with URI
+  /// encoding.
   /// @param withOctothorpe If true, the fragment string will start with an
   /// octothorpe (#). True by default.
   /// @return The escaped fragment string

@@ -14,22 +14,43 @@
 /// @brief Wrapper around the uriparser library, providing a C++ interface
 /// @details This class wraps the uriparser library, providing a C++ interface
 /// to the C library. It allows for easy parsing and manipulation of URIs.
-/// @note This class is not thread-safe
+/// @note This class is not thread-safe. UriWrapper instances internally shall
+/// keep a canonical form of the URI. The canonical form shall have the
+/// following properties:
+///
+/// - The scheme and host are in lowercase
+///
+/// - The path is normalized
+///
+/// - All characters that are not reserved and not unreserved are
+/// percent-encoded
 class UriWrapper {
 private:
-  // std::optional<UriUriA> uri = std::nullopt;
+  // To limit how much of the uriparser library is exposed, all uriparser
+  // function calls are limited not only to this class, but to private static
+  // functions within this class. This is to prevent the uriparser library from
+  // being exposed to the rest of the codebase and quarantine memory-unsafe
+  // code.
+
+  /// @brief Internal URI object that is managed by a unique pointer.
   std::unique_ptr<UriUriA> uri_ = nullptr;
 
   /// @brief Clones the internal C URI object
   /// @return A new URI instance that is a clone of the internal URI object
   std::unique_ptr<UriUriA> cloneUri() const;
 
-  /// @brief Applies a relative URI to an absolute base URI
+  /// @brief Applies a relative URI to an absolute base URI, creating a new URI
   /// @param base The base URI instance
   /// @param relative The relative URI instance
   /// @return A new URI instance that is the result of applying the relative URI
   static std::unique_ptr<UriUriA> applyUri(const UriUriA& base,
                                            const UriUriA& relative);
+
+  static std::string uriToString(const UriUriA& uri) noexcept;
+
+  /// @brief Normalizes a URI.
+  /// @param uri
+  static void normalizeUri(UriUriA& uri);
 
   UriWrapper(std::unique_ptr<UriUriA> uri) : uri_(std::move(uri)) {}
 
@@ -39,6 +60,11 @@ public:
   /// @return The escaped string
   /// @note This function percent-encodes all unreserved characters.
   static std::string escapeString(const std::string& str);
+
+  /// @brief Unescapes a string according to RFC3986 (URI encoding)
+  /// @param str The string to unescape
+  /// @return The unescaped string
+  static std::string unescapeString(const std::string& str);
 
   /// @brief Applies a relative URI to an absolute base URI
   /// @param base Base URI that must be absolute as defined by RFC3986
@@ -85,6 +111,8 @@ public:
   /// @note Not only does this function remove the fragment, but it also removes
   /// the octothorpe (#) character that precedes the fragment
   std::optional<std::string> toFragmentlessString() const;
+
+  bool hasFragment() const;
 
   /// @brief Attempts to retrieve the fragment of the URI
   /// @return The fragment of the URI if it exists, or std::nullopt if the URI

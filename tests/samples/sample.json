@@ -8,6 +8,7 @@
     "test": {
       "title": "Test",
       "additionalProperties": true,
+      "required": ["test1", "L bozo"],
       "properties": {
         "test1": {
           "title": "Test1",
@@ -30,7 +31,8 @@
             "type": "string"
           }
         }
-      }
+      },
+      "uniqueItems": true
     },
     "id": {
       "title": "Product ID",

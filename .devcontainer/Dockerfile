@@ -56,3 +56,11 @@ WORKDIR /uriparser/build
 RUN cmake -DCMAKE_BUILD_TYPE=Release -DURIPARSER_BUILD_WCHAR_T=OFF -DURIPARSER_BUILD_TESTS=OFF -DURIPARSER_BUILD_DOCS=OFF ..
 RUN make
 RUN make install
+
+
+WORKDIR /
+RUN mkdir /workspaces
+WORKDIR /workspaces
+RUN mkdir /workspaces/JSOG
+
+VOLUME /workspaces

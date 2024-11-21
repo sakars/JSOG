@@ -32,6 +32,12 @@
           }
         }
       },
+      "patternProperties": {
+        "^test[0-9]$": {
+          "title": "Test",
+          "type": "string"
+        }
+      },
       "uniqueItems": true
     },
     "id": {

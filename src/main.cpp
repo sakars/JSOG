@@ -28,7 +28,6 @@
 // 8. SyncedSchema - Represents a schema that is ready to be generated and
 // linked to other schemas directly.
 // 9. Header and Source files are generated for each SyncedSchema.
-
 int main() {
   std::filesystem::path path = "./samples/sample.json";
   Document doc(path);

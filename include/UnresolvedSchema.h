@@ -100,14 +100,19 @@ private:
 public:
   static SetMap<UriWrapper, UnresolvedSchema>
   generateSetMap(const std::vector<DraftRecognisedDocument>& docs) {
-    SetMap<UriWrapper, UnresolvedSchema> setMap;
-    for (const auto& doc : docs) {
-      std::set<UriWrapper> refs;
-      refs.insert(doc.fileUri_);
-      UnresolvedSchema schema(doc);
-      schema.recursiveAddToMap(setMap, refs);
+    try {
+      SetMap<UriWrapper, UnresolvedSchema> setMap;
+      for (const auto& doc : docs) {
+        std::set<UriWrapper> refs;
+        refs.insert(doc.fileUri_);
+        UnresolvedSchema schema(doc);
+        schema.recursiveAddToMap(setMap, refs);
+      }
+      return setMap;
+    } catch (const std::exception& e) {
+      std::cerr << "Error caught in UnresolvedSchema::generateSetMap:\n";
+      throw e;
     }
-    return setMap;
   }
 
   static void

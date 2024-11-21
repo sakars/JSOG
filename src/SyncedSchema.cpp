@@ -47,162 +47,256 @@ static std::string getHeaderDefine(const SyncedSchema& schema) {
   return headerDefine;
 }
 
-CodeBlock SyncedSchema::generateDeclaration() const {
-  CodeBlock block(codeProperties.get().indent_);
-  if (codeProperties.get().headerGuardType_ ==
+// Include guard generation
+
+/// @brief Generates the start of the include guard
+/// @param schema The schema to generate the include guard for
+/// @return The generated code block
+static CodeBlock declarationIncludeGuardStart(const SyncedSchema& schema) {
+  CodeBlock block(schema.codeProperties.get().indent_);
+#if JSOG_DEBUG
+  block << "/*" << schema.identifier_ << " include guard start*/";
+#endif
+  if (schema.codeProperties.get().headerGuardType_ ==
       CodeProperties::HeaderGuard::Ifndef) {
-    std::string upperFileName = getHeaderDefine(*this);
+    std::string upperFileName = getHeaderDefine(schema);
     BLOCK << std::format("#ifndef {}", upperFileName);
     BLOCK << std::format("#define {}", upperFileName);
   } else {
     BLOCK << std::format("#pragma once");
   }
-  BLOCK << "" << generateDependencies();
+  return block;
+}
 
-  // Global namespace
-  if (codeProperties.get().globalNamespace_.has_value()) {
-    BLOCK << std::format("namespace {} {{",
-                         codeProperties.get().globalNamespace_.value());
+static CodeBlock declarationIncludeGuardEnd(const SyncedSchema& schema) {
+  CodeBlock block(schema.codeProperties.get().indent_);
+#if JSOG_DEBUG
+  block << "/*" << schema.identifier_ << " include guard end*/";
+#endif
+  if (schema.codeProperties.get().headerGuardType_ ==
+      CodeProperties::HeaderGuard::Ifndef) {
+    BLOCK << std::format("#endif // {}", getHeaderDefine(schema));
   }
+  return block;
+}
 
+// Namespace generation
+
+static CodeBlock namespaceStart(const SyncedSchema& schema) {
+  CodeBlock block(schema.codeProperties.get().indent_);
+#if JSON_DEBUG
+  block << "/*" << schema.identifier_ << " namespace start*/";
+#endif
+  // Global namespace, if set
+  if (schema.codeProperties.get().globalNamespace_.has_value()) {
+    BLOCK << std::format("namespace {} {{",
+                         schema.codeProperties.get().globalNamespace_.value());
+  }
   // Identifier namespace
-  BLOCK << std::format("namespace {} {{", identifier_);
-  if (!definedAsBooleanSchema_.has_value() && !ref_.has_value()) {
-    // Forward declarations
-    if (type_.contains(IndexedSyncedSchema::Type::Object) ||
-        type_.contains(IndexedSyncedSchema::Type::Array)) {
-      BLOCK << "// Forward declarations";
-      if (type_.contains(IndexedSyncedSchema::Type::Object)) {
-        BLOCK << "class Object;";
-      }
-      if (type_.contains(IndexedSyncedSchema::Type::Array)) {
-        BLOCK << "class Array;";
-      }
-      BLOCK << "";
-    }
+  BLOCK << std::format("namespace {} {{", schema.identifier_);
+  return block;
+}
 
-    // Default value declaration
-    if (default_.has_value()) {
-      BLOCK << "extern const nlohmann::json default_;";
-    }
-    if (type_.contains(IndexedSyncedSchema::Type::Object)) {
+static CodeBlock namespaceEnd(const SyncedSchema& schema) {
+  CodeBlock block(schema.codeProperties.get().indent_);
+#if JSON_DEBUG
+  block << "/*" << schema.identifier_ << " namespace end*/";
+#endif
+  BLOCK << std::format("}} // namespace {}", schema.identifier_);
 
-      // Object declaration
-      BLOCK << "class Object {" << CodeBlock::inc;
+  if (schema.codeProperties.get().globalNamespace_.has_value()) {
+    BLOCK << std::format("}} // namespace {}",
+                         schema.codeProperties.get().globalNamespace_.value());
+  }
+  return block;
+}
+
+static CodeBlock functionDeclarations(const SyncedSchema& schema) {
+  CodeBlock block(schema.codeProperties.get().indent_);
+#if JSOG_DEBUG
+  block << "/*" << schema.identifier_ << " function declarations*/";
+#endif
+  BLOCK << std::format("using {} = {};", schema.identifier_, schema.getType());
+  if (schema.default_.has_value()) {
+    BLOCK << std::format(
+        "std::optional<{}> construct(const nlohmann::json& = default_);",
+        schema.getType());
+  } else {
+    BLOCK << std::format("std::optional<{}> construct(const nlohmann::json&);",
+                         schema.getType());
+  }
+  BLOCK << std::format("nlohmann::json rawExport(const {}&);",
+                       schema.getType());
+  BLOCK << std::format("bool validate(const {}&);", schema.getType());
+  return block;
+}
+
+static CodeBlock classForwardDeclarations(const SyncedSchema& schema) {
+#if JSOG_DEBUG
+  block << "/*" << schema.identifier_ << " forward declarations*/";
+#endif
+  CodeBlock block(schema.codeProperties.get().indent_);
+  if (schema.type_.contains(IndexedSyncedSchema::Type::Object) ||
+      schema.type_.contains(IndexedSyncedSchema::Type::Array)) {
+    BLOCK << "// Forward declarations";
+    if (schema.type_.contains(IndexedSyncedSchema::Type::Object)) {
+      BLOCK << "class Object;";
+    }
+    if (schema.type_.contains(IndexedSyncedSchema::Type::Array)) {
+      BLOCK << "class Array;";
+    }
+    BLOCK << "";
+  }
+  return block;
+}
+
+static CodeBlock objectClassDefinition(const SyncedSchema& schema) {
+  CodeBlock block(schema.codeProperties.get().indent_);
+#if JSOG_DEBUG
+  block << "/*" << schema.identifier_ << " object class definition*/";
+#endif
+  if (schema.type_.contains(IndexedSyncedSchema::Type::Object)) {
+    // Object declaration
+    BLOCK << "class Object {" << CodeBlock::inc;
+    {
+      // Declare the construct function to be a friend, so it can fill out
+      // private members
+      BLOCK << std::format(
+          "friend std::optional<{}> construct(const nlohmann::json&);",
+          schema.getType());
+      BLOCK << CodeBlock::dec << "public:" << CodeBlock::inc;
+      for (const auto& [propertyName, property] : schema.properties_) {
+        if (schema.required_.has_value() &&
+            schema.required_.value().count(propertyName) > 0) {
+          BLOCK << std::format("{} {};", property.get().getType(),
+                               sanitizeString(propertyName) + "_");
+        } else {
+          BLOCK << std::format("std::optional<{}> {};",
+                               property.get().getType(),
+                               sanitizeString(propertyName) + "_");
+        }
+      }
+      if (schema.additionalProperties_.get().definedAsBooleanSchema_.value_or(
+              true) != false) {
+        BLOCK << std::format("std::map<std::string, {}> additionalProperties;",
+                             schema.additionalProperties_.get().getType());
+      }
+    }
+    BLOCK << CodeBlock::dec << "};" << "";
+  }
+  return block;
+}
+
+static CodeBlock arrayClassDefinition(const SyncedSchema& schema) {
+  CodeBlock block(schema.codeProperties.get().indent_);
+#if JSOG_DEBUG
+  block << "/*" << schema.identifier_ << " array class definition*/";
+#endif
+  if (schema.type_.contains(IndexedSyncedSchema::Type::Array)) {
+    // Array declaration
+    BLOCK << "class Array {" << CodeBlock::inc;
+    {
+      // Declare the construct function to be a friend, so it can fill out
+      // private members
+      BLOCK << std::format(
+          "friend std::optional<{}> construct(const nlohmann::json&);",
+          schema.getType());
+      // Tupleable item declaration
+      BLOCK << CodeBlock::dec << "public:" << CodeBlock::inc;
+      if (schema.tupleableItems_.has_value()) {
+        for (size_t i = 0; i < schema.tupleableItems_->size(); i++) {
+          BLOCK << std::format("std::optional<{}> item{};",
+                               (*schema.tupleableItems_)[i].get().getType(), i);
+        }
+      }
+      BLOCK << std::format("std::vector<{}> items;",
+                           schema.items_.get().getType());
+
+      BLOCK << CodeBlock::dec << "public:" << CodeBlock::inc;
+      BLOCK << "template <size_t N>";
+      BLOCK << "auto get() const {";
+      BLOCK << CodeBlock::inc;
       {
-        // Declare the construct function to be a friend, so it can fill out
-        // private members
-        BLOCK << std::format(
-            "friend std::optional<{}> construct(const nlohmann::json&);",
-            getType());
-        BLOCK << CodeBlock::dec << "public:" << CodeBlock::inc;
-        for (const auto& [propertyName, schema] : properties_) {
-          if (required_.has_value() &&
-              required_.value().count(propertyName) > 0) {
-            BLOCK << std::format("{} {};", schema.get().getType(),
-                                 sanitizeString(propertyName) + "_");
-          } else {
-            BLOCK << std::format("std::optional<{}> {};",
-                                 schema.get().getType(),
-                                 sanitizeString(propertyName) + "_");
-          }
-        }
-        if (additionalProperties_.get().definedAsBooleanSchema_.value_or(
-                true) != false) {
-          BLOCK << std::format(
-              "std::map<std::string, {}> additionalProperties;",
-              additionalProperties_.get().getType());
-        }
-      }
-      BLOCK << CodeBlock::dec << "};" << "";
-    }
-    if (type_.contains(IndexedSyncedSchema::Type::Array)) {
-      // Array declaration
-      BLOCK << "class Array {" << CodeBlock::inc;
-      {
-        // Declare the construct function to be a friend, so it can fill out
-        // private members
-        BLOCK << std::format(
-            "friend std::optional<{}> construct(const nlohmann::json&);",
-            getType());
-        // Tupleable item declaration
-        BLOCK << CodeBlock::dec << "public:" << CodeBlock::inc;
-        if (tupleableItems_.has_value()) {
-          for (size_t i = 0; i < tupleableItems_->size(); i++) {
-            BLOCK << std::format("std::optional<{}> item{};",
-                                 (*tupleableItems_)[i].get().getType(), i);
-          }
-        }
-        BLOCK << std::format("std::vector<{}> items;", items_.get().getType());
-
-        BLOCK << CodeBlock::dec << "public:" << CodeBlock::inc;
-        BLOCK << "template <size_t N>";
-        BLOCK << "auto get() const {";
-        BLOCK << CodeBlock::inc;
-        {
-          if (tupleableItems_.has_value() && tupleableItems_->size() > 0) {
-            for (size_t i = 0; i < tupleableItems_->size(); i++) {
-              BLOCK << std::format("if constexpr(N == {}) {{", i)
-                    << CodeBlock::inc;
-              {
-                BLOCK << std::format("if (item{}.has_value()) {{", i)
-                      << CodeBlock::inc
-                      << std::format("return item{}.value();", i)
-                      << CodeBlock::dec << "}";
-              }
-              BLOCK << CodeBlock::dec << CodeBlock::dis << "} else ";
-            }
-            BLOCK << "{" << CodeBlock::inc
-                  << std::format("if(N - {} < items.size()) {{",
-                                 tupleableItems_->size())
+        if (schema.tupleableItems_.has_value() &&
+            schema.tupleableItems_->size() > 0) {
+          for (size_t i = 0; i < schema.tupleableItems_->size(); i++) {
+            BLOCK << std::format("if constexpr(N == {}) {{", i)
                   << CodeBlock::inc;
             {
-              BLOCK << std::format("return items[N - {}];",
-                                   tupleableItems_->size());
+              BLOCK << std::format("if (item{}.has_value()) {{", i)
+                    << CodeBlock::inc
+                    << std::format("return item{}.value();", i)
+                    << CodeBlock::dec << "}";
             }
-            BLOCK << CodeBlock::dec << "}" << CodeBlock::dec << "}";
-          } else {
-            BLOCK << "if(N < items.size()) {" << CodeBlock::inc
-                  << "return items[N];" << CodeBlock::dec << "}";
+            BLOCK << CodeBlock::dec << CodeBlock::dis << "} else ";
           }
-          BLOCK << "throw std::range_error(std::string(\"Item \") + "
-                   "std::to_string(N) + \" out of range\");";
+          BLOCK << "{" << CodeBlock::inc
+                << std::format("if(N - {} < items.size()) {{",
+                               schema.tupleableItems_->size())
+                << CodeBlock::inc;
+          {
+            BLOCK << std::format("return items[N - {}];",
+                                 schema.tupleableItems_->size());
+          }
+          BLOCK << CodeBlock::dec << "}" << CodeBlock::dec << "}";
+        } else {
+          BLOCK << "if(N < items.size()) {" << CodeBlock::inc
+                << "return items[N];" << CodeBlock::dec << "}";
         }
-        BLOCK << CodeBlock::dec << "}";
-        BLOCK
-            << std::format("inline {} get(size_t n) {{", items_.get().getType())
+        BLOCK << "throw std::range_error(std::string(\"Item \") + "
+                 "std::to_string(N) + \" out of range\");";
+      }
+      BLOCK << CodeBlock::dec << "}";
+      BLOCK << std::format("inline {} get(size_t n) {{",
+                           schema.items_.get().getType())
             << CodeBlock::inc << "if(n >= items.size()) {"
             << "throw std::range_error(\"Item \" + std::to_string(n) + \" out "
                "of range\");"
             << "}"
             << "return items[n];" << CodeBlock::dec << "}";
-      }
-      BLOCK << CodeBlock::dec;
-      BLOCK << "};";
     }
-  }
-  BLOCK << std::format("using {} = {};", identifier_, getType());
-  if (default_.has_value()) {
-    BLOCK << std::format(
-        "std::optional<{}> construct(const nlohmann::json& = default_);",
-        getType());
-  } else {
-    BLOCK << std::format("std::optional<{}> construct(const nlohmann::json&);",
-                         getType());
-  }
-  BLOCK << std::format("nlohmann::json rawExport(const {}&);", getType());
-  BLOCK << std::format("bool validate(const {}&);", getType());
-  BLOCK << std::format("}} // namespace {}", identifier_);
-
-  if (codeProperties.get().globalNamespace_.has_value()) {
-    BLOCK << std::format("}} // namespace {}",
-                         codeProperties.get().globalNamespace_.value());
+    BLOCK << CodeBlock::dec;
+    BLOCK << "};";
   }
 
-  if (codeProperties.get().headerGuardType_ ==
-      CodeProperties::HeaderGuard::Ifndef) {
-    BLOCK << std::format("#endif // {}", getHeaderDefine(*this));
+  return block;
+}
+
+CodeBlock SyncedSchema::generateDeclaration() const {
+  CodeBlock block(codeProperties.get().indent_);
+
+  BLOCK << declarationIncludeGuardStart(*this);
+
+  BLOCK << "";
+
+  BLOCK << generateDependencies();
+
+  BLOCK << "";
+
+  BLOCK << namespaceStart(*this);
+
+  if (!definedAsBooleanSchema_.has_value() && !ref_.has_value()) {
+    // Forward declarations
+    BLOCK << classForwardDeclarations(*this);
+
+    // Default value declaration
+    if (default_.has_value()) {
+      BLOCK << "extern const nlohmann::json default_;";
+    }
+
+    // Object declaration
+    BLOCK << objectClassDefinition(*this);
+
+    // Array declaration
+    BLOCK << arrayClassDefinition(*this);
   }
+
+  BLOCK << functionDeclarations(*this);
+
+  BLOCK << namespaceEnd(*this);
+
+  BLOCK << declarationIncludeGuardEnd(*this);
+
   return block;
 }
 
@@ -1014,9 +1108,12 @@ CodeBlock SyncedSchema::generateDefinition() const {
                 Indent _(block);
                 BLOCK << std::format(
                     "const auto rawValue = {}::rawExport(value);",
-                    items_.get().identifier_);
+                    additionalProperties_.get().identifier_);
+                BLOCK << std::format("const auto constructedValue = "
+                                     "{}::construct(rawValue);",
+                                     schema.get().identifier_);
                 BLOCK << std::format(
-                    "if (!{0}::validate({0}::construct(rawValue))) {{",
+                    "if (!{0}::validate(constructedValue.value())) {{",
                     schema.get().identifier_);
                 {
                   Indent _(block);
@@ -1705,3 +1802,5 @@ void SyncedSchema::dumpSchemas(
   ofs << schemasDump.dump(2);
   ofs.close();
 }
+
+#undef BLOCK

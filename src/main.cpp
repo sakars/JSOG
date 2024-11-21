@@ -28,18 +28,78 @@
 // 8. SyncedSchema - Represents a schema that is ready to be generated and
 // linked to other schemas directly.
 // 9. Header and Source files are generated for each SyncedSchema.
-int main() {
-  std::filesystem::path path = "./samples/sample.json";
-  Document doc(path);
-  DraftRecognisedDocument draftDoc(std::move(doc));
-  std::vector<DraftRecognisedDocument> draftDocs{std::move(draftDoc)};
+int main(int argc, char* argv[]) {
+  std::vector<std::string_view> args(argc);
+  for (int i = 0; i < argc; ++i) {
+    args[i] = argv[i];
+  }
+
+  std::filesystem::path outputDirectory = ".";
+  std::vector<std::filesystem::path> inputFiles;
+  std::vector<std::string> requiredFiles;
+
+  // configure extra options here
+  for (int i = 1; i < argc; ++i) {
+    if (args[i] == "--help") {
+      std::cout << "Usage: " << args[0] << " [options] [file]" << std::endl;
+      std::cout << "Options:" << std::endl;
+      std::cout << "  --help: Display this help message" << std::endl;
+      return 0;
+    }
+    if (args[i] == "--output-directory" || args[i] == "-o") {
+      if (i + 1 < argc) {
+        outputDirectory = args[i + 1];
+        ++i;
+      } else {
+        std::cerr << "Error: --output-directory requires an argument."
+                  << std::endl;
+        return 1;
+      }
+    }
+    if (args[i] == "--require" || args[i] == "-r") {
+      if (i + 1 < argc) {
+        requiredFiles.emplace_back(args[i + 1]);
+        ++i;
+      } else {
+        std::cerr << "Error: --require requires an argument." << std::endl;
+        return 1;
+      }
+    }
+    if (args[i].starts_with('-')) {
+      std::cerr << "Error: Unknown option " << args[i] << std::endl;
+      return 1;
+    }
+    inputFiles.push_back(args[i]);
+  }
+  for (auto& file : inputFiles) {
+    file = std::filesystem::absolute(file);
+    if (!std::filesystem::exists(file)) {
+      std::cerr << "Error: File " << file << " does not exist." << std::endl;
+      return 1;
+    }
+  }
+
+  if (requiredFiles.empty()) {
+    for (const auto& file : inputFiles) {
+      requiredFiles.push_back("file://" + file.string());
+    }
+  }
+  std::vector<UriWrapper> requiredReferences;
+  for (const auto& file : requiredFiles) {
+    requiredReferences.emplace_back(file);
+  }
+  std::vector<Document> documents = loadDocuments(inputFiles);
+  std::vector<DraftRecognisedDocument> draftDocs;
+  draftDocs.reserve(documents.size());
+  for (auto& doc : documents) {
+    draftDocs.emplace_back(std::move(doc));
+  }
   auto unresolvedSchemas = UnresolvedSchema::generateSetMap(draftDocs);
 
   UnresolvedSchema::dumpSchemas(unresolvedSchemas);
 
-  auto linkedSchemas = resolveDependencies(
-      std::move(unresolvedSchemas),
-      {"file://" + std::filesystem::absolute(path).string()});
+  auto linkedSchemas =
+      resolveDependencies(std::move(unresolvedSchemas), requiredReferences);
 
   LinkedSchema::dumpSchemas(linkedSchemas);
   const auto issues = LinkedSchema::generateIssuesList(linkedSchemas);

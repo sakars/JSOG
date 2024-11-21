@@ -71,18 +71,25 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(Catch2)
 
-add_custom_target(copy-samples ALL
+add_custom_target(copy_samples ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/tests/samples ${CMAKE_BINARY_DIR}/samples)
 
 file(GLOB TEST_SOURCES "tests/*.cpp")
 
 
-add_executable(tests ${TEST_SOURCES} ${SOURCES_WITHOUT_MAIN})
+add_executable(tests ${TEST_SOURCES})
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain JSOG_lib  nlohmann_json::nlohmann_json uriparser::uriparser)
 
-# Make tests depend on copy-samples as we need to copy the samples before running the tests
-# Also make tests depend on full_test_samples as we need to build the samples before running the tests
-add_dependencies(tests copy-samples full_test_samples)
+# Make tests depend on copy_samples as we need to copy the samples before running the tests
+add_dependencies(tests copy_samples)
+
+file(GLOB OUTPUT_TEST_SOURCES tests/output_tests/*.cpp)
+file(GLOB OUTPUT_TEST_SCHEMA_SOURCES ${CMAKE_BINARY_DIR}/built_samples/*.cpp)
+
+add_executable(output_tests ${OUTPUT_TEST_SOURCES} ${OUTPUT_TEST_SCHEMA_SOURCES})
+include_directories(output_tests PRIVATE ${CMAKE_BINARY_DIR}/built_samples)
+target_link_libraries(output_tests PRIVATE Catch2::Catch2WithMain JSOG_lib  nlohmann_json::nlohmann_json uriparser::uriparser)
+add_dependencies(output_tests copy_samples full_test_samples)
 
 
 # Add coverage flags to the compiler options
@@ -100,6 +107,7 @@ list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(CTest)
 include(Catch)
 catch_discover_tests(tests)
+catch_discover_tests(output_tests)
 
 enable_testing()
 

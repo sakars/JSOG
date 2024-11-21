@@ -28,6 +28,7 @@
 // 8. SyncedSchema - Represents a schema that is ready to be generated and
 // linked to other schemas directly.
 // 9. Header and Source files are generated for each SyncedSchema.
+
 int main(int argc, char* argv[]) {
   std::vector<std::string_view> args(argc);
   for (int i = 0; i < argc; ++i) {

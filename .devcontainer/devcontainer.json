@@ -9,7 +9,8 @@
 		"ghcr.io/jungaretti/features/make:1": {}
 	},
 	"mounts": [
-		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/vscode/.ssh,readonly,type=bind"
+		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/vscode/.ssh,readonly,type=bind",
+		"source=jsog-volume,target=/workspace,type=volume"
 	],
 	"customizations": {
 		"vscode": {
@@ -19,7 +20,9 @@
 				"matepek.vscode-catch2-test-adapter"
 			]
 		}
-	}
+	},
+	// "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+	"workspaceFolder": "/workspace/JSOG"
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},

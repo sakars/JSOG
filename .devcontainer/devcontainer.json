@@ -15,7 +15,8 @@
 		"vscode": {
 			"extensions": [
 				"ms-vscode.cpptools-extension-pack",
-				"fralyx.evil-red-theme"
+				"fralyx.evil-red-theme",
+				"matepek.vscode-catch2-test-adapter"
 			]
 		}
 	}

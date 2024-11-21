@@ -37,6 +37,7 @@ int main(int argc, char* argv[]) {
   std::filesystem::path outputDirectory = ".";
   std::vector<std::filesystem::path> inputFiles;
   std::vector<std::string> requiredFiles;
+  bool dumpSchemas = false;
 
   // configure extra options here
   for (int i = 1; i < argc; ++i) {
@@ -46,10 +47,24 @@ int main(int argc, char* argv[]) {
       std::cout << "  --help: Display this help message" << std::endl;
       return 0;
     }
+    if (args[i] == "--dump-schemas" || args[i] == "-d") {
+      dumpSchemas = true;
+      continue;
+    }
     if (args[i] == "--output-directory" || args[i] == "-o") {
       if (i + 1 < argc) {
         outputDirectory = args[i + 1];
+        if (std::filesystem::exists(outputDirectory) &&
+            !std::filesystem::is_directory(outputDirectory)) {
+          std::cerr << "Error: --output-directory must be a directory."
+                    << std::endl;
+          return 1;
+        }
+        if (!std::filesystem::exists(outputDirectory)) {
+          std::filesystem::create_directory(outputDirectory);
+        }
         ++i;
+        continue;
       } else {
         std::cerr << "Error: --output-directory requires an argument."
                   << std::endl;
@@ -60,6 +75,7 @@ int main(int argc, char* argv[]) {
       if (i + 1 < argc) {
         requiredFiles.emplace_back(args[i + 1]);
         ++i;
+        continue;
       } else {
         std::cerr << "Error: --require requires an argument." << std::endl;
         return 1;
@@ -84,9 +100,9 @@ int main(int argc, char* argv[]) {
       requiredFiles.push_back("file://" + file.string());
     }
   }
-  std::vector<UriWrapper> requiredReferences;
+  std::set<UriWrapper> requiredReferences;
   for (const auto& file : requiredFiles) {
-    requiredReferences.emplace_back(file);
+    requiredReferences.emplace(file);
   }
   std::vector<Document> documents = loadDocuments(inputFiles);
   std::vector<DraftRecognisedDocument> draftDocs;
@@ -96,12 +112,14 @@ int main(int argc, char* argv[]) {
   }
   auto unresolvedSchemas = UnresolvedSchema::generateSetMap(draftDocs);
 
-  UnresolvedSchema::dumpSchemas(unresolvedSchemas);
+  if (dumpSchemas)
+    UnresolvedSchema::dumpSchemas(unresolvedSchemas, outputDirectory);
 
   auto linkedSchemas =
       resolveDependencies(std::move(unresolvedSchemas), requiredReferences);
 
-  LinkedSchema::dumpSchemas(linkedSchemas);
+  if (dumpSchemas)
+    LinkedSchema::dumpSchemas(linkedSchemas, outputDirectory);
   const auto issues = LinkedSchema::generateIssuesList(linkedSchemas);
   if (!issues.empty()) {
     std::cerr << "Issues with the schemas:" << std::endl;
@@ -116,11 +134,13 @@ int main(int argc, char* argv[]) {
   auto identifiableSchemas =
       IdentifiableSchema::transition(std::move(linkedSchemas));
 
-  IdentifiableSchema::dumpSchemas(identifiableSchemas);
+  if (dumpSchemas)
+    IdentifiableSchema::dumpSchemas(identifiableSchemas, outputDirectory);
 
   auto indexedSyncedSchemas = interpretSchemas(identifiableSchemas);
 
-  IndexedSyncedSchema::dumpSchemas(indexedSyncedSchemas);
+  if (dumpSchemas)
+    IndexedSyncedSchema::dumpSchemas(indexedSyncedSchemas, outputDirectory);
 
   auto syncedSchemas =
       SyncedSchema::resolveIndexedSchema(std::move(indexedSyncedSchemas));
@@ -130,10 +150,9 @@ int main(int argc, char* argv[]) {
   const bool combineSourceFiles = true;
 
   if (combineSourceFiles) {
-    std::ofstream source("../locals/schemas/schemas.cpp");
+    std::ofstream source(outputDirectory / "schemas.cpp");
     for (auto& schema : syncedSchemas) {
-      std::filesystem::create_directory("../locals/schemas");
-      std::ofstream header("../locals/schemas/" + schema->getHeaderFileName());
+      std::ofstream header(outputDirectory / schema->getHeaderFileName());
       header << schema->generateDeclaration().str();
       header.close();
       source << schema->generateDefinition().str();
@@ -141,11 +160,10 @@ int main(int argc, char* argv[]) {
     source.close();
   } else {
     for (auto& schema : syncedSchemas) {
-      std::filesystem::create_directory("../locals/schemas");
-      std::ofstream header("../locals/schemas/" + schema->getHeaderFileName());
+      std::ofstream header(outputDirectory / schema->getHeaderFileName());
       header << schema->generateDeclaration().str();
       header.close();
-      std::ofstream source("../locals/schemas/" + schema->getSourceFileName());
+      std::ofstream source(outputDirectory / schema->getSourceFileName());
       source << schema->generateDefinition().str();
       source.close();
     }

@@ -48,6 +48,17 @@ target_include_directories(JSOG PRIVATE include)
 # Link the nlohmann json library
 target_link_libraries(JSOG PRIVATE JSOG_lib nlohmann_json::nlohmann_json uriparser::uriparser)
 
+file(GLOB TEST_COMPILABLES ${CMAKE_SOURCE_DIR}/tests/schemas_to_compile/*.json)
+
+add_custom_command(
+  OUTPUT ${CMAKE_BINARY_DIR}/built_samples/*.h ${CMAKE_BINARY_DIR}/built_samples/*.cpp ${CMAKE_BINARY_DIR}/built_samples/*.dump.json
+  COMMAND ${CMAKE_BINARY_DIR}/JSOG -d -o ${CMAKE_BINARY_DIR}/built_samples ${TEST_COMPILABLES}
+  DEPENDS JSOG ${TEST_COMPILABLES}
+  COMMENT "Building samples"
+)
+
+add_custom_target(full_test_samples ALL
+    DEPENDS ${CMAKE_BINARY_DIR}/built_samples/*.h ${CMAKE_BINARY_DIR}/built_samples/*.cpp ${CMAKE_BINARY_DIR}/built_samples/*.dump.json)
 
 # == Tests ==
 Include(FetchContent)
@@ -70,7 +81,8 @@ add_executable(tests ${TEST_SOURCES} ${SOURCES_WITHOUT_MAIN})
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain JSOG_lib  nlohmann_json::nlohmann_json uriparser::uriparser)
 
 # Make tests depend on copy-samples as we need to copy the samples before running the tests
-add_dependencies(tests copy-samples)
+# Also make tests depend on full_test_samples as we need to build the samples before running the tests
+add_dependencies(tests copy-samples full_test_samples)
 
 
 # Add coverage flags to the compiler options

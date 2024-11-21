@@ -1625,7 +1625,8 @@ SyncedSchema::resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas) {
 }
 
 void SyncedSchema::dumpSchemas(
-    std::vector<std::unique_ptr<SyncedSchema>>& schemas) {
+    std::vector<std::unique_ptr<SyncedSchema>>& schemas,
+    std::filesystem::path outputDirectory) {
   auto schemasDump = nlohmann::json::array();
   for (const auto& schema : schemas) {
     auto schemaDump = nlohmann::json::object();
@@ -1799,7 +1800,7 @@ void SyncedSchema::dumpSchemas(
     }
     schemasDump.push_back(schemaDump);
   }
-  std::ofstream ofs("synced.dump.json");
+  std::ofstream ofs(outputDirectory / "synced.dump.json");
   ofs << schemasDump.dump(2);
   ofs.close();
 }

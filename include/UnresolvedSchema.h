@@ -116,7 +116,8 @@ public:
   }
 
   static void
-  dumpSchemas(SetMap<UriWrapper, UnresolvedSchema>& unresolvedSchemas) {
+  dumpSchemas(SetMap<UriWrapper, UnresolvedSchema>& unresolvedSchemas,
+              std::filesystem::path outputDirectory = ".") {
     nlohmann::json unresolvedSchemaDump = nlohmann::json::object();
     for (const auto& [uris, schema] : unresolvedSchemas) {
       auto& baseUriList =
@@ -128,7 +129,7 @@ public:
                                    uri.getFragment().value_or("")}));
       }
     }
-    std::ofstream unresolvedDump("unresolved.dump.json");
+    std::ofstream unresolvedDump(outputDirectory / "unresolved.dump.json");
     unresolvedDump << unresolvedSchemaDump.dump(2);
     unresolvedDump.close();
   }

@@ -59,8 +59,8 @@ public:
     }
   }
 
-  static void
-  dumpSchemas(std::vector<IdentifiableSchema>& identifiableSchemas) {
+  static void dumpSchemas(std::vector<IdentifiableSchema>& identifiableSchemas,
+                          std::filesystem::path outputDirectory = ".") {
     auto iDump = R"({"dependencies":{}})"_json;
     for (const auto& iSchema : identifiableSchemas) {
       auto& uriDump =
@@ -76,7 +76,7 @@ public:
       }
     }
 
-    std::ofstream iDumpFile("identifiable.dump.json");
+    std::ofstream iDumpFile(outputDirectory / "identifiable.dump.json");
     iDumpFile << iDump.dump(2);
     iDumpFile.close();
   }

@@ -78,7 +78,8 @@ public:
   std::optional<bool> writeOnly_;
   std::optional<std::vector<nlohmann::json>> examples_;
   static void
-  dumpSchemas(const std::vector<IndexedSyncedSchema>& indexedSyncedSchemas);
+  dumpSchemas(const std::vector<IndexedSyncedSchema>& indexedSyncedSchemas,
+              std::filesystem::path outputDirectory = ".");
 };
 
 #endif // INDEXED_SYNCED_SCHEMA_H

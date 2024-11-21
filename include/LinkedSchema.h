@@ -59,7 +59,8 @@ public:
     return "Schema";
   }
 
-  static void dumpSchemas(std::vector<std::unique_ptr<LinkedSchema>>& schemas) {
+  static void dumpSchemas(std::vector<std::unique_ptr<LinkedSchema>>& schemas,
+                          std::filesystem::path outputDirectory = ".") {
 
     auto linkedDump = nlohmann::json::object();
     for (const auto& lSchema : schemas) {
@@ -75,7 +76,7 @@ public:
       }
     }
 
-    std::ofstream linkedDumpFile("linked.dump.json");
+    std::ofstream linkedDumpFile(outputDirectory / "linked.dump.json");
     linkedDumpFile << linkedDump.dump(2);
     linkedDumpFile.close();
   }

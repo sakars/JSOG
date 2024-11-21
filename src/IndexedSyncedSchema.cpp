@@ -3,7 +3,8 @@
 #include <vector>
 
 void IndexedSyncedSchema::dumpSchemas(
-    const std::vector<IndexedSyncedSchema>& indexedSyncedSchemas) {
+    const std::vector<IndexedSyncedSchema>& indexedSyncedSchemas,
+    std::filesystem::path outputDirectory) {
 
   auto isSchema = nlohmann::json::array();
   for (const auto& indexedshcema : indexedSyncedSchemas) {
@@ -287,7 +288,7 @@ void IndexedSyncedSchema::dumpSchemas(
 
     isSchema.push_back(isDump);
   }
-  std::ofstream isDumpFile("indexedSynced.dump.json");
+  std::ofstream isDumpFile(outputDirectory / "indexedSynced.dump.json");
   isDumpFile << isSchema.dump(2);
   isDumpFile.close();
 }

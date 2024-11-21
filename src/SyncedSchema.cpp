@@ -1363,6 +1363,7 @@ std::string SyncedSchema::getType() const {
     type += ">";
     return type;
   }
+  throw std::runtime_error("Unreachable code");
 }
 
 std::string SyncedSchema::getObjectType() const {

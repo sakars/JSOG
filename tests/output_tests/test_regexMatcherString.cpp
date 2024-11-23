@@ -79,3 +79,53 @@ TEST_CASE("Check RegexMatcherString::validate") {
     REQUIRE_FALSE(JSOG::RegexMatcherString::validate(str));
   }
 }
+
+TEST_CASE("RegexMatcherString::json") {
+  SECTION("Valid strings") {
+    std::string str = GENERATE(take(100, randomString()));
+    for (auto& c : str) {
+      bool lower = c >= 'a' && c <= 'z';
+      bool upper = c >= 'A' && c <= 'Z';
+      bool digit = c >= '0' && c <= '9';
+      if (!lower && !upper && !digit) {
+        c = 'x';
+      }
+    }
+    auto jsonopt = JSOG::RegexMatcherString::json(str);
+    REQUIRE(jsonopt.has_value());
+    auto json = jsonopt.value();
+    CAPTURE(str);
+    REQUIRE(json.is_string());
+    CAPTURE(str);
+    REQUIRE(json == str);
+  }
+
+  SECTION("Invalid strings") {
+    std::string str = GENERATE(take(100, randomString()));
+    str.push_back('!');
+    auto jsonopt = JSOG::RegexMatcherString::json(str);
+    REQUIRE_FALSE(jsonopt.has_value());
+  }
+
+  SECTION("Empty string") {
+    std::string str = "";
+    auto jsonopt = JSOG::RegexMatcherString::json(str);
+    REQUIRE(jsonopt.has_value());
+    auto json = jsonopt.value();
+    CAPTURE(str);
+    REQUIRE(json.is_string());
+    CAPTURE(str);
+    REQUIRE(json == str);
+  }
+
+  SECTION("Single character string") {
+    std::string str = "a";
+    auto jsonopt = JSOG::RegexMatcherString::json(str);
+    REQUIRE(jsonopt.has_value());
+    auto json = jsonopt.value();
+    CAPTURE(str);
+    REQUIRE(json.is_string());
+    CAPTURE(str);
+    REQUIRE(json == str);
+  }
+}

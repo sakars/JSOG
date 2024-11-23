@@ -65,3 +65,29 @@ TEST_CASE("Check LengthLimitedString::validate") {
   CAPTURE(str);
   REQUIRE(JSOG::LengthLimitedString::validate(str));
 }
+
+TEST_CASE("LengthLimitedString::json") {
+  SECTION("Valid strings") {
+    std::string str = GENERATE(take(100, randomString(10, 5)));
+    auto jsonopt = JSOG::LengthLimitedString::json(str);
+    REQUIRE(jsonopt.has_value());
+    auto json = jsonopt.value();
+    CAPTURE(str);
+    REQUIRE(json.is_string());
+    CAPTURE(str);
+    REQUIRE(json == str);
+  }
+
+  SECTION("Invalid strings") {
+    SECTION("Shorter strings") {
+      std::string str = GENERATE(take(100, randomString(4, 0)));
+      auto jsonopt = JSOG::LengthLimitedString::json(str);
+      REQUIRE_FALSE(jsonopt.has_value());
+    }
+    SECTION("Longer strings") {
+      std::string str = GENERATE(take(100, randomString(200, 11)));
+      auto jsonopt = JSOG::LengthLimitedString::json(str);
+      REQUIRE_FALSE(jsonopt.has_value());
+    }
+  }
+}

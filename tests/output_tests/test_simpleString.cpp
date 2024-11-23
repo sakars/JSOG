@@ -47,3 +47,12 @@ TEST_CASE("Check SimpleString::validate", "[SimpleString]") {
   CAPTURE(str);
   REQUIRE(JSOG::SimpleString::validate(str));
 }
+
+TEST_CASE("SimpleString::json", "[SimpleString]") {
+  std::string str = GENERATE(take(100, randomString()));
+  nlohmann::json json = JSOG::SimpleString::json(str).value();
+  CAPTURE(str);
+  REQUIRE(json.is_string());
+  CAPTURE(str);
+  REQUIRE(json == str);
+}

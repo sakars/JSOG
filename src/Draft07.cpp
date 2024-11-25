@@ -657,11 +657,11 @@ IndexedSyncedSchema interpretDraft07IdentifiableSchema(
   }
 
   if (json.contains("maxLength")) {
-    indexedSyncedSchema.maxLength_ = json.at("maxLength").get<double>();
+    indexedSyncedSchema.maxLength_ = json.at("maxLength").get<size_t>();
   }
 
   if (json.contains("minLength")) {
-    indexedSyncedSchema.minLength_ = json.at("minLength").get<double>();
+    indexedSyncedSchema.minLength_ = json.at("minLength").get<size_t>();
   }
 
   if (json.contains("pattern")) {

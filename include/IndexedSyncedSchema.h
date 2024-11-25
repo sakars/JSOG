@@ -46,8 +46,8 @@ public:
   std::optional<double> exclusiveMaximum_;
   std::optional<double> minimum_;
   std::optional<double> exclusiveMinimum_;
-  std::optional<double> maxLength_;
-  std::optional<double> minLength_;
+  std::optional<size_t> maxLength_;
+  std::optional<size_t> minLength_;
   std::optional<std::string> pattern_;
   std::optional<std::vector<size_t>> tupleableItems_;
   std::optional<size_t> items_;

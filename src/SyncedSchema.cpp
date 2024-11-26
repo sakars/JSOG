@@ -199,7 +199,7 @@ static CodeBlock arrayClassDefinition(const SyncedSchema& schema) {
     BLOCK << "class Array {" << CodeBlock::inc;
     {
       // Declare the construct function to be a friend, so it can fill out
-      // private members
+      // private members, should it be necessary
       BLOCK << std::format(
           "friend std::optional<{}> construct(const nlohmann::json&);",
           schema.getType());
@@ -207,8 +207,15 @@ static CodeBlock arrayClassDefinition(const SyncedSchema& schema) {
       BLOCK << CodeBlock::dec << "public:" << CodeBlock::inc;
       if (schema.tupleableItems_.has_value()) {
         for (size_t i = 0; i < schema.tupleableItems_->size(); i++) {
-          BLOCK << std::format("std::optional<{}> item{};",
-                               (*schema.tupleableItems_)[i].get().getType(), i);
+          if (schema.codeProperties.get().minItemsMakeTupleableRequired_ &&
+              schema.minItems_.has_value() && i < schema.minItems_.value()) {
+            BLOCK << std::format(
+                "{} item{};", (*schema.tupleableItems_)[i].get().getType(), i);
+          } else {
+            BLOCK << std::format("std::optional<{}> item{};",
+                                 (*schema.tupleableItems_)[i].get().getType(),
+                                 i);
+          }
         }
       }
       BLOCK << std::format("std::vector<{}> items;",
@@ -225,10 +232,16 @@ static CodeBlock arrayClassDefinition(const SyncedSchema& schema) {
             BLOCK << std::format("if constexpr(N == {}) {{", i)
                   << CodeBlock::inc;
             {
-              BLOCK << std::format("if (item{}.has_value()) {{", i)
-                    << CodeBlock::inc
-                    << std::format("return item{}.value();", i)
-                    << CodeBlock::dec << "}";
+              if (schema.codeProperties.get().minItemsMakeTupleableRequired_ &&
+                  schema.minItems_.has_value() &&
+                  i < schema.minItems_.value()) {
+                BLOCK << std::format("return item{};", i);
+              } else {
+                BLOCK << std::format("if (item{}.has_value()) {{", i)
+                      << CodeBlock::inc;
+              }
+              BLOCK << std::format("return item{}.value();", i);
+              BLOCK << CodeBlock::dec << "}";
             }
             BLOCK << CodeBlock::dec << CodeBlock::dis << "} else ";
           }
@@ -428,11 +441,18 @@ CodeBlock SyncedSchema::generateDefinition() const {
             if (tupleableItems_.has_value()) {
               for (size_t i = 0; i < tupleableItems_->size(); i++) {
                 BLOCK << std::format("if(json.size() > {}) {{", i)
-                      << CodeBlock::inc
-                      << std::format("array.item{} = {}::construct(json[{}]);",
-                                     i, (*tupleableItems_)[i].get().identifier_,
-                                     i)
-                      << CodeBlock::dec << "}";
+                      << CodeBlock::inc;
+                if (codeProperties.get().minItemsMakeTupleableRequired_ &&
+                    minItems_.has_value() && i < minItems_.value()) {
+                  BLOCK << std::format(
+                      "array.item{} = {}::construct(json[{}]).value();", i,
+                      (*tupleableItems_)[i].get().identifier_, i);
+                } else {
+                  BLOCK << std::format(
+                      "array.item{} = {}::construct(json[{}]);", i,
+                      (*tupleableItems_)[i].get().identifier_, i);
+                }
+                BLOCK << CodeBlock::dec << "}";
               }
             }
             BLOCK << std::format(
@@ -634,12 +654,21 @@ CodeBlock SyncedSchema::generateDefinition() const {
             if (tupleableItems_.has_value()) {
               for (size_t i = 0; i < tupleableItems_->size(); i++) {
                 const auto& item = (*tupleableItems_)[i].get();
-                BLOCK << std::format("if(array.item{}.has_value()) {{", i);
-                BLOCK << CodeBlock::inc;
-                BLOCK << std::format("json.push_back({}::rawExport(array.item{}"
-                                     ".value()));",
-                                     item.identifier_, i);
-                BLOCK << CodeBlock::dec << "}";
+                if (codeProperties.get().minItemsMakeTupleableRequired_ &&
+                    minItems_.has_value() && i < minItems_.value()) {
+                  BLOCK << std::format(
+                      "json.push_back({}::rawExport(array.item{}"
+                      "));",
+                      item.identifier_, i);
+                } else {
+                  BLOCK << std::format("if(array.item{}.has_value()) {{", i);
+                  BLOCK << CodeBlock::inc;
+                  BLOCK << std::format(
+                      "json.push_back({}::rawExport(array.item{}"
+                      ".value()));",
+                      item.identifier_, i);
+                  BLOCK << CodeBlock::dec << "}";
+                }
               }
             }
             BLOCK << "for (const auto& item : array.items) {";
@@ -711,12 +740,19 @@ CodeBlock SyncedSchema::generateDefinition() const {
           if (tupleableItems_.has_value()) {
             for (size_t i = 0; i < tupleableItems_->size(); i++) {
               const auto& item = (*tupleableItems_)[i].get();
-              BLOCK << std::format("if(array.item{}.has_value()) {{", i);
-              BLOCK << CodeBlock::inc;
-              BLOCK << std::format("json.push_back({}::rawExport(array.item{}"
-                                   ".value()));",
-                                   item.identifier_, i);
-              BLOCK << CodeBlock::dec << "}";
+              if (codeProperties.get().minItemsMakeTupleableRequired_ &&
+                  minItems_.has_value() && i < minItems_.value()) {
+                BLOCK << std::format(
+                    "json.push_back({}::rawExport(array.item{}));",
+                    item.identifier_, i);
+              } else {
+                BLOCK << std::format("if(array.item{}.has_value()) {{", i);
+                BLOCK << CodeBlock::inc;
+                BLOCK << std::format(
+                    "json.push_back({}::rawExport(array.item{}.value()));",
+                    item.identifier_, i);
+                BLOCK << CodeBlock::dec << "}";
+              }
             }
           }
           BLOCK << "for (const auto& item : array.items) {";
@@ -946,8 +982,8 @@ CodeBlock SyncedSchema::generateDefinition() const {
         }
         BLOCK << CodeBlock::dec << "}";
       }
-      // TODO: Array validation
       if (types.contains(Type::Array)) {
+        // TODO: Array needs tupleable items validation
         if (!isSingleType) {
           BLOCK << "if (std::holds_alternative<Array>(schema)) {";
           BLOCK << CodeBlock::inc;

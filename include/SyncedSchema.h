@@ -12,6 +12,14 @@ struct CodeProperties {
   std::string indent_ = "  ";
   std::optional<std::string> globalNamespace_ = "JSOG";
   std::optional<std::string> define_prefix_ = "JSOG_";
+
+  // Feature flags
+
+  /// @brief If set, whenever a schema is defined as an array,
+  /// tupleableItems_ is set, and minItems_ is set to at least 1,
+  /// the generated code will make itemN required, not optional.
+  /// @todo This feature is not yet tested
+  bool minItemsMakeTupleableRequired_ = false;
 };
 
 /// @brief A class to represent a schema that holds information to generate code

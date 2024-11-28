@@ -1599,9 +1599,7 @@ smallestIntegerType(std::optional<double> minimum,
     if (minInt >= std::numeric_limits<int32_t>::min() &&
         maxInt <= std::numeric_limits<int32_t>::max())
       return IntegerType::INT32;
-    if (minInt >= std::numeric_limits<int64_t>::min() &&
-        maxInt <= std::numeric_limits<int64_t>::max())
-      return IntegerType::INT64;
+    return IntegerType::INT64;
   } else {
     if (minInt >= 0 && maxInt <= std::numeric_limits<uint8_t>::max())
       return IntegerType::UINT8;
@@ -1609,12 +1607,8 @@ smallestIntegerType(std::optional<double> minimum,
       return IntegerType::UINT16;
     if (minInt >= 0 && maxInt <= std::numeric_limits<uint32_t>::max())
       return IntegerType::UINT32;
-    if (minInt >= 0 && maxInt <= std::numeric_limits<uint64_t>::max())
-      return IntegerType::UINT64;
+    return IntegerType::UINT64;
   }
-
-  // Return NONE if no matching type is found
-  return IntegerType::NONE;
 }
 
 std::string SyncedSchema::getIntegerType() const {
@@ -1637,8 +1631,6 @@ std::string SyncedSchema::getIntegerType() const {
     return "int64_t";
   case IntegerType::UINT64:
     return "uint64_t";
-  case IntegerType::NONE:
-    return "int64_t";
   }
   return "int64_t";
 }

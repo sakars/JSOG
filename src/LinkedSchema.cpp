@@ -6,7 +6,9 @@ std::map<Draft, std::set<UriWrapper> (*)(const nlohmann::json&,
         {Draft::DRAFT_07, getDraft07Dependencies},
     };
 
-std::map<Draft, std::vector<std::string> (*)(const LinkedSchema&)>
+std::map<Draft,
+         std::vector<std::string> (*)(const nlohmann::json&, const UriWrapper&,
+                                      const JSONPointer&)>
     issueCheckers{
         {Draft::DRAFT_07, issuesWithDraft07Schema},
     };
@@ -112,7 +114,8 @@ std::vector<std::string> LinkedSchema::generateIssuesList(
     std::vector<std::string> issues;
     for (const auto& schema : schemas) {
       const auto& issueChecker = issueCheckers.at(schema->draft_);
-      const auto schemaIssues = issueChecker(*schema);
+      const auto schemaIssues =
+          issueChecker(schema->json_.get(), schema->baseUri_, schema->pointer_);
       issues.insert(issues.end(), schemaIssues.begin(), schemaIssues.end());
     }
     return issues;

@@ -92,7 +92,9 @@ extern std::map<Draft,
                                          const UriWrapper&, const JSONPointer&)>
     linkers;
 
-extern std::map<Draft, std::vector<std::string> (*)(const LinkedSchema&)>
+extern std::map<Draft, std::vector<std::string> (*)(const nlohmann::json&,
+                                                    const UriWrapper&,
+                                                    const JSONPointer&)>
     issueCheckers;
 
 std::vector<std::unique_ptr<LinkedSchema>>

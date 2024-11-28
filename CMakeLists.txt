@@ -93,7 +93,7 @@ add_dependencies(output_tests copy_samples full_test_samples)
 
 
 # Add coverage flags to the compiler options
-if(CMAKE_COMPILER_IS_GNUCXX)
+if(CODE_COVERAGE)
   target_compile_options(JSOG_lib PRIVATE --coverage)
   target_link_libraries(JSOG_lib PRIVATE --coverage)
   target_compile_options(tests PRIVATE --coverage)
@@ -102,6 +102,22 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 
+# Code coverage target
+if(CODE_COVERAGE)
+  message("Code coverage enabled")
+
+  add_custom_target(coverage_builder
+  DEPENDS tests
+  COMMAND ${CMAKE_BINARY_DIR}/tests
+  COMMAND lcov --capture --directory . --output-file ${CMAKE_BINARY_DIR}/lcov.info --rc branch_coverage=1 --rc geninfo_unexecuted_blocks=1 --ignore-errors mismatch
+  COMMAND lcov --remove ${CMAKE_BINARY_DIR}/lcov.info '/usr/*' '*/catch2/*' '*/tests/*' --output-file ${CMAKE_BINARY_DIR}/lcov.info
+  COMMAND genhtml ${CMAKE_BINARY_DIR}/lcov.info --output-directory coverage_report --rc branch_coverage=1 --rc geninfo_unexecuted_blocks=1
+  COMMENT "Generating coverage report..."
+  BYPRODUCTS ${CMAKE_BINARY_DIR}/lcov.info
+  )
+  
+  add_dependencies(coverage_builder tests)
+endif()
 
 # Add the tests
 include(CTest)
@@ -111,12 +127,4 @@ catch_discover_tests(output_tests)
 
 enable_testing()
 
-# Code coverage target
-if(CODE_COVERAGE)
-  add_custom_target(coverage
-  COMMAND lcov --capture --directory . --output-file lcov.info --rc branch_coverage=1 --rc geninfo_unexecuted_blocks=1 --ignore-errors mismatch
-  COMMAND lcov --remove lcov.info '/usr/*' '*/catch2/*' '*/tests/*' --output-file lcov.info
-  COMMAND genhtml lcov.info --output-directory coverage_report --rc branch_coverage=1 --rc geninfo_unexecuted_blocks=1
-  COMMENT "Generating coverage report..."
-  )
-endif()
+

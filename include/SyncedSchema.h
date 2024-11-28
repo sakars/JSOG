@@ -131,8 +131,7 @@ public:
     INT32,
     UINT32,
     INT64,
-    UINT64,
-    NONE
+    UINT64
   };
   /// @brief Generates the declaration of the schema
   CodeBlock generateDeclaration() const;

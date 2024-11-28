@@ -13,7 +13,9 @@ std::set<UriWrapper> getDraft07Dependencies(const nlohmann::json&,
                                             const UriWrapper&,
                                             const JSONPointer&);
 
-std::vector<std::string> issuesWithDraft07Schema(const LinkedSchema&);
+std::vector<std::string> issuesWithDraft07Schema(const nlohmann::json& ,
+                                                 const UriWrapper& ,
+                                                 const JSONPointer& );
 
 IndexedSyncedSchema
 interpretDraft07IdentifiableSchema(const IdentifiableSchema&);

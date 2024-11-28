@@ -143,16 +143,14 @@ std::set<UriWrapper> getDraft07Dependencies(const nlohmann::json& json,
   return dependencies;
 }
 
-std::vector<std::string> issuesWithDraft07Schema(const LinkedSchema& schema) {
-  const auto& baseUri = schema.baseUri_;
-  const auto& pointer = schema.pointer_;
+std::vector<std::string> issuesWithDraft07Schema(const nlohmann::json& json,
+                                                 const UriWrapper& baseUri,
+                                                 const JSONPointer& pointer) {
   const auto location = [&baseUri](const JSONPointer& pointer) {
     return std::format("{} : {} :\t", baseUri.toString().value(),
                        pointer.toString());
   };
   std::vector<std::string> issues;
-
-  const auto& json = schema.json_.get();
   if (json.is_boolean()) {
     return issues;
   }
@@ -199,6 +197,7 @@ std::vector<std::string> issuesWithDraft07Schema(const LinkedSchema& schema) {
                                      type.get<std::string>()));
       }
     } else if (type.is_array()) {
+      std::set<std::string> typeSet;
       for (size_t i = 0; i < type.size(); i++) {
         const auto& typeValue = type.at(i);
         if (typeValue != "null" && typeValue != "boolean" &&
@@ -209,6 +208,14 @@ std::vector<std::string> issuesWithDraft07Schema(const LinkedSchema& schema) {
               std::format("{} Invalid type value: {}",
                           location(pointer / "type" / std::to_string(i)),
                           typeValue.get<std::string>()));
+        } else {
+          if (typeSet.contains(typeValue.get<std::string>())) {
+            issues.push_back(
+                std::format("{} Duplicate type value: {}",
+                            location(pointer / "type" / std::to_string(i)),
+                            typeValue.get<std::string>()));
+          }
+          typeSet.insert(typeValue.get<std::string>());
         }
       }
     } else {

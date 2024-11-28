@@ -139,6 +139,7 @@ public:
   CodeBlock generateSystemDependencies() const;
   CodeBlock generateDependencies() const;
 
+  std::string getNamespace() const;
   std::string getHeaderFileName() const;
   std::string getSourceFileName() const;
   std::string getType() const;

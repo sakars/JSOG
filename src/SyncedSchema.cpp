@@ -262,7 +262,7 @@ static CodeBlock arrayClassDefinition(const SyncedSchema& schema) {
                  "std::to_string(N) + \" out of range\");";
       }
       BLOCK << CodeBlock::dec << "}";
-      BLOCK << std::format("inline {} get(size_t n) {{",
+      BLOCK << std::format("inline {}& get(size_t n) {{",
                            schema.items_.get().getType())
             << CodeBlock::inc << "if(n >= items.size()) {"
             << "throw std::range_error(\"Item \" + std::to_string(n) + \" out "
@@ -684,8 +684,10 @@ CodeBlock rawExportDefinition(const SyncedSchema& schema) {
                        schema.getType());
   {
     Indent _(block);
-
-    if (schema.definedAsBooleanSchema_.has_value()) {
+    if (schema.ref_.has_value()) {
+      BLOCK << std::format("return {}::rawExport(*schema);",
+                           schema.ref_.value().get().getNamespace());
+    } else if (schema.definedAsBooleanSchema_.has_value()) {
       if (schema.definedAsBooleanSchema_.value()) {
         // If the schema is defined as true, then the type is an nllohmann::json
         // object and we can just return it
@@ -922,7 +924,10 @@ static CodeBlock validateDefinition(const SyncedSchema& schema) {
   BLOCK << std::format("bool validate(const {}& schema) {{", schema.getType());
   {
     Indent _(block);
-    if (schema.definedAsBooleanSchema_.has_value()) {
+    if (schema.ref_.has_value()) {
+      BLOCK << std::format("return {}::validate(*schema);",
+                           schema.ref_.value().get().getNamespace());
+    } else if (schema.definedAsBooleanSchema_.has_value()) {
       if (schema.definedAsBooleanSchema_.value()) {
         BLOCK << "return true;";
       } else {
@@ -969,8 +974,8 @@ static CodeBlock validateDefinition(const SyncedSchema& schema) {
           schema.type_.contains(Type::Number)) {
         // Construct a lambda function with auto parameter to be able to
         // validate double and any integer type
-        BLOCK
-            << "const auto numericValidator = [](auto numericValue) -> bool {";
+        BLOCK << "const auto numericValidator = [](auto numericValue) -> "
+                 "bool {";
         {
           Indent _(block);
           // Integer/number validation
@@ -1439,6 +1444,15 @@ CodeBlock SyncedSchema::generateDependencies() const {
   }
   BLOCK << "";
   return block;
+}
+
+std::string SyncedSchema::getNamespace() const {
+  std::string namespaceString = "::";
+  if (codeProperties.get().globalNamespace_.has_value()) {
+    namespaceString += codeProperties.get().globalNamespace_.value() + "::";
+  }
+  namespaceString += identifier_;
+  return namespaceString;
 }
 
 std::string SyncedSchema::getHeaderFileName() const {

@@ -138,10 +138,33 @@ TEST_CASE("Host is case-insensitive", "[UriWrapper]") {
   UriWrapper uri1("http://example.com");
   UriWrapper uri2("http://EXAMPLE.com");
   REQUIRE(uri1 == uri2);
+  REQUIRE((!(uri1 < uri2) && !(uri2 < uri1)));
+}
+
+TEST_CASE("Escaped chars in fragment are still equal", "[UriWrapper]") {
+  UriWrapper uri1("http://example.com#%2F%24");
+  UriWrapper uri2("http://example.com#/$");
+  REQUIRE(uri1 == uri2);
+  UriWrapper uri3("test://output.schema.json#%2F%24defs%2Flayout");
+  UriWrapper uri4("test://output.schema.json#%2F$defs%2Flayout");
+  REQUIRE(uri3 == uri4);
+  REQUIRE((!(uri3 < uri4) && !(uri4 < uri3)));
 }
 
 TEST_CASE("Inequality operator", "[UriWrapper]") {
   UriWrapper uri1("http://example.com/test1");
   UriWrapper uri2("http://example.com/test2");
   REQUIRE(uri1 != uri2);
+}
+
+TEST_CASE("Contains works in the map", "[UriWrapper]") {
+  std::map<UriWrapper, int> map;
+  UriWrapper uri1("http://example.com/test1");
+  UriWrapper uri2("http://example.com/test2");
+  map[uri1] = 1;
+  REQUIRE(map.contains(uri1));
+  REQUIRE_FALSE(map.contains(uri2));
+  map["http://example.com/test2#/$defs"] = 2;
+  REQUIRE(map.contains("http://example.com/test2#%2F$defs"));
+  REQUIRE(map.contains("http://example.com/test2#%2F%24defs"));
 }

@@ -102,6 +102,7 @@ UriWrapper::UriWrapper(const std::string& str) {
     std::cerr << error;
     throw std::invalid_argument(error);
   }
+  normalizeUri(*uri_);
   uriMakeOwnerA(uri_.get());
 }
 
@@ -241,7 +242,10 @@ bool UriWrapper::operator<(const UriWrapper& other) const {
   if (!uriString || !otherUriString) {
     return false;
   }
-  return uriString.value() < otherUriString.value();
+  const auto unescapedUriString = UriWrapper::unescapeString(uriString.value());
+  const auto unescapedOtherUriString =
+      UriWrapper::unescapeString(otherUriString.value());
+  return unescapedUriString < unescapedOtherUriString;
 }
 
 bool UriWrapper::operator==(const UriWrapper& other) const {
@@ -259,6 +263,36 @@ bool UriWrapper::operator==(const UriWrapper& other) const {
   //   return false;
   // }
   // return uriString.value() == otherUriString.value();
+
+  const auto possiblyEscapedStringsEqual = [](const std::string& str1,
+                                              const std::string& str2) {
+    size_t i = 0;
+    size_t j = 0;
+    while (i < str1.size() && j < str2.size()) {
+      char c1 = str1[i];
+      char c2 = str2[j];
+      if (str1[i] == '%') {
+        if (i + 2 >= str1.size()) {
+          return false;
+        }
+        c1 = std::stoi(str1.substr(i + 1, 2), nullptr, 16);
+        i += 2;
+      }
+      if (str2[j] == '%') {
+        if (j + 2 >= str2.size()) {
+          return false;
+        }
+        c2 = std::stoi(str2.substr(j + 1, 2), nullptr, 16);
+        j += 2;
+      }
+      if (c1 != c2) {
+        return false;
+      }
+      i++;
+      j++;
+    }
+    return i == str1.size() && j == str2.size();
+  };
 
   {
     auto uriClone = *this;
@@ -406,7 +440,8 @@ bool UriWrapper::operator==(const UriWrapper& other) const {
       std::string_view fragment(uri_->fragment.first, uri_->fragment.afterLast);
       std::string_view otherFragment(otherUri_->fragment.first,
                                      otherUri_->fragment.afterLast);
-      if (fragment.compare(otherFragment) != 0) {
+      if (!possiblyEscapedStringsEqual(std::string(fragment),
+                                       std::string(otherFragment))) {
         return false;
       }
     }

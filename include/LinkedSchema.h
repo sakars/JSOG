@@ -97,6 +97,10 @@ extern std::map<Draft, std::vector<std::string> (*)(const nlohmann::json&,
                                                     const JSONPointer&)>
     issueCheckers;
 
+std::tuple<std::vector<std::unique_ptr<UnresolvedSchema>>,
+           std::map<UriWrapper, size_t>>
+deconstructUnresolvedSchemaMap(SetMap<UriWrapper, UnresolvedSchema>&& setMap);
+
 std::vector<std::unique_ptr<LinkedSchema>>
 resolveDependencies(SetMap<UriWrapper, UnresolvedSchema>&& setMap,
                     const std::set<UriWrapper>& requiredReferences);

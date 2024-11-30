@@ -18,7 +18,9 @@ public:
   UriWrapper fileUri_;
 
   Document(nlohmann::json&& json, UriWrapper&& fileUri)
-      : json_(std::move(json)), fileUri_(std::move(fileUri)) {}
+      : json_(std::move(json)), fileUri_(std::move(fileUri)) {
+    fileUri_.normalize();
+  }
 
   Document(const std::filesystem::path& path) {
     std::ifstream file(path);

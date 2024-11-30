@@ -13,24 +13,40 @@ std::map<Draft,
         {Draft::DRAFT_07, issuesWithDraft07Schema},
     };
 
+std::tuple<std::vector<std::unique_ptr<UnresolvedSchema>>,
+           std::map<UriWrapper, size_t>>
+deconstructUnresolvedSchemaMap(SetMap<UriWrapper, UnresolvedSchema>&& setMap) {
+  auto map = setMap.extract();
+  std::vector<std::unique_ptr<UnresolvedSchema>> unresolvedSchemas;
+  std::map<UriWrapper, size_t> schemaIndices;
+  for (auto& [keys, value] : map) {
+    for (const auto& key : keys) {
+      schemaIndices[key] = unresolvedSchemas.size();
+    }
+    unresolvedSchemas.push_back(std::move(value));
+  }
+  return {std::move(unresolvedSchemas), std::move(schemaIndices)};
+}
+
 std::vector<std::unique_ptr<LinkedSchema>>
 resolveDependencies(SetMap<UriWrapper, UnresolvedSchema>&& setMap,
                     const std::set<UriWrapper>& requiredReferences) {
-  try {
-    // set up a more useful data structure for dependency resolution
-    auto map = setMap.extract();
-    std::vector<std::unique_ptr<UnresolvedSchema>> unresolvedSchemas;
-    std::map<UriWrapper, size_t> schemaIndices;
-    for (auto& [keys, value] : map) {
-      for (const auto& key : keys) {
-        schemaIndices[key] = unresolvedSchemas.size();
-      }
-      unresolvedSchemas.push_back(std::move(value));
+  const std::set<UriWrapper> requiredReferencesNormalized = [&]() {
+    std::set<UriWrapper> normalized;
+    for (const auto& ref : requiredReferences) {
+      UriWrapper refNormalized = ref;
+      refNormalized.normalize();
+      normalized.insert(refNormalized);
     }
+    return normalized;
+  }();
+  try {
+    auto [unresolvedSchemas, schemaIndices] =
+        deconstructUnresolvedSchemaMap(std::move(setMap));
 
     std::set<size_t> buildableRequiredSchemas;
 
-    for (const auto& ref : requiredReferences) {
+    for (const auto& ref : requiredReferencesNormalized) {
       if (schemaIndices.contains(ref)) {
         buildableRequiredSchemas.insert(schemaIndices[ref]);
       } else {
@@ -49,7 +65,7 @@ resolveDependencies(SetMap<UriWrapper, UnresolvedSchema>&& setMap,
       auto& schema = *unresolvedSchemas[schemaIdx];
       buildableRequiredSchemas.erase(schemaIdx);
       builtRequiredSchemas.insert(schemaIdx);
-      const auto dependencies = linkers[unresolvedSchemas[schemaIdx]->draft_](
+      auto dependencies = linkers[unresolvedSchemas[schemaIdx]->draft_](
           schema.json_.get(), schema.baseUri_, schema.pointer_);
       std::map<UriWrapper, size_t> depIndices_;
       for (const auto& dep : dependencies) {
@@ -58,6 +74,9 @@ resolveDependencies(SetMap<UriWrapper, UnresolvedSchema>&& setMap,
         } else {
           std::cerr << "Warning: Dependency not found in opened documents: "
                     << dep << std::endl;
+          for (const auto& [uri, idx] : schemaIndices) {
+            std::cerr << uri << " -> " << idx << std::endl;
+          }
         }
       }
       auto& depIndices = std::as_const(depIndices_);

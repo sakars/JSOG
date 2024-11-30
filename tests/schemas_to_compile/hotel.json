@@ -1,0 +1,77 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://example.com/hotel.schema.json",
+    "title": "Hotel",
+    "type": "object",
+    "required": ["id", "name", "rooms", "address"],
+    "definitions": {
+        "uuid": {
+            "type": "string",
+            "title": "UUID",
+            "pattern": "^([a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}?)$",
+            "description": "A UUID string"
+        },
+        "room": {
+            "type": "object",
+            "required": ["id", "name", "price"],
+            "properties": {
+                "id": {
+                    "$ref": "#/definitions/uuid",
+                    "description": "Unique identifier for the room"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Name of the room",
+                    "minLength": 3,
+                    "maxLength": 100
+                },
+                "price": {
+                    "type": "number",
+                    "description": "Price of the room"
+                }   
+            }
+        }
+    },
+    "properties": {
+        "id": {
+            "$ref": "#/definitions/uuid",
+            "description": "Unique identifier for the hotel"
+        },
+        "name": {
+            "type": "string",
+            "description": "Name of the hotel",
+            "minLength": 3,
+            "maxLength": 100
+        },
+        "rooms": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/room"
+            }
+        },
+        "address": {
+            "type": ["object", "string"],
+            "required": ["street", "city", "state", "zip"],
+            "properties": {
+                "street": {
+                    "type": "string",
+                    "description": "Street address of the hotel"
+                },
+                "city": {
+                    "type": "string",
+                    "description": "City of the hotel"
+                },
+                "state": {
+                    "type": "string",
+                    "description": "State of the hotel"
+                },
+                "zip": {
+                    "type": "string",
+                    "description": "Zip code of the hotel"
+                }
+            },
+            "minLength": 1,
+            "maxLength": 200
+        }
+    }
+}

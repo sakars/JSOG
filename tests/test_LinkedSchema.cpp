@@ -177,44 +177,68 @@ SCENARIO("Multi-file Draft07 reference resolution", "[Draft07][LinkedSchema]") {
 SCENARIO("Full pipeline run up to LinkedSchema",
          "[Draft07][filesystem][LinkedSchema][DraftRecognisedDocument]["
          "Document]") {
-  std::vector<std::filesystem::path> files{"samples/document_1.json",
-                                           "samples/document_2.json"};
-  auto documents = loadDocuments(files);
-  auto recognised = performDraftRecognition(std::move(documents));
-  auto unresolvedSchecmas =
-      UnresolvedSchema::generateSetMap(std::move(recognised));
-  std::set<UriWrapper> refs;
-  refs.insert(UriWrapper(
-      "file://" +
-      std::filesystem::absolute("samples/document_2.json").string()));
-  auto resolved = resolveDependencies(std::move(unresolvedSchecmas), refs);
-  THEN("The references are resolved") {
-    for (const auto& schema : resolved) {
-      std::cout << schema->baseUri_.withPointer(schema->pointer_) << std::endl;
-    }
-    REQUIRE(resolved.size() == 4);
-    const auto uri = GENERATE(
-        UriWrapper(
-            "file://" +
-            std::filesystem::absolute("samples/document_1.json").string()),
-        UriWrapper(
-            "file://" +
-            std::filesystem::absolute("samples/document_2.json").string()),
-        UriWrapper(
-            "file://" +
-            std::filesystem::absolute("samples/document_2.json").string())
-            .withPointer(JSONPointer() / "properties" / "name"),
-        UriWrapper(
-            "file://" +
-            std::filesystem::absolute("samples/document_2.json").string())
-            .withPointer(JSONPointer() / "properties" / "ref"));
-    CAPTURE(uri);
-    REQUIRE(std::any_of(resolved.begin(), resolved.end(),
-                        [uri](const std::unique_ptr<LinkedSchema>& schema) {
-                          return schema->baseUri_.withPointer(
-                                     schema->pointer_) == uri;
-                        }));
+  GIVEN("A sample case with 2 documents") {
+    std::vector<std::filesystem::path> files{"samples/document_1.json",
+                                             "samples/document_2.json"};
+    auto documents = loadDocuments(files);
+    REQUIRE(documents.size() == 2);
+    auto recognised = performDraftRecognition(std::move(documents));
+    REQUIRE(recognised.size() == 2);
+    auto unresolvedSchecmas =
+        UnresolvedSchema::generateSetMap(std::move(recognised));
 
-    resolved.clear();
+    REQUIRE(unresolvedSchecmas.getSet().size() == 5);
+    const auto doesSetContainUri = [&](const UriWrapper& uri) {
+      for (const auto& value : unresolvedSchecmas.getSet()) {
+        if (value->baseUri_.withPointer(value->pointer_) == uri) {
+          return true;
+        }
+      }
+      return false;
+    };
+    REQUIRE(doesSetContainUri(UriWrapper("file://samples/document_1.json")));
+    REQUIRE(doesSetContainUri(UriWrapper("file://samples/document_2.json")));
+    REQUIRE(doesSetContainUri(UriWrapper("file://samples/document_2.json")
+                                  .withPointer(JSONPointer() / "properties")));
+    REQUIRE(doesSetContainUri(
+        UriWrapper("file://samples/document_2.json")
+            .withPointer(JSONPointer() / "properties" / "name")));
+    REQUIRE(doesSetContainUri(
+        UriWrapper("file://samples/document_2.json")
+            .withPointer(JSONPointer() / "properties" / "ref")));
+    std::set<UriWrapper> refs;
+
+    refs.insert(UriWrapper("file://samples/document_2.json"));
+    WHEN("Deconstructing the unresolved schemas") {
+      const auto [set, map] =
+          deconstructUnresolvedSchemaMap(std::move(unresolvedSchecmas));
+      THEN("The set and map are correct") {
+        REQUIRE(set.size() == 5);
+        REQUIRE(map.size() == 10);
+      }
+    }
+    auto resolved = resolveDependencies(std::move(unresolvedSchecmas), refs);
+    THEN("The references are resolved") {
+      for (const auto& schema : resolved) {
+        std::cout << schema->baseUri_.withPointer(schema->pointer_)
+                  << std::endl;
+      }
+      REQUIRE(resolved.size() == 4);
+      const auto uri =
+          GENERATE(UriWrapper("file://samples/document_1.json"),
+                   UriWrapper("file://samples/document_2.json"),
+                   UriWrapper("file://samples/document_2.json")
+                       .withPointer(JSONPointer() / "properties" / "name"),
+                   UriWrapper("file://samples/document_2.json")
+                       .withPointer(JSONPointer() / "properties" / "ref"));
+      CAPTURE(uri);
+      REQUIRE(std::any_of(resolved.begin(), resolved.end(),
+                          [uri](const std::unique_ptr<LinkedSchema>& schema) {
+                            return schema->baseUri_.withPointer(
+                                       schema->pointer_) == uri;
+                          }));
+
+      resolved.clear();
+    }
   }
 }

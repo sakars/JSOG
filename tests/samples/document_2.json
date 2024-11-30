@@ -1,12 +1,13 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "file://samples/document_2.json",
   "type": "object",
   "properties": {
     "name": {
       "type": "string"
     },
     "ref": {
-      "$ref": "document_1.json"
+      "$ref": "./document_1.json"
     }
   }
 }

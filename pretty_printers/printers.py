@@ -29,6 +29,23 @@ class TextRange:
         except gdb.error:
             return "(invalid memory)"
 
+class UriPathSegmentA:
+    def __init__(self, val):
+        self.val = val
+        self.text = TextRange(val['text'])
+        self.next = UriPathSegmentA(val['next']) if val['next'] else None
+
+    def to_string(self):
+        return self.text.to_string()
+
+    def display_hint(self):
+        return 'array'
+
+    def children(self):
+        return [
+            ('text', self.val['text']),
+            ('owner', self.val['owner'])
+        ]
 
 class UriUriStructA:
     def __init__(self, val):
@@ -37,19 +54,27 @@ class UriUriStructA:
         self.userInfo = TextRange(val['userInfo'])
         self.hostText = TextRange(val['hostText'])
         self.portText = TextRange(val['portText'])
+        self.pathHead = UriPathSegmentA(val['pathHead'])
         self.query = TextRange(val['query'])
         self.fragment = TextRange(val['fragment'])
         self.absolutePath = val['absolutePath']
         self.owner = val['owner']
+        
 
     def to_string(self):
         scheme = self.scheme.to_string() + "://" if self.scheme.has_value else ""
         userInfo = self.userInfo.to_string() + "@" if self.userInfo.has_value else ""
         hostText = self.hostText.to_string() if self.hostText.has_value else ""
         portText = ":" + self.portText.to_string() if self.portText.has_value else ""
+        path = "/" if userInfo or hostText or portText or self.absolutePath else ""
+        pathElement = self.pathHead
+        while pathElement:
+            path += pathElement.to_string() + "/"
+            pathElement = pathElement.next
+        path = path[:-1] if path[-1] == "/" else path
         query = "?" + self.query.to_string() if self.query.has_value else ""
         fragment = "#" + self.fragment.to_string() if self.fragment.has_value else ""
-        return f"{scheme}{userInfo}{hostText}{portText}{query}{fragment}"
+        return f"{scheme}{userInfo}{hostText}{portText}{path}{query}{fragment}"
 
     def display_hint(self):
         return 'array'
@@ -69,7 +94,7 @@ class UriUriStructA:
 class UriWrapper:
     def __init__(self, val):
         self.val = val
-        self.uri_ = UriUriStructA(val['uri_'])
+        self.uri_ = UriUriStructA(val['uri_']['get()'].dereference()) if val['uri_'] else None
 
     def to_string(self):
         return self.uri_.to_string()

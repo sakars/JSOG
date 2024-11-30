@@ -113,3 +113,35 @@ TEST_CASE("Normalization", "[UriWrapper]") {
     REQUIRE(uri.toString().value() == uri2.toString().value());
   }
 }
+
+TEST_CASE("Comparison with std::less", "[UriWrapper]") {
+  UriWrapper uri1("http://example.com");
+  UriWrapper uri2("http://example.com");
+  UriWrapper uri3("http://example.com:80");
+  UriWrapper uri4("http://example.com:80");
+
+  REQUIRE_FALSE(std::less<UriWrapper>()(uri1, uri2));
+  REQUIRE_FALSE(std::less<UriWrapper>()(uri2, uri1));
+  REQUIRE_FALSE(std::less<UriWrapper>()(uri3, uri4));
+  REQUIRE_FALSE(std::less<UriWrapper>()(uri4, uri3));
+
+  REQUIRE(std::less<UriWrapper>()(uri1, uri3) !=
+          std::less<UriWrapper>()(uri3, uri1));
+
+  UriWrapper uri5("http://test.com");
+  UriWrapper uri6("http://test.com#");
+  REQUIRE_FALSE(std::less<UriWrapper>()(uri5, uri6));
+  REQUIRE_FALSE(std::less<UriWrapper>()(uri6, uri5));
+}
+
+TEST_CASE("Host is case-insensitive", "[UriWrapper]") {
+  UriWrapper uri1("http://example.com");
+  UriWrapper uri2("http://EXAMPLE.com");
+  REQUIRE(uri1 == uri2);
+}
+
+TEST_CASE("Inequality operator", "[UriWrapper]") {
+  UriWrapper uri1("http://example.com/test1");
+  UriWrapper uri2("http://example.com/test2");
+  REQUIRE(uri1 != uri2);
+}

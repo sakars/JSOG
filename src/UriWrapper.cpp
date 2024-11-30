@@ -229,8 +229,15 @@ bool UriWrapper::operator<(const UriWrapper& other) const {
   if (!other.uri_) {
     return false;
   }
-  const auto uriString = toString();
-  const auto otherUriString = other.toString();
+  if (*this == other) {
+    return false;
+  }
+  auto uriClone = *this;
+  auto otherClone = other;
+  uriClone.normalize();
+  otherClone.normalize();
+  const auto uriString = uriClone.toString();
+  const auto otherUriString = otherClone.toString();
   if (!uriString || !otherUriString) {
     return false;
   }
@@ -254,23 +261,27 @@ bool UriWrapper::operator==(const UriWrapper& other) const {
   // return uriString.value() == otherUriString.value();
 
   {
-    const auto uri_ = cloneUri();
-    const auto otherUri_ = other.cloneUri();
+    auto uriClone = *this;
+    auto otherClone = other;
+    uriClone.normalize();
+    otherClone.normalize();
+    auto uri_ = std::move(uriClone.uri_);
+    auto otherUri_ = std::move(otherClone.uri_);
     // compare schemes
     bool schemeExists = uri_->scheme.first != NULL &&
                         uri_->scheme.afterLast != NULL &&
                         uri_->scheme.first + 1 != uri_->scheme.afterLast;
     bool otherSchemeExists =
-        other.uri_->scheme.first != NULL &&
-        other.uri_->scheme.afterLast != NULL &&
-        other.uri_->scheme.first + 1 != other.uri_->scheme.afterLast;
+        otherUri_->scheme.first != NULL &&
+        otherUri_->scheme.afterLast != NULL &&
+        otherUri_->scheme.first + 1 != otherUri_->scheme.afterLast;
     if (schemeExists != otherSchemeExists) {
       return false;
     }
     if (schemeExists && otherSchemeExists) {
       std::string_view scheme(uri_->scheme.first, uri_->scheme.afterLast);
-      std::string_view otherScheme(other.uri_->scheme.first,
-                                   other.uri_->scheme.afterLast);
+      std::string_view otherScheme(otherUri_->scheme.first,
+                                   otherUri_->scheme.afterLast);
       if (scheme.compare(otherScheme) != 0) {
         return false;
       }
@@ -281,16 +292,16 @@ bool UriWrapper::operator==(const UriWrapper& other) const {
                     uri_->userInfo.afterLast != NULL &&
                     uri_->userInfo.first != uri_->userInfo.afterLast;
     bool otherUserInfoExists =
-        other.uri_->userInfo.first != NULL &&
-        other.uri_->userInfo.afterLast != NULL &&
-        other.uri_->userInfo.first != other.uri_->userInfo.afterLast;
+        otherUri_->userInfo.first != NULL &&
+        otherUri_->userInfo.afterLast != NULL &&
+        otherUri_->userInfo.first != otherUri_->userInfo.afterLast;
     if (userInfo != otherUserInfoExists) {
       return false;
     }
     if (userInfo && otherUserInfoExists) {
       std::string_view userInfo(uri_->userInfo.first, uri_->userInfo.afterLast);
-      std::string_view otherUserInfo(other.uri_->userInfo.first,
-                                     other.uri_->userInfo.afterLast);
+      std::string_view otherUserInfo(otherUri_->userInfo.first,
+                                     otherUri_->userInfo.afterLast);
       if (userInfo.compare(otherUserInfo) != 0) {
         return false;
       }
@@ -301,16 +312,16 @@ bool UriWrapper::operator==(const UriWrapper& other) const {
                       uri_->hostText.afterLast != NULL &&
                       uri_->hostText.first != uri_->hostText.afterLast;
     bool otherHostExists =
-        other.uri_->hostText.first != NULL &&
-        other.uri_->hostText.afterLast != NULL &&
-        other.uri_->hostText.first != other.uri_->hostText.afterLast;
+        otherUri_->hostText.first != NULL &&
+        otherUri_->hostText.afterLast != NULL &&
+        otherUri_->hostText.first != otherUri_->hostText.afterLast;
     if (hostExists != otherHostExists) {
       return false;
     }
     if (hostExists && otherHostExists) {
       std::string_view host(uri_->hostText.first, uri_->hostText.afterLast);
-      std::string_view otherHost(other.uri_->hostText.first,
-                                 other.uri_->hostText.afterLast);
+      std::string_view otherHost(otherUri_->hostText.first,
+                                 otherUri_->hostText.afterLast);
       if (host.compare(otherHost) != 0) {
         return false;
       }
@@ -321,16 +332,16 @@ bool UriWrapper::operator==(const UriWrapper& other) const {
                       uri_->portText.afterLast != NULL &&
                       uri_->portText.first != uri_->portText.afterLast;
     bool otherPortExists =
-        other.uri_->portText.first != NULL &&
-        other.uri_->portText.afterLast != NULL &&
-        other.uri_->portText.first != other.uri_->portText.afterLast;
+        otherUri_->portText.first != NULL &&
+        otherUri_->portText.afterLast != NULL &&
+        otherUri_->portText.first != otherUri_->portText.afterLast;
     if (portExists != otherPortExists) {
       return false;
     }
     if (portExists && otherPortExists) {
       std::string_view port(uri_->portText.first, uri_->portText.afterLast);
-      std::string_view otherPort(other.uri_->portText.first,
-                                 other.uri_->portText.afterLast);
+      std::string_view otherPort(otherUri_->portText.first,
+                                 otherUri_->portText.afterLast);
       if (port.compare(otherPort) != 0) {
         return false;
       }
@@ -339,15 +350,15 @@ bool UriWrapper::operator==(const UriWrapper& other) const {
     // compare path
     bool pathExists = uri_->pathHead != NULL && uri_->pathTail != NULL;
     bool otherPathExists =
-        other.uri_->pathHead != NULL && other.uri_->pathTail != NULL;
+        otherUri_->pathHead != NULL && otherUri_->pathTail != NULL;
     if (pathExists != otherPathExists) {
       return false;
     }
 
     auto path = uri_->pathHead;
-    auto otherPath = other.uri_->pathHead;
+    auto otherPath = otherUri_->pathHead;
 
-    while (path != uri_->pathTail && otherPath != other.uri_->pathTail) {
+    while (path != nullptr && otherPath != nullptr) {
       std::string_view pathSegment(path->text.first, path->text.afterLast);
       std::string_view otherPathSegment(otherPath->text.first,
                                         otherPath->text.afterLast);
@@ -357,7 +368,7 @@ bool UriWrapper::operator==(const UriWrapper& other) const {
       path = path->next;
       otherPath = otherPath->next;
     }
-    if (path != uri_->pathTail || otherPath != other.uri_->pathTail) {
+    if (path != nullptr || otherPath != nullptr) {
       return false;
     }
 
@@ -365,15 +376,15 @@ bool UriWrapper::operator==(const UriWrapper& other) const {
     bool queryExists =
         uri_->query.first != NULL && uri_->query.afterLast != NULL;
     bool otherQueryExists =
-        other.uri_->query.first != NULL && other.uri_->query.afterLast != NULL;
+        otherUri_->query.first != NULL && otherUri_->query.afterLast != NULL;
     if (queryExists != otherQueryExists) {
       return false;
     }
 
     if (queryExists && otherQueryExists) {
       std::string_view query(uri_->query.first, uri_->query.afterLast);
-      std::string_view otherQuery(other.uri_->query.first,
-                                  other.uri_->query.afterLast);
+      std::string_view otherQuery(otherUri_->query.first,
+                                  otherUri_->query.afterLast);
       if (query.compare(otherQuery) != 0) {
         return false;
       }
@@ -384,17 +395,17 @@ bool UriWrapper::operator==(const UriWrapper& other) const {
                           uri_->fragment.afterLast != NULL &&
                           uri_->fragment.first != uri_->fragment.afterLast;
     bool otherFragmentExists =
-        other.uri_->fragment.first != NULL &&
-        other.uri_->fragment.afterLast != NULL &&
-        other.uri_->fragment.first != other.uri_->fragment.afterLast;
+        otherUri_->fragment.first != NULL &&
+        otherUri_->fragment.afterLast != NULL &&
+        otherUri_->fragment.first != otherUri_->fragment.afterLast;
     if (fragmentExists != otherFragmentExists) {
       return false;
     }
 
     if (fragmentExists && otherFragmentExists) {
       std::string_view fragment(uri_->fragment.first, uri_->fragment.afterLast);
-      std::string_view otherFragment(other.uri_->fragment.first,
-                                     other.uri_->fragment.afterLast);
+      std::string_view otherFragment(otherUri_->fragment.first,
+                                     otherUri_->fragment.afterLast);
       if (fragment.compare(otherFragment) != 0) {
         return false;
       }

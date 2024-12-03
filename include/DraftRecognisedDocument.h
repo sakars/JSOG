@@ -5,9 +5,7 @@
 
 enum class Draft { DRAFT_07 };
 
-struct DraftRecognisedDocument {
-  nlohmann::json json_;
-  UriWrapper fileUri_;
+struct DraftRecognisedDocument : public Document {
   Draft draft_;
 
   Draft identifySchemaDraft(const nlohmann::json& json) {
@@ -36,11 +34,10 @@ struct DraftRecognisedDocument {
 public:
   DraftRecognisedDocument() = delete;
   DraftRecognisedDocument(Document&& document)
-      : json_(std::move(document.json_)),
-        fileUri_(std::move(document.fileUri_)),
+      : Document(std::move(document)), draft_(identifySchemaDraft(json_)) {}
+  DraftRecognisedDocument(nlohmann::json&& json, UriWrapper&& fileUri)
+      : Document(std::move(json), std::move(fileUri_)),
         draft_(identifySchemaDraft(json_)) {}
-  DraftRecognisedDocument(const nlohmann::json& json, UriWrapper fileUri)
-      : json_(json), fileUri_(fileUri), draft_(identifySchemaDraft(json_)) {}
 };
 
 inline std::vector<DraftRecognisedDocument>

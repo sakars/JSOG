@@ -4,23 +4,16 @@
 #include "LinkedSchema.h"
 #include <map>
 
-class IdentifiableSchema {
+class IdentifiableSchema : public LinkedSchema {
 
 public:
-  std::map<UriWrapper, size_t> dependencies_;
-
   const std::string identifier_;
-  const std::reference_wrapper<const nlohmann::json> json_;
-
-  const UriWrapper baseUri_;
-  const JSONPointer pointer_;
-  const Draft draft_;
 
   IdentifiableSchema(const nlohmann::json& json, const UriWrapper& baseUri,
                      const JSONPointer& pointer, Draft draft,
                      const std::string& identifier)
-      : identifier_(identifier), json_(json), baseUri_(baseUri),
-        pointer_(pointer), draft_(draft) {}
+      : identifier_(identifier),
+        LinkedSchema(json, baseUri, pointer, draft, {}) {}
 
   static std::vector<IdentifiableSchema>
   transition(std::vector<std::unique_ptr<LinkedSchema>>&& linkedSchemas) {

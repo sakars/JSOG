@@ -15,31 +15,22 @@
 
 /// @brief A fully instantiated instance of LinkedSchema has its dependencies
 /// set and is ready to be fully constructed.
-class LinkedSchema {
+class LinkedSchema : public UnresolvedSchema {
 public:
-  const std::reference_wrapper<const nlohmann::json> json_;
-  const UriWrapper baseUri_;
-  const JSONPointer pointer_;
-  Draft draft_;
-
   std::map<UriWrapper, size_t> dependencies_;
 
   LinkedSchema(const UnresolvedSchema& unresolvedSchema,
                std::map<UriWrapper, size_t>& dependencies)
-      : json_(unresolvedSchema.json_), baseUri_(unresolvedSchema.baseUri_),
-        pointer_(unresolvedSchema.pointer_), draft_(unresolvedSchema.draft_),
-        dependencies_(dependencies) {}
+      : UnresolvedSchema(unresolvedSchema), dependencies_(dependencies) {}
 
   LinkedSchema(const UnresolvedSchema& unresolvedSchema,
                std::map<UriWrapper, size_t>&& dependencies)
-      : json_(unresolvedSchema.json_), baseUri_(unresolvedSchema.baseUri_),
-        pointer_(unresolvedSchema.pointer_), draft_(unresolvedSchema.draft_),
-        dependencies_(dependencies) {}
+      : UnresolvedSchema(unresolvedSchema), dependencies_(dependencies) {}
 
   LinkedSchema(const nlohmann::json& json, const UriWrapper& baseUri,
                const JSONPointer& pointer, Draft draft,
                std::map<UriWrapper, size_t> dependencies)
-      : json_(json), baseUri_(baseUri), pointer_(pointer), draft_(draft),
+      : UnresolvedSchema(json, baseUri, pointer, draft),
         dependencies_(dependencies) {}
 
 public:
@@ -84,8 +75,6 @@ public:
   static std::vector<std::string>
   generateIssuesList(const std::vector<std::unique_ptr<LinkedSchema>>& schemas);
 };
-
-// std::unique_ptr<LinkedSchema> construct(const UnresolvedSchema& schema);
 
 extern std::map<Draft,
                 std::set<UriWrapper> (*)(const nlohmann::json&,

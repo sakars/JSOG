@@ -5,8 +5,8 @@
 #include "IdentifiableSchema.h"
 #include "IndexedSyncedSchema.h"
 #include "LinkedSchema.h"
+#include "SchemaResource.h"
 #include "SyncedSchema.h"
-#include "UnresolvedSchema.h"
 
 #include <catch2/catch_all.hpp>
 #include <nlohmann/json.hpp>
@@ -25,7 +25,7 @@ TEST_CASE("Self referencial code generation doesn't crash", "[selfref]") {
 })"_json;
   std::vector<DraftRecognisedDocument> documents = {
       DraftRecognisedDocument(Document(std::move(selfRef), "jsog://SelfRef"))};
-  auto unresolvedSchemas = UnresolvedSchema::generateSetMap(documents);
+  auto unresolvedSchemas = SchemaResource::generateSetMap(documents);
   REQUIRE(unresolvedSchemas.getSet().size() ==
           3); // the schema, properties, object
   auto linkedSchemas = resolveDependencies(

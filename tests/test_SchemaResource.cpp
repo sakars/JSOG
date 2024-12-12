@@ -1,4 +1,4 @@
-#include "UnresolvedSchema.h"
+#include "SchemaResource.h"
 #include <catch2/catch_all.hpp>
 
 TEST_CASE("UnresolvedSchema construction", "[UnresolvedSchema]") {
@@ -11,7 +11,7 @@ TEST_CASE("UnresolvedSchema construction", "[UnresolvedSchema]") {
 )"_json;
     UriWrapper fileUri("file://test.json");
     JSONPointer pointer;
-    UnresolvedSchema schema(json, fileUri, pointer);
+    SchemaResource schema(json, fileUri, pointer);
     REQUIRE(schema.json_.get() == json);
     REQUIRE(schema.baseUri_ == fileUri);
     REQUIRE(schema.pointer_ == pointer);
@@ -25,8 +25,8 @@ TEST_CASE("UnresolvedSchema construction", "[UnresolvedSchema]") {
 }
 )"_json;
     UriWrapper fileUri("file://test.json");
-    DraftRecognisedDocument draft(json, fileUri);
-    UnresolvedSchema schema(draft);
+    DraftRecognisedDocument draft{nlohmann::json(json), UriWrapper(fileUri)};
+    SchemaResource schema(draft);
     REQUIRE(schema.json_.get() == json);
     REQUIRE(schema.baseUri_ == fileUri);
     REQUIRE(schema.pointer_ == JSONPointer());
@@ -36,7 +36,7 @@ TEST_CASE("UnresolvedSchema construction", "[UnresolvedSchema]") {
     std::filesystem::path path = "samples/document_1.json";
     Document doc(path);
     DraftRecognisedDocument draft(std::move(doc));
-    UnresolvedSchema schema(draft);
+    SchemaResource schema(draft);
     REQUIRE(schema.json_.get() == draft.json_);
     REQUIRE(schema.baseUri_ == draft.fileUri_);
     REQUIRE(schema.pointer_ == JSONPointer());
@@ -53,8 +53,8 @@ TEST_CASE("Unresolved Schema setmap construction", "[UnresolvedSchema]") {
   UriWrapper fileUri("file://test.json");
   JSONPointer pointer;
   std::vector<DraftRecognisedDocument> drafts{
-      DraftRecognisedDocument(json, fileUri)};
-  auto unresolvedMap = UnresolvedSchema::generateSetMap(drafts);
+      DraftRecognisedDocument{nlohmann::json(json), UriWrapper(fileUri)}};
+  auto unresolvedMap = SchemaResource::generateSetMap(drafts);
   auto extracted = unresolvedMap.extract();
   REQUIRE(extracted.size() == 1);
   auto& [keys, value] = extracted[0];
@@ -71,9 +71,10 @@ TEST_CASE("Full pipeline run up to LinkedSchema",
   std::vector<std::filesystem::path> files{"./samples/document_1.json",
                                            "./samples/document_2.json"};
   auto documents = loadDocuments(files);
-  auto recognised = performDraftRecognition(std::move(documents));
+  auto recognised =
+      DraftRecognisedDocument::performDraftRecognition(std::move(documents));
   auto unresolvedSchecmas =
-      UnresolvedSchema::generateSetMap(std::move(recognised));
+      SchemaResource::generateSetMap(std::move(recognised));
   REQUIRE(unresolvedSchecmas.getSet().size() == 5);
   const auto doesSetContainUri = [&](const UriWrapper& uri) {
     for (const auto& value : unresolvedSchecmas.getSet()) {

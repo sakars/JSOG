@@ -1,12 +1,12 @@
-#ifndef UNRESOLVEDSCHEMA_H
-#define UNRESOLVEDSCHEMA_H
+#ifndef SCHEMARESOURCE_H
+#define SCHEMARESOURCE_H
 #include "DraftRecognisedDocument.h"
 #include "JSONPointer.h"
 #include "SetMap.h"
 #include "UriWrapper.h"
 #include <string>
 
-class UnresolvedSchema {
+class SchemaResource {
 public:
   /// @brief The json content of the schema. This does not own the JSON
   /// content, and the JSON content must outlive this object.
@@ -20,16 +20,16 @@ public:
   /// @brief Pointer to the current schema from baseUri_
   JSONPointer pointer_ = JSONPointer();
 
-  UnresolvedSchema() = delete;
-  explicit UnresolvedSchema(const DraftRecognisedDocument& draft)
+  SchemaResource() = delete;
+  explicit SchemaResource(const DraftRecognisedDocument& draft)
       : json_(std::cref(draft.json_)), baseUri_(draft.fileUri_),
         draft_(draft.draft_) {}
-  UnresolvedSchema(const nlohmann::json& json, UriWrapper baseUri,
-                   JSONPointer pointer, Draft draft = Draft::DRAFT_07)
+  SchemaResource(const nlohmann::json& json, UriWrapper baseUri,
+                 JSONPointer pointer, Draft draft = Draft::DRAFT_07)
       : json_(json), baseUri_(baseUri), draft_(draft), pointer_(pointer) {}
 
 private:
-  void addChildItemToMap(SetMap<UriWrapper, UnresolvedSchema>& setMap,
+  void addChildItemToMap(SetMap<UriWrapper, SchemaResource>& setMap,
                          std::set<UriWrapper> refs, std::string key,
                          const nlohmann::json& value) {
     if (!(value.is_object() || value.is_array() || value.is_boolean())) {
@@ -45,11 +45,11 @@ private:
       childRef.setFragment(childPointer.toFragment(false), false);
       childRefs.emplace(childRef);
     }
-    UnresolvedSchema child(value, baseUri_, pointer_ / key);
+    SchemaResource child(value, baseUri_, pointer_ / key);
     child.recursiveAddToMap(setMap, childRefs);
   }
 
-  void recursiveAddToMap(SetMap<UriWrapper, UnresolvedSchema>& setMap,
+  void recursiveAddToMap(SetMap<UriWrapper, SchemaResource>& setMap,
                          std::set<UriWrapper> refs) {
     const auto& json = json_.get();
     // If this object has an id, we must change the base uri to the id for
@@ -98,14 +98,14 @@ private:
   }
 
 public:
-  static SetMap<UriWrapper, UnresolvedSchema>
+  static SetMap<UriWrapper, SchemaResource>
   generateSetMap(const std::vector<DraftRecognisedDocument>& docs) {
     try {
-      SetMap<UriWrapper, UnresolvedSchema> setMap;
+      SetMap<UriWrapper, SchemaResource> setMap;
       for (const auto& doc : docs) {
         std::set<UriWrapper> refs;
         refs.insert(doc.fileUri_);
-        UnresolvedSchema schema(doc);
+        SchemaResource schema(doc);
         schema.recursiveAddToMap(setMap, refs);
       }
       return setMap;
@@ -115,9 +115,8 @@ public:
     }
   }
 
-  static void
-  dumpSchemas(SetMap<UriWrapper, UnresolvedSchema>& unresolvedSchemas,
-              std::filesystem::path outputDirectory = ".") {
+  static void dumpSchemas(SetMap<UriWrapper, SchemaResource>& unresolvedSchemas,
+                          std::filesystem::path outputDirectory = ".") {
     nlohmann::json unresolvedSchemaDump = nlohmann::json::object();
     for (const auto& [uris, schema] : unresolvedSchemas) {
       auto& baseUriList =
@@ -135,4 +134,4 @@ public:
   }
 };
 
-#endif // UNRESOLVEDSCHEMA_H
+#endif // SCHEMARESOURCE_H

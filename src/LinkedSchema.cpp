@@ -13,11 +13,11 @@ std::map<Draft,
         {Draft::DRAFT_07, issuesWithDraft07Schema},
     };
 
-std::tuple<std::vector<std::unique_ptr<UnresolvedSchema>>,
+std::tuple<std::vector<std::unique_ptr<SchemaResource>>,
            std::map<UriWrapper, size_t>>
-deconstructUnresolvedSchemaMap(SetMap<UriWrapper, UnresolvedSchema>&& setMap) {
+deconstructUnresolvedSchemaMap(SetMap<UriWrapper, SchemaResource>&& setMap) {
   auto map = setMap.extract();
-  std::vector<std::unique_ptr<UnresolvedSchema>> unresolvedSchemas;
+  std::vector<std::unique_ptr<SchemaResource>> unresolvedSchemas;
   std::map<UriWrapper, size_t> schemaIndices;
   for (auto& [keys, value] : map) {
     for (const auto& key : keys) {
@@ -29,7 +29,7 @@ deconstructUnresolvedSchemaMap(SetMap<UriWrapper, UnresolvedSchema>&& setMap) {
 }
 
 std::vector<std::unique_ptr<LinkedSchema>>
-resolveDependencies(SetMap<UriWrapper, UnresolvedSchema>&& setMap,
+resolveDependencies(SetMap<UriWrapper, SchemaResource>&& setMap,
                     const std::set<UriWrapper>& requiredReferences) {
   const std::set<UriWrapper> requiredReferencesNormalized = [&]() {
     std::set<UriWrapper> normalized;
@@ -107,7 +107,7 @@ resolveDependencies(SetMap<UriWrapper, UnresolvedSchema>&& setMap,
       shrunkDependencyList.push_back(shrunkDeps);
     }
 
-    std::vector<std::unique_ptr<UnresolvedSchema>> shrunkSchemas;
+    std::vector<std::unique_ptr<SchemaResource>> shrunkSchemas;
     for (const auto builtIdx : builtRequiredSchemas) {
       shrunkSchemas.push_back(std::move(unresolvedSchemas[builtIdx]));
     }

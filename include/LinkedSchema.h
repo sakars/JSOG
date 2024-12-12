@@ -3,9 +3,9 @@
 
 #include "DraftRecognisedDocument.h"
 #include "JSONPointer.h"
+#include "SchemaResource.h"
 #include "SetMap.h"
 #include "StringUtils.h"
-#include "UnresolvedSchema.h"
 #include "UriWrapper.h"
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -15,26 +15,27 @@
 
 /// @brief A fully instantiated instance of LinkedSchema has its dependencies
 /// set and is ready to be fully constructed.
-class LinkedSchema : public UnresolvedSchema {
+class LinkedSchema : public SchemaResource {
 public:
   std::map<UriWrapper, size_t> dependencies_;
 
-  LinkedSchema(const UnresolvedSchema& unresolvedSchema,
+  LinkedSchema(const SchemaResource& schemaResource,
                std::map<UriWrapper, size_t>& dependencies)
-      : UnresolvedSchema(unresolvedSchema), dependencies_(dependencies) {}
+      : SchemaResource(schemaResource), dependencies_(dependencies) {}
 
-  LinkedSchema(const UnresolvedSchema& unresolvedSchema,
+  LinkedSchema(const SchemaResource& schemaResource,
                std::map<UriWrapper, size_t>&& dependencies)
-      : UnresolvedSchema(unresolvedSchema), dependencies_(dependencies) {}
+      : SchemaResource(schemaResource), dependencies_(dependencies) {}
 
   LinkedSchema(const nlohmann::json& json, const UriWrapper& baseUri,
                const JSONPointer& pointer, Draft draft,
                std::map<UriWrapper, size_t> dependencies)
-      : UnresolvedSchema(json, baseUri, pointer, draft),
+      : SchemaResource(json, baseUri, pointer, draft),
         dependencies_(dependencies) {}
 
 public:
   LinkedSchema(const LinkedSchema&) = delete;
+  LinkedSchema(LinkedSchema&&) = default;
 
   /// @brief Returns the preferred identifier for the schema.
   /// @return The preferred identifier for the schema.
@@ -86,12 +87,12 @@ extern std::map<Draft, std::vector<std::string> (*)(const nlohmann::json&,
                                                     const JSONPointer&)>
     issueCheckers;
 
-std::tuple<std::vector<std::unique_ptr<UnresolvedSchema>>,
+std::tuple<std::vector<std::unique_ptr<SchemaResource>>,
            std::map<UriWrapper, size_t>>
-deconstructUnresolvedSchemaMap(SetMap<UriWrapper, UnresolvedSchema>&& setMap);
+deconstructUnresolvedSchemaMap(SetMap<UriWrapper, SchemaResource>&& setMap);
 
 std::vector<std::unique_ptr<LinkedSchema>>
-resolveDependencies(SetMap<UriWrapper, UnresolvedSchema>&& setMap,
+resolveDependencies(SetMap<UriWrapper, SchemaResource>&& setMap,
                     const std::set<UriWrapper>& requiredReferences);
 
 #endif // LINKED_SCHEMA_H

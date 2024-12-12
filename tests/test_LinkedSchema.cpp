@@ -19,7 +19,7 @@ SCENARIO("Buildable Schema Draft07 constructs correct deps",
   })"_json;
     UriWrapper fileUri("file://test.json");
     JSONPointer pointer;
-    UnresolvedSchema schema(json, fileUri, pointer);
+    SchemaResource schema(json, fileUri, pointer);
     LinkedSchema buildable(schema, std::map<UriWrapper, size_t>{});
     THEN("It is added to dependencies") {
       auto deps = getDraft07Dependencies(json, fileUri, pointer);
@@ -45,7 +45,7 @@ SCENARIO("Buildable Schema Draft07 constructs correct deps",
   })"_json;
     UriWrapper fileUri("file://test.json");
     JSONPointer pointer;
-    UnresolvedSchema schema(json, fileUri, pointer);
+    SchemaResource schema(json, fileUri, pointer);
     LinkedSchema buildable(schema, {});
     THEN("It is added to dependencies") {
       auto deps = getDraft07Dependencies(json, fileUri, pointer);
@@ -68,7 +68,7 @@ SCENARIO("Buildable Schema Draft07 constructs correct deps",
   })"_json;
     UriWrapper fileUri("file://test.json");
     JSONPointer pointer;
-    UnresolvedSchema schema(json, fileUri, pointer);
+    SchemaResource schema(json, fileUri, pointer);
     LinkedSchema buildable(schema, {});
     THEN("It is added to dependencies") {
       auto deps = getDraft07Dependencies(json, fileUri, pointer);
@@ -89,7 +89,7 @@ SCENARIO("Buildable Schema Draft07 constructs correct deps",
   })"_json;
     UriWrapper fileUri("file://test.json");
     JSONPointer pointer;
-    UnresolvedSchema schema(json, fileUri, pointer);
+    SchemaResource schema(json, fileUri, pointer);
     LinkedSchema buildable(schema, {});
     THEN("It is added to dependencies") {
       auto deps = getDraft07Dependencies(json, fileUri, pointer);
@@ -114,9 +114,9 @@ SCENARIO("Multi-file Draft07 reference resolution", "[Draft07][LinkedSchema]") {
 })"_json;
     UriWrapper fileUri1("file://test.json");
     JSONPointer pointer1;
-    UnresolvedSchema schema1(json1, fileUri1, pointer1);
-    UnresolvedSchema schema1test(json1.at("properties").at("test"), fileUri1,
-                                 pointer1 / "properties" / "test");
+    SchemaResource schema1(json1, fileUri1, pointer1);
+    SchemaResource schema1test(json1.at("properties").at("test"), fileUri1,
+                               pointer1 / "properties" / "test");
 
     nlohmann::json json2 = R"(
 {
@@ -125,9 +125,9 @@ SCENARIO("Multi-file Draft07 reference resolution", "[Draft07][LinkedSchema]") {
 })"_json;
     UriWrapper fileUri2("file://test2.json");
     JSONPointer pointer2;
-    UnresolvedSchema schema2(json2, fileUri2, pointer2);
+    SchemaResource schema2(json2, fileUri2, pointer2);
 
-    SetMap<UriWrapper, UnresolvedSchema> setMap;
+    SetMap<UriWrapper, SchemaResource> setMap;
     setMap.bulkInsert({fileUri1}, std::move(schema1));
     setMap.bulkInsert({fileUri1.withPointer(pointer1 / "properties" / "test")},
                       std::move(schema1test));
@@ -182,10 +182,11 @@ SCENARIO("Full pipeline run up to LinkedSchema",
                                              "samples/document_2.json"};
     auto documents = loadDocuments(files);
     REQUIRE(documents.size() == 2);
-    auto recognised = performDraftRecognition(std::move(documents));
+    auto recognised =
+        DraftRecognisedDocument::performDraftRecognition(std::move(documents));
     REQUIRE(recognised.size() == 2);
     auto unresolvedSchecmas =
-        UnresolvedSchema::generateSetMap(std::move(recognised));
+        SchemaResource::generateSetMap(std::move(recognised));
 
     REQUIRE(unresolvedSchecmas.getSet().size() == 5);
     const auto doesSetContainUri = [&](const UriWrapper& uri) {

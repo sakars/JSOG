@@ -36,18 +36,18 @@ public:
   DraftRecognisedDocument(Document&& document)
       : Document(std::move(document)), draft_(identifySchemaDraft(json_)) {}
   DraftRecognisedDocument(nlohmann::json&& json, UriWrapper&& fileUri)
-      : Document(std::move(json), std::move(fileUri_)),
+      : Document(std::move(json), std::move(fileUri)),
         draft_(identifySchemaDraft(json_)) {}
-};
 
-inline std::vector<DraftRecognisedDocument>
-performDraftRecognition(std::vector<Document>&& documents) {
-  std::vector<DraftRecognisedDocument> recognisedDocuments;
-  recognisedDocuments.reserve(documents.size());
-  for (auto& document : documents) {
-    recognisedDocuments.emplace_back(std::move(document));
+  static inline std::vector<DraftRecognisedDocument>
+  performDraftRecognition(std::vector<Document>&& documents) {
+    std::vector<DraftRecognisedDocument> recognisedDocuments;
+    recognisedDocuments.reserve(documents.size());
+    for (auto& document : documents) {
+      recognisedDocuments.emplace_back(std::move(document));
+    }
+    return recognisedDocuments;
   }
-  return recognisedDocuments;
-}
+};
 
 #endif // DRAFTRECOGNISEDDOCUMENT_H

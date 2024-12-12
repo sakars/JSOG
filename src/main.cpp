@@ -5,8 +5,8 @@
 #include "IdentifiableSchema.h"
 #include "IndexedSyncedSchema.h"
 #include "LinkedSchema.h"
+#include "SchemaResource.h"
 #include "SyncedSchema.h"
-#include "UnresolvedSchema.h"
 #include "UriWrapper.h"
 #include <fstream>
 #include <iostream>
@@ -15,7 +15,7 @@
 // Note: This is the general class flow for the code generation.
 // 1. Document - Open a file and read the JSON content into a nlohmann::json
 // 2. DraftRecognisedDocument - Identifies the draft version of the JSON schema
-// 3. UnresolvedSchema - Represents the immediate JSON object in the document
+// 3. SchemaResource - Represents the immediate JSON object in the document
 // 4. LinkedSchema - Represents a schema with all dependencies resolved and
 // known.
 // 5. IdentifiableSchema - Represents a schema with it's unique identifier.
@@ -105,16 +105,15 @@ int main(int argc, char* argv[]) {
   for (const auto& file : requiredFiles) {
     requiredReferences.emplace(file);
   }
+
+  // Pipeline
   std::vector<Document> documents = loadDocuments(inputFiles);
-  std::vector<DraftRecognisedDocument> draftDocs;
-  draftDocs.reserve(documents.size());
-  for (auto& doc : documents) {
-    draftDocs.emplace_back(std::move(doc));
-  }
-  auto unresolvedSchemas = UnresolvedSchema::generateSetMap(draftDocs);
+  std::vector<DraftRecognisedDocument> draftDocs =
+      DraftRecognisedDocument::performDraftRecognition(std::move(documents));
+  auto unresolvedSchemas = SchemaResource::generateSetMap(draftDocs);
 
   if (dumpSchemas)
-    UnresolvedSchema::dumpSchemas(unresolvedSchemas, outputDirectory);
+    SchemaResource::dumpSchemas(unresolvedSchemas, outputDirectory);
 
   auto linkedSchemas =
       resolveDependencies(std::move(unresolvedSchemas), requiredReferences);

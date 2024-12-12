@@ -9,11 +9,15 @@ class IdentifiableSchema : public LinkedSchema {
 public:
   const std::string identifier_;
 
+  IdentifiableSchema(const IdentifiableSchema&) = delete;
+
+  IdentifiableSchema(IdentifiableSchema&&) = default;
+
   IdentifiableSchema(const nlohmann::json& json, const UriWrapper& baseUri,
                      const JSONPointer& pointer, Draft draft,
                      const std::string& identifier)
-      : identifier_(identifier),
-        LinkedSchema(json, baseUri, pointer, draft, {}) {}
+      : LinkedSchema(json, baseUri, pointer, draft, {}),
+        identifier_(identifier) {}
 
   static std::vector<IdentifiableSchema>
   transition(std::vector<std::unique_ptr<LinkedSchema>>&& linkedSchemas) {
@@ -43,7 +47,7 @@ public:
             linkedSchema->json_, linkedSchema->baseUri_, linkedSchema->pointer_,
             linkedSchema->draft_, identifier);
         schema.dependencies_ = linkedSchema->dependencies_;
-        identifiableSchemas.push_back(std::move(schema));
+        identifiableSchemas.emplace_back(std::move(schema));
       }
       return identifiableSchemas;
     } catch (const std::exception& e) {

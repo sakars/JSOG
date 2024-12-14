@@ -20,7 +20,7 @@ find_package(uriparser 0.9.2 CONFIG REQUIRED char)
 
 # == Executable ==
 # Glob all .cpp files in the current directory
-file(GLOB SOURCES "src/*.cpp")
+file(GLOB SOURCES "src/*.cpp" "src/SyncedSchema/*.cpp")
 list(REMOVE_ITEM SOURCES "src/main.cpp")
 
 add_library(JSOG_lib STATIC ${SOURCES})

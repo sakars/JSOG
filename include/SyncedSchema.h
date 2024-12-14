@@ -1,25 +1,59 @@
+#ifndef SYNCEDSCHEMA_H
+#define SYNCEDSCHEMA_H
+
 #include "CodeBlock.h"
 #include "IndexedSyncedSchema.h"
+#include "SyncedSchema/ArrayProperties.h"
+#include "SyncedSchema/ObjectProperties.h"
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <set>
 #include <string>
 #include <vector>
 
-struct CodeProperties {
-  enum class HeaderGuard { Pragma, Ifndef };
-  HeaderGuard headerGuardType_ = HeaderGuard::Ifndef;
-  std::string indent_ = "  ";
-  std::optional<std::string> globalNamespace_ = "JSOG";
-  std::optional<std::string> define_prefix_ = "JSOG_";
+class SyncedSchema;
 
-  // Feature flags
+struct NumberProperties {
+  std::optional<double> multipleOf_;
+  std::optional<double> maximum_;
+  std::optional<double> exclusiveMaximum_;
+  std::optional<double> minimum_;
+  std::optional<double> exclusiveMinimum_;
 
-  /// @brief If set, whenever a schema is defined as an array,
-  /// tupleableItems_ is set, and minItems_ is set to at least 1,
-  /// the generated code will make itemN required, not optional.
-  /// @todo This feature is not yet tested
-  bool minItemsMakeTupleableRequired_ = false;
+  enum class IntegerType {
+    INT8,
+    UINT8,
+    INT16,
+    UINT16,
+    INT32,
+    UINT32,
+    INT64,
+    UINT64
+  };
+
+  std::string getNumberType() const;
+  std::string getIntegerType() const;
+  IntegerType getIntegerEnum() const;
+};
+
+struct StringProperties {
+  std::optional<size_t> maxLength_;
+  std::optional<size_t> minLength_;
+  std::optional<std::string> pattern_;
+
+  std::string getStringType() const;
+};
+
+struct Reinterpretables {
+  std::optional<std::reference_wrapper<SyncedSchema>> ref_;
+  std::optional<std::reference_wrapper<const SyncedSchema>> if_;
+  std::optional<std::reference_wrapper<const SyncedSchema>> then_;
+  std::optional<std::reference_wrapper<const SyncedSchema>> else_;
+
+  std::optional<std::vector<std::reference_wrapper<const SyncedSchema>>> allOf_;
+  std::optional<std::vector<std::reference_wrapper<const SyncedSchema>>> anyOf_;
+  std::optional<std::vector<std::reference_wrapper<const SyncedSchema>>> oneOf_;
+  std::optional<std::reference_wrapper<const SyncedSchema>> not_;
 };
 
 /// @brief A class to represent a schema that holds information to generate code
@@ -41,9 +75,6 @@ public:
   /// of the other properties set.
   std::optional<bool> definedAsBooleanSchema_;
 
-  /// @brief If set, the schema is interpreted as a reference to another schema
-  std::optional<std::reference_wrapper<SyncedSchema>> ref_;
-
   std::set<IndexedSyncedSchema::Type> type_;
 
   std::optional<std::vector<nlohmann::json>> enum_;
@@ -53,55 +84,19 @@ public:
   std::optional<std::string> description_;
 
   // Number and Integer properties
-  std::optional<double> multipleOf_;
-  std::optional<double> maximum_;
-  std::optional<double> exclusiveMaximum_;
-  std::optional<double> minimum_;
-  std::optional<double> exclusiveMinimum_;
+  NumberProperties numberProperties_;
 
   // String properties
-  std::optional<size_t> maxLength_;
-  std::optional<size_t> minLength_;
-  std::optional<std::string> pattern_;
+  StringProperties stringProperties_;
 
   // Array properties
-  /// @brief The first items in the array
-  std::optional<std::vector<std::reference_wrapper<const SyncedSchema>>>
-      tupleableItems_;
-  /// @brief The object that matches non-tupleable items in the array
-  std::reference_wrapper<const SyncedSchema> items_;
-  std::optional<size_t> maxItems_;
-  std::optional<size_t> minItems_;
-  std::optional<bool> uniqueItems_;
-  std::optional<std::reference_wrapper<const SyncedSchema>> contains_;
+  ArrayProperties arrayProperties_;
 
   // Object initialization properties
-  std::optional<size_t> maxProperties_;
-  std::optional<size_t> minProperties_;
-  std::optional<std::set<std::string>> required_;
-  std::map<std::string, std::reference_wrapper<const SyncedSchema>> properties_;
-  std::optional<
-      std::map<std::string, std::reference_wrapper<const SyncedSchema>>>
-      patternProperties_;
-  std::reference_wrapper<const SyncedSchema> additionalProperties_;
+  ObjectProperties objectProperties_;
 
-  std::optional<std::map<std::string, std::vector<std::string>>>
-      propertyDependencies_;
-  std::optional<
-      std::map<std::string, std::reference_wrapper<const SyncedSchema>>>
-      schemaDependencies_;
-
-  std::optional<std::reference_wrapper<const SyncedSchema>> propertyNames_;
-
-  // Conditional properties
-  std::optional<std::reference_wrapper<const SyncedSchema>> if_;
-  std::optional<std::reference_wrapper<const SyncedSchema>> then_;
-  std::optional<std::reference_wrapper<const SyncedSchema>> else_;
-
-  std::optional<std::vector<std::reference_wrapper<const SyncedSchema>>> allOf_;
-  std::optional<std::vector<std::reference_wrapper<const SyncedSchema>>> anyOf_;
-  std::optional<std::vector<std::reference_wrapper<const SyncedSchema>>> oneOf_;
-  std::optional<std::reference_wrapper<const SyncedSchema>> not_;
+  // Reinterpretables
+  Reinterpretables reinterpretables_;
 
   std::optional<IndexedSyncedSchema::Format> format_;
   std::optional<nlohmann::json> default_;
@@ -112,27 +107,17 @@ public:
   std::optional<std::vector<nlohmann::json>> examples_;
 
   SyncedSchema(const std::string& identifier)
-      : identifier_(identifier), filename_(identifier), items_(getTrueSchema()),
-        additionalProperties_(getTrueSchema()) {}
+      : identifier_(identifier), filename_(identifier),
+        arrayProperties_(getTrueSchema()), objectProperties_(getTrueSchema()) {}
 
 private:
   /// @brief Private constructor to create default schemas
   /// without causing undefined behavior
   SyncedSchema()
-      : identifier_(""), filename_(""), items_(*this),
-        additionalProperties_(*this) {}
+      : identifier_(""), filename_(""), arrayProperties_(*this),
+        objectProperties_(*this) {}
 
 public:
-  enum class IntegerType {
-    INT8,
-    UINT8,
-    INT16,
-    UINT16,
-    INT32,
-    UINT32,
-    INT64,
-    UINT64
-  };
   /// @brief Generates the declaration of the schema
   CodeBlock generateDeclaration() const;
   CodeBlock generateDefinition() const;
@@ -143,14 +128,11 @@ public:
   std::string getHeaderFileName() const;
   std::string getSourceFileName() const;
   std::string getType() const;
-  std::string getObjectType() const;
-  std::string getArrayType() const;
-  std::string getNumberType() const;
-  std::string getStringType() const;
+
   std::string getBooleanType() const;
   std::string getNullType() const;
-  std::string getIntegerType() const;
-  IntegerType getIntegerEnum() const;
+
+  std::string getNamespaceLocation() const;
 
   static const CodeProperties& getDefaultCodeProperties() {
     static CodeProperties properties;
@@ -171,3 +153,5 @@ public:
   static void dumpSchemas(std::vector<std::unique_ptr<SyncedSchema>>& schemas,
                           std::filesystem::path outputDirectory = ".");
 };
+
+#endif // SYNCEDSCHEMA_H

@@ -6,30 +6,6 @@
 #include <fstream>
 #include <iostream>
 #include <limits>
-#ifndef __FILE_NAME__
-#define __FILE_NAME__ __FILE__
-#endif
-
-#define JSOG_DEBUG 0
-#if JSOG_DEBUG
-static std::string centerPadString(const std::string& s, size_t width) {
-  if (s.size() >= width) {
-    return s;
-  }
-  size_t leftPad = (width - s.size()) / 2;
-  size_t rightPad = width - s.size() - leftPad;
-  return std::string(leftPad, ' ') + s + std::string(rightPad, ' ');
-}
-#define BLOCK                                                                  \
-  {                                                                            \
-    block << CodeBlock::dis                                                    \
-          << centerPadString(                                                  \
-                 std::format("/*{}:{}*/", __FILE_NAME__, __LINE__), 40);       \
-  }                                                                            \
-  block
-#else
-#define BLOCK block
-#endif
 
 static std::string getHeaderDefine(const SyncedSchema& schema) {
   std::string headerDefine = schema.getHeaderFileName();
@@ -40,9 +16,9 @@ static std::string getHeaderDefine(const SyncedSchema& schema) {
   }
   std::transform(headerDefine.begin(), headerDefine.end(), headerDefine.begin(),
                  ::toupper);
-  if (schema.codeProperties.get().define_prefix_.has_value()) {
+  if (schema.codeProperties.get().definePrefix_.has_value()) {
     headerDefine =
-        schema.codeProperties.get().define_prefix_.value() + headerDefine;
+        schema.codeProperties.get().definePrefix_.value() + headerDefine;
   }
   return headerDefine;
 }
@@ -152,131 +128,6 @@ static CodeBlock classForwardDeclarations(const SyncedSchema& schema) {
   return block;
 }
 
-static CodeBlock objectClassDefinition(const SyncedSchema& schema) {
-  CodeBlock block(schema.codeProperties.get().indent_);
-#if JSOG_DEBUG
-  block << "/*" << schema.identifier_ << " object class definition*/";
-#endif
-  if (schema.type_.contains(IndexedSyncedSchema::Type::Object)) {
-    // Object declaration
-    BLOCK << "class Object {" << CodeBlock::inc;
-    {
-      // Declare the construct function to be a friend, so it can fill out
-      // private members
-      BLOCK << std::format(
-          "friend std::optional<{}> construct(const nlohmann::json&);",
-          schema.getType());
-      BLOCK << CodeBlock::dec << "public:" << CodeBlock::inc;
-      for (const auto& [propertyName, property] : schema.properties_) {
-        if (schema.required_.has_value() &&
-            schema.required_.value().count(propertyName) > 0) {
-          BLOCK << std::format("{} {};", property.get().getType(),
-                               sanitizeString(propertyName) + "_");
-        } else {
-          BLOCK << std::format("std::optional<{}> {};",
-                               property.get().getType(),
-                               sanitizeString(propertyName) + "_");
-        }
-      }
-      if (schema.additionalProperties_.get().definedAsBooleanSchema_.value_or(
-              true) != false) {
-        BLOCK << std::format("std::map<std::string, {}> additionalProperties;",
-                             schema.additionalProperties_.get().getType());
-      }
-    }
-    BLOCK << CodeBlock::dec << "};" << "";
-  }
-  return block;
-}
-
-static CodeBlock arrayClassDefinition(const SyncedSchema& schema) {
-  CodeBlock block(schema.codeProperties.get().indent_);
-#if JSOG_DEBUG
-  block << "/*" << schema.identifier_ << " array class definition*/";
-#endif
-  if (schema.type_.contains(IndexedSyncedSchema::Type::Array)) {
-    // Array declaration
-    BLOCK << "class Array {" << CodeBlock::inc;
-    {
-      // Declare the construct function to be a friend, so it can fill out
-      // private members, should it be necessary
-      BLOCK << std::format(
-          "friend std::optional<{}> construct(const nlohmann::json&);",
-          schema.getType());
-      // Tupleable item declaration
-      BLOCK << CodeBlock::dec << "public:" << CodeBlock::inc;
-      if (schema.tupleableItems_.has_value()) {
-        for (size_t i = 0; i < schema.tupleableItems_->size(); i++) {
-          if (schema.codeProperties.get().minItemsMakeTupleableRequired_ &&
-              schema.minItems_.has_value() && i < schema.minItems_.value()) {
-            BLOCK << std::format(
-                "{} item{};", (*schema.tupleableItems_)[i].get().getType(), i);
-          } else {
-            BLOCK << std::format("std::optional<{}> item{};",
-                                 (*schema.tupleableItems_)[i].get().getType(),
-                                 i);
-          }
-        }
-      }
-      BLOCK << std::format("std::vector<{}> items;",
-                           schema.items_.get().getType());
-
-      BLOCK << CodeBlock::dec << "public:" << CodeBlock::inc;
-      BLOCK << "template <size_t N>";
-      BLOCK << "auto get() const {";
-      BLOCK << CodeBlock::inc;
-      {
-        if (schema.tupleableItems_.has_value() &&
-            schema.tupleableItems_->size() > 0) {
-          for (size_t i = 0; i < schema.tupleableItems_->size(); i++) {
-            BLOCK << std::format("if constexpr(N == {}) {{", i)
-                  << CodeBlock::inc;
-            {
-              if (schema.codeProperties.get().minItemsMakeTupleableRequired_ &&
-                  schema.minItems_.has_value() &&
-                  i < schema.minItems_.value()) {
-                BLOCK << std::format("return item{};", i);
-              } else {
-                BLOCK << std::format("if (item{}.has_value()) {{", i)
-                      << CodeBlock::inc;
-              }
-              BLOCK << std::format("return item{}.value();", i);
-              BLOCK << CodeBlock::dec << "}";
-            }
-            BLOCK << CodeBlock::dec << CodeBlock::dis << "} else ";
-          }
-          BLOCK << "{" << CodeBlock::inc
-                << std::format("if(N - {} < items.size()) {{",
-                               schema.tupleableItems_->size())
-                << CodeBlock::inc;
-          {
-            BLOCK << std::format("return items[N - {}];",
-                                 schema.tupleableItems_->size());
-          }
-          BLOCK << CodeBlock::dec << "}" << CodeBlock::dec << "}";
-        } else {
-          BLOCK << "if(N < items.size()) {" << CodeBlock::inc
-                << "return items[N];" << CodeBlock::dec << "}";
-        }
-        BLOCK << "throw std::range_error(std::string(\"Item \") + "
-                 "std::to_string(N) + \" out of range\");";
-      }
-      BLOCK << CodeBlock::dec << "}";
-      BLOCK << std::format("inline {}& get(size_t n) {{",
-                           schema.items_.get().getType())
-            << CodeBlock::inc << "if(n >= items.size()) {"
-            << "throw std::range_error(\"Item \" + std::to_string(n) + \" out "
-               "of range\");"
-            << "}"
-            << "return items[n];" << CodeBlock::dec << "}";
-    }
-    BLOCK << CodeBlock::dec;
-    BLOCK << "};";
-  }
-
-  return block;
-}
-
 CodeBlock SyncedSchema::generateDeclaration() const {
   CodeBlock block(codeProperties.get().indent_);
 
@@ -290,7 +141,8 @@ CodeBlock SyncedSchema::generateDeclaration() const {
 
   BLOCK << namespaceStart(*this);
 
-  if (!definedAsBooleanSchema_.has_value() && !ref_.has_value()) {
+  if (!definedAsBooleanSchema_.has_value() &&
+      !reinterpretables_.ref_.has_value()) {
     // Forward declarations
     BLOCK << classForwardDeclarations(*this);
 
@@ -300,10 +152,16 @@ CodeBlock SyncedSchema::generateDeclaration() const {
     }
 
     // Object declaration
-    BLOCK << objectClassDefinition(*this);
+
+    if (type_.contains(IndexedSyncedSchema::Type::Object)) {
+      BLOCK << objectProperties_.objectClassDefinition(codeProperties,
+                                                       getType());
+    }
 
     // Array declaration
-    BLOCK << arrayClassDefinition(*this);
+    if (type_.contains(IndexedSyncedSchema::Type::Array)) {
+      BLOCK << arrayProperties_.arrayClassDefinition(codeProperties, getType());
+    }
   }
 
   BLOCK << functionDeclarations(*this);
@@ -369,15 +227,16 @@ static CodeBlock booleanSchemaConstruct(const SyncedSchema& schema) {
 
 static CodeBlock refConstruct(const SyncedSchema& schema) {
   CodeBlock block(schema.codeProperties.get().indent_);
-  if (schema.ref_.has_value()) {
+  if (schema.reinterpretables_.ref_.has_value()) {
     std::string namespace_;
     if (schema.codeProperties.get().globalNamespace_.has_value()) {
       namespace_ = "::" + schema.codeProperties.get().globalNamespace_.value();
     }
-    namespace_ += std::format("::{}", schema.ref_.value().get().identifier_);
+    namespace_ += std::format(
+        "::{}", schema.reinterpretables_.ref_.value().get().identifier_);
     BLOCK << std::format(
         "return std::make_unique<{0}::{1}>({0}::construct(json).value());",
-        namespace_, schema.ref_.value().get().identifier_);
+        namespace_, schema.reinterpretables_.ref_.value().get().identifier_);
   }
   return block;
 }
@@ -428,7 +287,8 @@ static CodeBlock integerConstructor(const SyncedSchema& schema,
     BLOCK << std::format("if({}.is_number_integer()) {{", inputJsonVariableName)
           << CodeBlock::inc;
     BLOCK << std::format("{} = {}.get<{}>();", outSchemaVariableName,
-                         inputJsonVariableName, schema.getIntegerType());
+                         inputJsonVariableName,
+                         schema.numberProperties_.getIntegerType());
     BLOCK << CodeBlock::dec << "}";
   }
   return block;
@@ -442,7 +302,8 @@ static CodeBlock numberConstructor(const SyncedSchema& schema,
     BLOCK << std::format("if({}.is_number()) {{", inputJsonVariableName)
           << CodeBlock::inc;
     BLOCK << std::format("{} = {}.get<{}>();", outSchemaVariableName,
-                         inputJsonVariableName, schema.getNumberType());
+                         inputJsonVariableName,
+                         schema.numberProperties_.getNumberType());
     BLOCK << CodeBlock::dec << "}";
   }
   return block;
@@ -456,146 +317,9 @@ static CodeBlock stringConstructor(const SyncedSchema& schema,
     BLOCK << std::format("if({}.is_string()) {{", inputJsonVariableName)
           << CodeBlock::inc;
     BLOCK << std::format("{} = {}.get<{}>();", outSchemaVariableName,
-                         inputJsonVariableName, schema.getStringType());
+                         inputJsonVariableName,
+                         schema.stringProperties_.getStringType());
     BLOCK << CodeBlock::dec << "}";
-  }
-  return block;
-}
-
-static CodeBlock arrayConstructor(const SyncedSchema& schema,
-                                  const std::string& inputJsonVariableName,
-                                  const std::string& outSchemaVariableName) {
-  CodeBlock block(schema.codeProperties.get().indent_);
-  if (schema.type_.contains(SyncedSchema::Type::Array)) {
-    BLOCK << "if(json.is_array()) {";
-    {
-      Indent _(block);
-      BLOCK << "auto array = Array();";
-      if (schema.tupleableItems_.has_value()) {
-        for (size_t i = 0; i < schema.tupleableItems_->size(); i++) {
-          BLOCK << std::format("if({}.size() > {}) {{", inputJsonVariableName,
-                               i)
-                << CodeBlock::inc;
-          if (schema.codeProperties.get().minItemsMakeTupleableRequired_ &&
-              schema.minItems_.has_value() && i < schema.minItems_.value()) {
-            BLOCK << std::format(
-                "array.item{} = {}::construct({}[{}]).value();", i,
-                (*schema.tupleableItems_)[i].get().identifier_,
-                inputJsonVariableName, i);
-          } else {
-            BLOCK << std::format("array.item{} = {}::construct({}[{}]);", i,
-                                 (*schema.tupleableItems_)[i].get().identifier_,
-                                 inputJsonVariableName, i);
-          }
-          BLOCK << CodeBlock::dec << "}";
-        }
-      }
-      BLOCK << std::format(
-          "for (size_t i = {}; i < {}.size(); i++) {{",
-          schema.tupleableItems_
-              .value_or(
-                  std::vector<std::reference_wrapper<const SyncedSchema>>())
-              .size(),
-          inputJsonVariableName);
-      {
-        Indent _(block);
-        BLOCK << std::format(
-            "array.items.push_back({}::construct(json[i]).value());",
-            schema.items_.get().identifier_);
-      }
-      BLOCK << "}";
-      BLOCK << std::format("{} = std::move(array);", outSchemaVariableName);
-    }
-    BLOCK << "}";
-  }
-  return block;
-}
-
-static CodeBlock objectConstructor(const SyncedSchema& schema,
-                                   const std::string& inputJsonVariableName,
-                                   const std::string& outSchemaVariableName) {
-  CodeBlock block(schema.codeProperties.get().indent_);
-  if (schema.type_.contains(SyncedSchema::Type::Object)) {
-    BLOCK << std::format("if({}.is_object()) {{", inputJsonVariableName);
-    {
-      Indent _(block);
-      BLOCK << "auto object = Object();";
-      bool hasPropertyCountLimits = schema.maxProperties_.has_value() ||
-                                    schema.minProperties_.has_value();
-      if (hasPropertyCountLimits) {
-        BLOCK << std::format("size_t propertyCount = {}.size();",
-                             inputJsonVariableName);
-      }
-      if (schema.maxProperties_.has_value()) {
-        BLOCK << std::format("if(propertyCount > {}) {{",
-                             schema.maxProperties_.value())
-              << CodeBlock::inc << "return std::nullopt;" << CodeBlock::dec
-              << "}";
-      }
-      if (schema.minProperties_.has_value()) {
-        BLOCK << std::format("if(propertyCount < {}) {{",
-                             schema.minProperties_.value())
-              << CodeBlock::inc << "return std::nullopt;" << CodeBlock::dec
-              << "}";
-      }
-      BLOCK << "static const std::set<std::string> properties = {";
-      for (const auto& [propertyName, schema] : schema.properties_) {
-        Indent _(block);
-        BLOCK << std::format("\"{}\",", propertyName);
-      }
-      BLOCK << "};";
-      for (const auto& [propertyName, propSchema] : schema.properties_) {
-        if (schema.required_.has_value() &&
-            schema.required_.value().contains(propertyName)) {
-          BLOCK << std::format("if(!{}.contains(\"{}\")) {{",
-                               inputJsonVariableName, propertyName);
-          {
-            Indent _(block);
-            BLOCK << "return std::nullopt;";
-          }
-          BLOCK << "}";
-          BLOCK << std::format("object.{} = {}::construct({}[\"{}\"]).value();",
-                               sanitizeString(propertyName) + "_",
-                               propSchema.get().identifier_,
-                               inputJsonVariableName, propertyName);
-        } else {
-          BLOCK << std::format("if({}.contains(\"{}\")) {{",
-                               inputJsonVariableName, propertyName);
-          {
-            Indent _(block);
-            BLOCK << std::format(
-                "object.{} = {}::construct({}[\"{}\"]).value();",
-                sanitizeString(propertyName) + "_",
-                propSchema.get().identifier_, inputJsonVariableName,
-                propertyName);
-          }
-          BLOCK << "}";
-        }
-      }
-      BLOCK << std::format("for (const auto& [key, value] : {}.items()) {{",
-                           inputJsonVariableName);
-      {
-        Indent _(block);
-        BLOCK << "if (properties.count(key) == 0) {";
-        {
-          Indent _(block);
-          // If additionalProperties
-          if (schema.additionalProperties_.get()
-                  .definedAsBooleanSchema_.value_or(true) == false) {
-            BLOCK << "return std::nullopt;";
-          } else {
-            BLOCK << std::format(
-                "object.additionalProperties[key] = "
-                "{}::construct(value).value();",
-                schema.additionalProperties_.get().identifier_);
-          }
-        }
-        BLOCK << "}";
-      }
-      BLOCK << "}";
-      BLOCK << std::format("{} = std::move(object);", outSchemaVariableName);
-    }
-    BLOCK << "}";
   }
   return block;
 }
@@ -633,7 +357,7 @@ static CodeBlock constructFunction(const SyncedSchema& schema) {
       // Reference schema means that the schema is a reference to another schema
       BLOCK << refConstruct(schema);
 
-      if (!schema.ref_.has_value()) {
+      if (!schema.reinterpretables_.ref_.has_value()) {
 
         BLOCK << constConstruct(schema);
 
@@ -659,11 +383,17 @@ static CodeBlock constructFunction(const SyncedSchema& schema) {
         BLOCK << stringConstructor(schema, inputJsonVariableName,
                                    outSchemaVariableName);
 
-        BLOCK << arrayConstructor(schema, inputJsonVariableName,
-                                  outSchemaVariableName);
+        if (schema.type_.contains(SyncedSchema::Type::Array)) {
+          BLOCK << schema.arrayProperties_.arrayConstructor(
+              schema.codeProperties, inputJsonVariableName,
+              outSchemaVariableName);
+        }
 
-        BLOCK << objectConstructor(schema, inputJsonVariableName,
-                                   outSchemaVariableName);
+        if (schema.type_.contains(SyncedSchema::Type::Object)) {
+          BLOCK << schema.objectProperties_.objectConstructor(
+              schema.codeProperties, inputJsonVariableName,
+              outSchemaVariableName);
+        }
 
         BLOCK << validateConstructed(schema, outSchemaVariableName);
 
@@ -684,9 +414,10 @@ CodeBlock rawExportDefinition(const SyncedSchema& schema) {
                        schema.getType());
   {
     Indent _(block);
-    if (schema.ref_.has_value()) {
-      BLOCK << std::format("return {}::rawExport(*schema);",
-                           schema.ref_.value().get().getNamespace());
+    if (schema.reinterpretables_.ref_.has_value()) {
+      BLOCK << std::format(
+          "return {}::rawExport(*schema);",
+          schema.reinterpretables_.ref_.value().get().getNamespace());
     } else if (schema.definedAsBooleanSchema_.has_value()) {
       if (schema.definedAsBooleanSchema_.value()) {
         // If the schema is defined as true, then the type is an nllohmann::json
@@ -721,11 +452,11 @@ CodeBlock rawExportDefinition(const SyncedSchema& schema) {
         }
         if (schema.type_.contains(SyncedSchema::Type::Integer)) {
           BLOCK << std::format("if (std::holds_alternative<{}>(schema)) {{",
-                               schema.getIntegerType());
+                               schema.numberProperties_.getIntegerType());
           {
             Indent _(block);
             BLOCK << std::format("return std::get<{}>(schema);",
-                                 schema.getIntegerType());
+                                 schema.numberProperties_.getIntegerType());
           }
           BLOCK << "}";
         }
@@ -751,13 +482,15 @@ CodeBlock rawExportDefinition(const SyncedSchema& schema) {
             Indent _(block);
             BLOCK << "auto json = nlohmann::json::array();";
             BLOCK << "auto& array = std::get<Array>(schema);";
-            if (schema.tupleableItems_.has_value()) {
-              for (size_t i = 0; i < schema.tupleableItems_->size(); i++) {
-                const auto& item = (*schema.tupleableItems_)[i].get();
+            if (schema.arrayProperties_.tupleableItems_.has_value()) {
+              for (size_t i = 0;
+                   i < schema.arrayProperties_.tupleableItems_->size(); i++) {
+                const auto& item =
+                    (*schema.arrayProperties_.tupleableItems_)[i].get();
                 if (schema.codeProperties.get()
                         .minItemsMakeTupleableRequired_ &&
-                    schema.minItems_.has_value() &&
-                    i < schema.minItems_.value()) {
+                    schema.arrayProperties_.minItems_.has_value() &&
+                    i < schema.arrayProperties_.minItems_.value()) {
                   BLOCK << std::format(
                       "json.push_back({}::rawExport(array.item{}"
                       "));",
@@ -776,8 +509,9 @@ CodeBlock rawExportDefinition(const SyncedSchema& schema) {
             BLOCK << "for (const auto& item : array.items) {";
             {
               Indent _(block);
-              BLOCK << std::format("json.push_back({}::rawExport(item));",
-                                   schema.items_.get().identifier_);
+              BLOCK << std::format(
+                  "json.push_back({}::rawExport(item));",
+                  schema.arrayProperties_.items_.get().identifier_);
             }
             BLOCK << "}";
             BLOCK << "return json;";
@@ -791,10 +525,11 @@ CodeBlock rawExportDefinition(const SyncedSchema& schema) {
             BLOCK << "auto& object = std::get<Object>(schema);";
             BLOCK << "auto json = nlohmann::json::object();";
             for (const auto& [propertyName, propertySchema] :
-                 schema.properties_) {
+                 schema.objectProperties_.properties_) {
               const auto is_required =
-                  schema.required_.has_value() &&
-                  schema.required_.value().count(propertyName) > 0;
+                  schema.objectProperties_.required_.has_value() &&
+                  schema.objectProperties_.required_.value().count(
+                      propertyName) > 0;
               if (!is_required) {
                 BLOCK << std::format("if (object.{}.has_value()) {{",
                                      sanitizeString(propertyName) + "_")
@@ -810,7 +545,7 @@ CodeBlock rawExportDefinition(const SyncedSchema& schema) {
                 BLOCK << CodeBlock::dec << "}";
               }
             }
-            if (schema.additionalProperties_.get()
+            if (schema.objectProperties_.additionalProperties_.get()
                     .definedAsBooleanSchema_.value_or(true) != false) {
               BLOCK << "for (const auto& [key, value] : "
                        "object.additionalProperties) {";
@@ -818,7 +553,8 @@ CodeBlock rawExportDefinition(const SyncedSchema& schema) {
                 Indent _(block);
                 BLOCK << std::format(
                     "json[key] = {}::rawExport(value);",
-                    schema.additionalProperties_.get().identifier_);
+                    schema.objectProperties_.additionalProperties_.get()
+                        .identifier_);
               }
               BLOCK << "}";
             }
@@ -842,12 +578,14 @@ CodeBlock rawExportDefinition(const SyncedSchema& schema) {
         } else if (type == SyncedSchema::Type::Array) {
           BLOCK << "auto json = nlohmann::json::array();";
           BLOCK << "auto& array = schema;";
-          if (schema.tupleableItems_.has_value()) {
-            for (size_t i = 0; i < schema.tupleableItems_->size(); i++) {
-              const auto& item = (*schema.tupleableItems_)[i].get();
+          if (schema.arrayProperties_.tupleableItems_.has_value()) {
+            for (size_t i = 0;
+                 i < schema.arrayProperties_.tupleableItems_->size(); i++) {
+              const auto& item =
+                  (*schema.arrayProperties_.tupleableItems_)[i].get();
               if (schema.codeProperties.get().minItemsMakeTupleableRequired_ &&
-                  schema.minItems_.has_value() &&
-                  i < schema.minItems_.value()) {
+                  schema.arrayProperties_.minItems_.has_value() &&
+                  i < schema.arrayProperties_.minItems_.value()) {
                 BLOCK << std::format(
                     "json.push_back({}::rawExport(array.item{}));",
                     item.identifier_, i);
@@ -864,8 +602,9 @@ CodeBlock rawExportDefinition(const SyncedSchema& schema) {
           BLOCK << "for (const auto& item : array.items) {";
           {
             Indent _(block);
-            BLOCK << std::format("json.push_back({}::rawExport(item));",
-                                 schema.items_.get().identifier_);
+            BLOCK << std::format(
+                "json.push_back({}::rawExport(item));",
+                schema.arrayProperties_.items_.get().identifier_);
           }
           BLOCK << "}";
           BLOCK << "return json;";
@@ -873,10 +612,11 @@ CodeBlock rawExportDefinition(const SyncedSchema& schema) {
           BLOCK << "auto& object = schema;";
           BLOCK << "auto json = nlohmann::json::object();";
           for (const auto& [propertyName, propertySchema] :
-               schema.properties_) {
+               schema.objectProperties_.properties_) {
             const auto is_required =
-                schema.required_.has_value() &&
-                schema.required_.value().count(propertyName) > 0;
+                schema.objectProperties_.required_.has_value() &&
+                schema.objectProperties_.required_.value().count(propertyName) >
+                    0;
             if (!is_required) {
               BLOCK << std::format("if (object.{}.has_value()) {{",
                                    sanitizeString(propertyName) + "_")
@@ -891,7 +631,7 @@ CodeBlock rawExportDefinition(const SyncedSchema& schema) {
               BLOCK << CodeBlock::dec << "}";
             }
           }
-          if (schema.additionalProperties_.get()
+          if (schema.objectProperties_.additionalProperties_.get()
                   .definedAsBooleanSchema_.value_or(true) != false) {
             BLOCK << "for (const auto& [key, value] : "
                      "object.additionalProperties) {";
@@ -899,7 +639,8 @@ CodeBlock rawExportDefinition(const SyncedSchema& schema) {
               Indent _(block);
               BLOCK << std::format(
                   "json[key] = {}::rawExport(value);",
-                  schema.additionalProperties_.get().identifier_);
+                  schema.objectProperties_.additionalProperties_.get()
+                      .identifier_);
             }
             BLOCK << "}";
           }
@@ -924,9 +665,10 @@ static CodeBlock validateDefinition(const SyncedSchema& schema) {
   BLOCK << std::format("bool validate(const {}& schema) {{", schema.getType());
   {
     Indent _(block);
-    if (schema.ref_.has_value()) {
-      BLOCK << std::format("return {}::validate(*schema);",
-                           schema.ref_.value().get().getNamespace());
+    if (schema.reinterpretables_.ref_.has_value()) {
+      BLOCK << std::format(
+          "return {}::validate(*schema);",
+          schema.reinterpretables_.ref_.value().get().getNamespace());
     } else if (schema.definedAsBooleanSchema_.has_value()) {
       if (schema.definedAsBooleanSchema_.value()) {
         BLOCK << "return true;";
@@ -980,39 +722,41 @@ static CodeBlock validateDefinition(const SyncedSchema& schema) {
           Indent _(block);
           // Integer/number validation
           // multipleOf
-          if (schema.multipleOf_.has_value()) {
+          if (schema.numberProperties_.multipleOf_.has_value()) {
             BLOCK << std::format("if ((std::abs(numericValue / {0}) - "
                                  "static_cast<long>(std::abs(numericValue / "
                                  "{0})) ) < 0.0000001) {{",
-                                 schema.multipleOf_.value())
+                                 schema.numberProperties_.multipleOf_.value())
                   << CodeBlock::inc << "return false;" << CodeBlock::dec << "}";
           }
 
           // maximum
-          if (schema.maximum_.has_value()) {
+          if (schema.numberProperties_.maximum_.has_value()) {
             BLOCK << std::format("if (numericValue > {}) {{",
-                                 schema.maximum_.value())
+                                 schema.numberProperties_.maximum_.value())
                   << CodeBlock::inc << "return false;" << CodeBlock::dec << "}";
           }
 
           // exclusiveMaximum
-          if (schema.exclusiveMaximum_.has_value()) {
-            BLOCK << std::format("if (numericValue >= {}) {{",
-                                 schema.exclusiveMaximum_.value())
+          if (schema.numberProperties_.exclusiveMaximum_.has_value()) {
+            BLOCK << std::format(
+                         "if (numericValue >= {}) {{",
+                         schema.numberProperties_.exclusiveMaximum_.value())
                   << CodeBlock::inc << "return false;" << CodeBlock::dec << "}";
           }
 
           // minimum
-          if (schema.minimum_.has_value()) {
+          if (schema.numberProperties_.minimum_.has_value()) {
             BLOCK << std::format("if (numericValue < {}) {{",
-                                 schema.minimum_.value())
+                                 schema.numberProperties_.minimum_.value())
                   << CodeBlock::inc << "return false;" << CodeBlock::dec << "}";
           }
 
           // exclusiveMinimum
-          if (schema.exclusiveMinimum_.has_value()) {
-            BLOCK << std::format("if (numericValue <= {}) {{",
-                                 schema.exclusiveMinimum_.value())
+          if (schema.numberProperties_.exclusiveMinimum_.has_value()) {
+            BLOCK << std::format(
+                         "if (numericValue <= {}) {{",
+                         schema.numberProperties_.exclusiveMinimum_.value())
                   << CodeBlock::inc << "return false;" << CodeBlock::dec << "}";
           }
           BLOCK << "return true;";
@@ -1021,11 +765,11 @@ static CodeBlock validateDefinition(const SyncedSchema& schema) {
         if (schema.type_.contains(Type::Integer)) {
           if (!isSingleType) {
             BLOCK << std::format("if (std::holds_alternative<{}>(schema)) {{",
-                                 schema.getIntegerType());
+                                 schema.numberProperties_.getIntegerType());
             BLOCK << CodeBlock::inc;
             BLOCK << std::format(
                 "const auto& integerValue = std::get<{}>(schema);",
-                schema.getIntegerType());
+                schema.numberProperties_.getIntegerType());
           } else {
             BLOCK << "{" << CodeBlock::inc;
             BLOCK << "const auto& integerValue = schema;";
@@ -1056,24 +800,25 @@ static CodeBlock validateDefinition(const SyncedSchema& schema) {
           BLOCK << "const auto& stringValue = schema;";
         }
         // MaxLength
-        if (schema.maxLength_.has_value()) {
+        if (schema.stringProperties_.maxLength_.has_value()) {
           BLOCK << std::format("if (stringValue.size() > {}) {{",
-                               schema.maxLength_.value())
+                               schema.stringProperties_.maxLength_.value())
                 << CodeBlock::inc << "return false;" << CodeBlock::dec << "}";
         }
 
         // MinLength
-        if (schema.minLength_.has_value()) {
+        if (schema.stringProperties_.minLength_.has_value()) {
           BLOCK << std::format("if (stringValue.size() < {}) {{",
-                               schema.minLength_.value())
+                               schema.stringProperties_.minLength_.value())
                 << CodeBlock::inc << "return false;" << CodeBlock::dec << "}";
         }
 
         // Pattern
-        if (schema.pattern_.has_value()) {
+        if (schema.stringProperties_.pattern_.has_value()) {
           BLOCK << std::format("if (!std::regex_match(stringValue, std::regex("
                                "\"{}\", std::regex_constants::ECMAScript))) {{",
-                               escapeJSONString(schema.pattern_.value()))
+                               escapeJSONString(
+                                   schema.stringProperties_.pattern_.value()))
                 << CodeBlock::inc << "return false;" << CodeBlock::dec << "}";
         }
         BLOCK << CodeBlock::dec << "}";
@@ -1089,28 +834,30 @@ static CodeBlock validateDefinition(const SyncedSchema& schema) {
           BLOCK << "const auto& arrayValue = schema;";
         }
         // MaxItems
-        if (schema.maxItems_.has_value()) {
+        if (schema.arrayProperties_.maxItems_.has_value()) {
           BLOCK << std::format("if (arrayValue.items.size() > {}) {{",
-                               schema.maxItems_.value())
+                               schema.arrayProperties_.maxItems_.value())
                 << CodeBlock::inc << "return false;" << CodeBlock::dec << "}";
         }
 
         // MinItems
-        if (schema.minItems_.has_value()) {
+        if (schema.arrayProperties_.minItems_.has_value()) {
           BLOCK << std::format("if (arrayValue.items.size() < {}) {{",
-                               schema.minItems_.value())
+                               schema.arrayProperties_.minItems_.value())
                 << CodeBlock::inc << "return false;";
           BLOCK << CodeBlock::dec << "}";
         }
 
         // UniqueItems
-        if (schema.uniqueItems_.has_value() && schema.uniqueItems_.value()) {
+        if (schema.arrayProperties_.uniqueItems_.has_value() &&
+            schema.arrayProperties_.uniqueItems_.value()) {
           BLOCK << "{";
           {
             Indent _(block);
             BLOCK << "std::set<std::string> uniqueItems;";
-            const auto tupleableItems = schema.tupleableItems_.value_or(
-                std::vector<std::reference_wrapper<const SyncedSchema>>());
+            const auto tupleableItems =
+                schema.arrayProperties_.tupleableItems_.value_or(
+                    std::vector<std::reference_wrapper<const SyncedSchema>>());
             for (size_t i = 0; i < tupleableItems.size(); i++) {
               BLOCK << std::format("if (arrayValue.item{}.has_value()) {{", i);
               {
@@ -1118,7 +865,10 @@ static CodeBlock validateDefinition(const SyncedSchema& schema) {
                 BLOCK << std::format(
                     "const std::string item = {}::json("
                     "arrayValue.item{}.value()).dump(0);",
-                    (*schema.tupleableItems_)[i].get().identifier_, i);
+                    (*schema.arrayProperties_.tupleableItems_)[i]
+                        .get()
+                        .identifier_,
+                    i);
                 BLOCK << "if (uniqueItems.count(item) > 0) {";
                 {
                   Indent _(block);
@@ -1129,8 +879,8 @@ static CodeBlock validateDefinition(const SyncedSchema& schema) {
               }
               BLOCK << "}";
             }
-            if (schema.items_.get().definedAsBooleanSchema_.value_or(true) ==
-                false) {
+            if (schema.arrayProperties_.items_.get()
+                    .definedAsBooleanSchema_.value_or(true) == false) {
               BLOCK << "for (const auto& item : arrayValue.items) {";
               {
                 Indent _(block);
@@ -1150,7 +900,7 @@ static CodeBlock validateDefinition(const SyncedSchema& schema) {
         }
 
         // Contains
-        if (schema.contains_.has_value()) {
+        if (schema.arrayProperties_.contains_.has_value()) {
           BLOCK << "bool contains = false;";
           BLOCK << "for (const auto& item : arrayValue.items) {";
           {
@@ -1185,20 +935,21 @@ static CodeBlock validateDefinition(const SyncedSchema& schema) {
           BLOCK << "const auto& objectValue = schema;";
         }
         // MaxProperties / MinProperties
-        if (schema.maxProperties_.has_value() ||
-            schema.minProperties_.has_value()) {
+        if (schema.objectProperties_.maxProperties_.has_value() ||
+            schema.objectProperties_.minProperties_.has_value()) {
           BLOCK << "{";
           {
             Indent _(block);
             // Count the number of properties
             BLOCK << "size_t propertyCount = schema.properties.size();";
             for (const auto& [propertyName, propertySchema] :
-                 schema.properties_) {
+                 schema.objectProperties_.properties_) {
               // If the property is required, then a representation of it must
               // have already been created, meaning there is nothing to check
               // and we can simply increment the property count
-              if (schema.required_.has_value() &&
-                  schema.required_.value().count(propertyName) > 0) {
+              if (schema.objectProperties_.required_.has_value() &&
+                  schema.objectProperties_.required_.value().count(
+                      propertyName) > 0) {
                 BLOCK << "propertyCount++;";
               } else {
                 BLOCK << std::format("if (schema.{}.has_value()) {{",
@@ -1210,16 +961,18 @@ static CodeBlock validateDefinition(const SyncedSchema& schema) {
                 BLOCK << "}";
               }
             }
-            if (schema.maxProperties_.has_value()) {
-              BLOCK << std::format("if (propertyCount > {}) {{",
-                                   schema.maxProperties_.value())
+            if (schema.objectProperties_.maxProperties_.has_value()) {
+              BLOCK << std::format(
+                           "if (propertyCount > {}) {{",
+                           schema.objectProperties_.maxProperties_.value())
                     << CodeBlock::inc;
               BLOCK << "return false;";
               BLOCK << CodeBlock::dec << "}";
             }
-            if (schema.minProperties_.has_value()) {
-              BLOCK << std::format("if (propertyCount < {}) {{",
-                                   schema.minProperties_.value())
+            if (schema.objectProperties_.minProperties_.has_value()) {
+              BLOCK << std::format(
+                           "if (propertyCount < {}) {{",
+                           schema.objectProperties_.minProperties_.value())
                     << CodeBlock::inc;
               BLOCK << "return false;";
               BLOCK << CodeBlock::dec << "}";
@@ -1229,10 +982,11 @@ static CodeBlock validateDefinition(const SyncedSchema& schema) {
         }
 
         // Required
-        if (schema.required_.has_value()) {
+        if (schema.objectProperties_.required_.has_value()) {
           std::set<std::string> requiredAdditionalProperties =
-              schema.required_.value();
-          for (const auto& [propertyName, _] : schema.properties_) {
+              schema.objectProperties_.required_.value();
+          for (const auto& [propertyName, _] :
+               schema.objectProperties_.properties_) {
             requiredAdditionalProperties.erase(propertyName);
           }
 
@@ -1247,9 +1001,9 @@ static CodeBlock validateDefinition(const SyncedSchema& schema) {
         }
 
         // PatternProperties
-        if (schema.patternProperties_.has_value()) {
+        if (schema.objectProperties_.patternProperties_.has_value()) {
           for (const auto& [pattern, patternSchema] :
-               schema.patternProperties_.value()) {
+               schema.objectProperties_.patternProperties_.value()) {
             BLOCK << "for (const auto& [key, value] : "
                      "objectValue.additionalProperties) {";
             {
@@ -1261,7 +1015,8 @@ static CodeBlock validateDefinition(const SyncedSchema& schema) {
                 Indent _(block);
                 BLOCK << std::format(
                     "const auto rawValue = {}::rawExport(value);",
-                    schema.additionalProperties_.get().identifier_);
+                    schema.objectProperties_.additionalProperties_.get()
+                        .identifier_);
                 BLOCK << std::format("const auto constructedValue = "
                                      "{}::construct(rawValue);",
                                      patternSchema.get().identifier_);
@@ -1341,61 +1096,63 @@ CodeBlock SyncedSchema::generateDependencies() const {
   CodeBlock block(codeProperties.get().indent_);
   block << generateSystemDependencies();
   std::set<const SyncedSchema*> dependencies;
-  if (ref_.has_value()) {
-    dependencies.insert(&ref_.value().get());
+  if (reinterpretables_.ref_.has_value()) {
+    dependencies.insert(&reinterpretables_.ref_.value().get());
   }
-  for (const auto& item : tupleableItems_.value_or(
+  for (const auto& item : arrayProperties_.tupleableItems_.value_or(
            std::vector<std::reference_wrapper<const SyncedSchema>>())) {
     dependencies.insert(&item.get());
   }
-  dependencies.insert(&items_.get());
-  if (contains_.has_value()) {
-    dependencies.insert(&contains_.value().get());
+  dependencies.insert(&arrayProperties_.items_.get());
+  if (arrayProperties_.contains_.has_value()) {
+    dependencies.insert(&arrayProperties_.contains_.value().get());
   }
-  for (const auto& [_, schema] : properties_) {
+  for (const auto& [_, schema] : objectProperties_.properties_) {
     dependencies.insert(&schema.get());
   }
-  if (patternProperties_.has_value()) {
-    for (const auto& [_, schema] : patternProperties_.value()) {
+  if (objectProperties_.patternProperties_.has_value()) {
+    for (const auto& [_, schema] :
+         objectProperties_.patternProperties_.value()) {
       dependencies.insert(&schema.get());
     }
   }
-  dependencies.insert(&additionalProperties_.get());
+  dependencies.insert(&objectProperties_.additionalProperties_.get());
 
-  if (schemaDependencies_.has_value()) {
-    for (const auto& [_, schema] : schemaDependencies_.value()) {
+  if (objectProperties_.schemaDependencies_.has_value()) {
+    for (const auto& [_, schema] :
+         objectProperties_.schemaDependencies_.value()) {
       dependencies.insert(&schema.get());
     }
   }
-  if (propertyNames_.has_value()) {
-    dependencies.insert(&propertyNames_.value().get());
+  if (objectProperties_.propertyNames_.has_value()) {
+    dependencies.insert(&objectProperties_.propertyNames_.value().get());
   }
-  if (if_.has_value()) {
-    dependencies.insert(&if_.value().get());
+  if (reinterpretables_.if_.has_value()) {
+    dependencies.insert(&reinterpretables_.if_.value().get());
   }
-  if (then_.has_value()) {
-    dependencies.insert(&then_.value().get());
+  if (reinterpretables_.then_.has_value()) {
+    dependencies.insert(&reinterpretables_.then_.value().get());
   }
-  if (else_.has_value()) {
-    dependencies.insert(&else_.value().get());
+  if (reinterpretables_.else_.has_value()) {
+    dependencies.insert(&reinterpretables_.else_.value().get());
   }
-  if (allOf_.has_value()) {
-    for (const auto& schema : allOf_.value()) {
+  if (reinterpretables_.allOf_.has_value()) {
+    for (const auto& schema : reinterpretables_.allOf_.value()) {
       dependencies.insert(&schema.get());
     }
   }
-  if (anyOf_.has_value()) {
-    for (const auto& schema : anyOf_.value()) {
+  if (reinterpretables_.anyOf_.has_value()) {
+    for (const auto& schema : reinterpretables_.anyOf_.value()) {
       dependencies.insert(&schema.get());
     }
   }
-  if (oneOf_.has_value()) {
-    for (const auto& schema : oneOf_.value()) {
+  if (reinterpretables_.oneOf_.has_value()) {
+    for (const auto& schema : reinterpretables_.oneOf_.value()) {
       dependencies.insert(&schema.get());
     }
   }
-  if (not_.has_value()) {
-    dependencies.insert(&not_.value().get());
+  if (reinterpretables_.not_.has_value()) {
+    dependencies.insert(&reinterpretables_.not_.value().get());
   }
 
   BLOCK << "// Local dependencies";
@@ -1418,7 +1175,7 @@ CodeBlock SyncedSchema::generateDependencies() const {
     forwardDeclaration << std::format("namespace {} {{",
                                       dependency->identifier_);
     if (!dependency->definedAsBooleanSchema_.has_value() &&
-        !dependency->ref_.has_value()) {
+        !dependency->reinterpretables_.ref_.has_value()) {
       if (dependency->type_.contains(Type::Object)) {
         forwardDeclaration << std::format("class Object;");
         hasForwardDeclaration = true;
@@ -1481,8 +1238,9 @@ std::string SyncedSchema::getType() const {
 
   // If the schema is a reference, return the reference type wrapped in a
   // unique pointer, as there might be issues with the type being incomplete.
-  if (ref_.has_value()) {
-    return std::format("std::unique_ptr<{}>", ref_.value().get().getType());
+  if (reinterpretables_.ref_.has_value()) {
+    return std::format("std::unique_ptr<{}>",
+                       reinterpretables_.ref_.value().get().getType());
   }
 
   std::set<Type> types;
@@ -1504,15 +1262,15 @@ std::string SyncedSchema::getType() const {
     case Type::Boolean:
       return getBooleanType();
     case Type::Object:
-      return getObjectType();
+      return objectProperties_.getObjectType(getNamespaceLocation());
     case Type::Array:
-      return getArrayType();
+      return arrayProperties_.getArrayType(getNamespaceLocation());
     case Type::Number:
-      return getNumberType();
+      return numberProperties_.getNumberType();
     case Type::String:
-      return getStringType();
+      return stringProperties_.getStringType();
     case Type::Integer:
-      return getIntegerType();
+      return numberProperties_.getIntegerType();
     }
   } else {
     std::string type = "std::variant<";
@@ -1525,19 +1283,19 @@ std::string SyncedSchema::getType() const {
         type += getBooleanType();
         break;
       case Type::Object:
-        type += getObjectType();
+        type += objectProperties_.getObjectType(getNamespaceLocation());
         break;
       case Type::Array:
-        type += getArrayType();
+        type += arrayProperties_.getArrayType(getNamespaceLocation());
         break;
       case Type::Number:
-        type += getNumberType();
+        type += numberProperties_.getNumberType();
         break;
       case Type::String:
-        type += getStringType();
+        type += stringProperties_.getStringType();
         break;
       case Type::Integer:
-        type += getIntegerType();
+        type += numberProperties_.getIntegerType();
       }
       if (std::next(it) != types.end()) {
         type += ", ";
@@ -1549,38 +1307,28 @@ std::string SyncedSchema::getType() const {
   throw std::runtime_error("Unreachable code");
 }
 
-std::string SyncedSchema::getObjectType() const {
-  if (codeProperties.get().globalNamespace_.has_value()) {
-    return std::format("::{}::{}::Object",
-                       codeProperties.get().globalNamespace_.value(),
-                       identifier_);
-  }
-  return std::format("::{}::Object", identifier_);
-}
+std::string NumberProperties::getNumberType() const { return "double"; }
 
-std::string SyncedSchema::getArrayType() const {
-  if (codeProperties.get().globalNamespace_.has_value()) {
-    return std::format("::{}::{}::Array",
-                       codeProperties.get().globalNamespace_.value(),
-                       identifier_);
-  }
-  return std::format("::{}::Array", identifier_);
-}
-
-std::string SyncedSchema::getNumberType() const { return "double"; }
-
-std::string SyncedSchema::getStringType() const { return "std::string"; }
+std::string StringProperties::getStringType() const { return "std::string"; }
 
 std::string SyncedSchema::getBooleanType() const { return "bool"; }
 
 std::string SyncedSchema::getNullType() const { return "std::monostate"; }
 
-static SyncedSchema::IntegerType
+std::string SyncedSchema::getNamespaceLocation() const {
+  if (codeProperties.get().globalNamespace_.has_value()) {
+    return std::format(
+        "::{}::{}", codeProperties.get().globalNamespace_.value(), identifier_);
+  }
+  return std::format("::{}", identifier_);
+}
+
+static NumberProperties::IntegerType
 smallestIntegerType(std::optional<double> minimum,
                     std::optional<double> maximum,
                     std::optional<double> exclusiveMinimum,
                     std::optional<double> exclusiveMaximum) {
-  using IntegerType = SyncedSchema::IntegerType;
+  using IntegerType = NumberProperties::IntegerType;
   // Initialize effective bounds with provided values or defaults
   double adjustedMin = minimum.value_or(std::numeric_limits<int64_t>::min());
   double adjustedMax = maximum.value_or(std::numeric_limits<int64_t>::max());
@@ -1625,7 +1373,7 @@ smallestIntegerType(std::optional<double> minimum,
   }
 }
 
-std::string SyncedSchema::getIntegerType() const {
+std::string NumberProperties::getIntegerType() const {
   IntegerType type = getIntegerEnum();
 
   switch (type) {
@@ -1649,7 +1397,7 @@ std::string SyncedSchema::getIntegerType() const {
   return "int64_t";
 }
 
-SyncedSchema::IntegerType SyncedSchema::getIntegerEnum() const {
+NumberProperties::IntegerType NumberProperties::getIntegerEnum() const {
   return smallestIntegerType(minimum_, maximum_, exclusiveMinimum_,
                              exclusiveMaximum_);
 }
@@ -1668,9 +1416,10 @@ SyncedSchema::resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas) {
       auto& syncedSchema = *syncedSchemas[i];
       syncedSchema.definedAsBooleanSchema_ = schema.definedAsBooleanSchema_;
       if (schema.ref_.has_value()) {
-        syncedSchema.ref_ = *syncedSchemas[schema.ref_.value()];
+        syncedSchema.reinterpretables_.ref_ =
+            *syncedSchemas[schema.ref_.value()];
       } else {
-        syncedSchema.ref_ = std::nullopt;
+        syncedSchema.reinterpretables_.ref_ = std::nullopt;
       }
       syncedSchema.type_ = schema.type_.value_or(std::set<Type>{
           Type::Object, Type::Array, Type::Boolean, Type::Integer, Type::Null,
@@ -1678,115 +1427,128 @@ SyncedSchema::resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas) {
       syncedSchema.enum_ = schema.enum_;
       syncedSchema.const_ = schema.const_;
       syncedSchema.description_ = schema.description_;
-      syncedSchema.multipleOf_ = schema.multipleOf_;
-      syncedSchema.maximum_ = schema.maximum_;
-      syncedSchema.exclusiveMaximum_ = schema.exclusiveMaximum_;
-      syncedSchema.minimum_ = schema.minimum_;
-      syncedSchema.exclusiveMinimum_ = schema.exclusiveMinimum_;
-      syncedSchema.maxLength_ = schema.maxLength_;
-      syncedSchema.minLength_ = schema.minLength_;
-      syncedSchema.pattern_ = schema.pattern_;
+      syncedSchema.numberProperties_.multipleOf_ = schema.multipleOf_;
+      syncedSchema.numberProperties_.maximum_ = schema.maximum_;
+      syncedSchema.numberProperties_.exclusiveMaximum_ =
+          schema.exclusiveMaximum_;
+      syncedSchema.numberProperties_.minimum_ = schema.minimum_;
+      syncedSchema.numberProperties_.exclusiveMinimum_ =
+          schema.exclusiveMinimum_;
+      syncedSchema.stringProperties_.maxLength_ = schema.maxLength_;
+      syncedSchema.stringProperties_.minLength_ = schema.minLength_;
+      syncedSchema.stringProperties_.pattern_ = schema.pattern_;
       if (schema.tupleableItems_.has_value()) {
         const auto& indices = schema.tupleableItems_.value();
-        syncedSchema.tupleableItems_ =
+        syncedSchema.arrayProperties_.tupleableItems_ =
             std::vector<std::reference_wrapper<const SyncedSchema>>();
         for (size_t index : indices) {
-          syncedSchema.tupleableItems_.value().push_back(*syncedSchemas[index]);
+          syncedSchema.arrayProperties_.tupleableItems_.value().push_back(
+              *syncedSchemas[index]);
         }
       }
       if (schema.items_.has_value()) {
-        syncedSchema.items_ = *syncedSchemas[schema.items_.value()];
+        syncedSchema.arrayProperties_.items_ =
+            *syncedSchemas[schema.items_.value()];
       } else {
-        syncedSchema.items_ = getTrueSchema();
+        syncedSchema.arrayProperties_.items_ = getTrueSchema();
       }
-      syncedSchema.maxItems_ = schema.maxItems_;
-      syncedSchema.minItems_ = schema.minItems_;
-      syncedSchema.uniqueItems_ = schema.uniqueItems_;
+      syncedSchema.arrayProperties_.maxItems_ = schema.maxItems_;
+      syncedSchema.arrayProperties_.minItems_ = schema.minItems_;
+      syncedSchema.arrayProperties_.uniqueItems_ = schema.uniqueItems_;
       if (schema.contains_.has_value()) {
-        syncedSchema.contains_ = *syncedSchemas[schema.contains_.value()];
+        syncedSchema.arrayProperties_.contains_ =
+            *syncedSchemas[schema.contains_.value()];
       } else {
-        syncedSchema.contains_ = std::nullopt;
+        syncedSchema.arrayProperties_.contains_ = std::nullopt;
       }
-      syncedSchema.maxProperties_ = schema.maxProperties_;
-      syncedSchema.minProperties_ = schema.minProperties_;
-      syncedSchema.required_ = schema.required_;
+      syncedSchema.objectProperties_.maxProperties_ = schema.maxProperties_;
+      syncedSchema.objectProperties_.minProperties_ = schema.minProperties_;
+      syncedSchema.objectProperties_.required_ = schema.required_;
       for (const auto& [propertyName, index] : schema.properties_) {
-        syncedSchema.properties_.emplace(propertyName,
-                                         std::cref(*syncedSchemas[index]));
+        syncedSchema.objectProperties_.properties_.emplace(
+            propertyName, std::cref(*syncedSchemas[index]));
       }
       if (schema.patternProperties_.has_value()) {
-        syncedSchema.patternProperties_ =
+        syncedSchema.objectProperties_.patternProperties_ =
             std::map<std::string, std::reference_wrapper<const SyncedSchema>>();
         for (const auto& [pattern, index] : schema.patternProperties_.value()) {
-          syncedSchema.patternProperties_.value().emplace(
+          syncedSchema.objectProperties_.patternProperties_.value().emplace(
               pattern, *syncedSchemas[index]);
         }
       }
       if (schema.additionalProperties_.has_value()) {
-        syncedSchema.additionalProperties_ =
+        syncedSchema.objectProperties_.additionalProperties_ =
             *syncedSchemas[schema.additionalProperties_.value()];
       } else {
-        syncedSchema.additionalProperties_ = getTrueSchema();
+        syncedSchema.objectProperties_.additionalProperties_ = getTrueSchema();
       }
-      syncedSchema.propertyDependencies_ = schema.propertyDependencies_;
-      // syncedSchema.schemaDependencies_ = schema.schemaDependencies_;
+      syncedSchema.objectProperties_.propertyDependencies_ =
+          schema.propertyDependencies_;
+      // syncedSchema.objectProperties_.schemaDependencies_ =
+      // schema.schemaDependencies_;
       if (schema.schemaDependencies_.has_value()) {
-        syncedSchema.schemaDependencies_ =
+        syncedSchema.objectProperties_.schemaDependencies_ =
             std::map<std::string, std::reference_wrapper<const SyncedSchema>>();
         for (const auto& [propertyName, index] :
              schema.schemaDependencies_.value()) {
-          syncedSchema.schemaDependencies_.value().emplace(
+          syncedSchema.objectProperties_.schemaDependencies_.value().emplace(
               propertyName, *syncedSchemas[index]);
         }
       }
-      // syncedSchema.propertyNames_ = schema.propertyNames_;
+      // syncedSchema.objectProperties_.propertyNames_ = schema.propertyNames_;
       if (schema.propertyNames_.has_value()) {
-        syncedSchema.propertyNames_ =
+        syncedSchema.objectProperties_.propertyNames_ =
             *syncedSchemas[schema.propertyNames_.value()];
       } else {
-        syncedSchema.propertyNames_ = std::nullopt;
+        syncedSchema.objectProperties_.propertyNames_ = std::nullopt;
       }
       // syncedSchema.if_ = schema.if_;
       if (schema.if_.has_value()) {
-        syncedSchema.if_ = *syncedSchemas[schema.if_.value()];
+        syncedSchema.reinterpretables_.if_ = *syncedSchemas[schema.if_.value()];
       } else {
-        syncedSchema.if_ = std::nullopt;
+        syncedSchema.reinterpretables_.if_ = std::nullopt;
       }
       if (schema.then_.has_value()) {
-        syncedSchema.then_ = *syncedSchemas[schema.then_.value()];
+        syncedSchema.reinterpretables_.then_ =
+            *syncedSchemas[schema.then_.value()];
       } else {
-        syncedSchema.then_ = std::nullopt;
+        syncedSchema.reinterpretables_.then_ = std::nullopt;
       }
       if (schema.else_.has_value()) {
-        syncedSchema.else_ = *syncedSchemas[schema.else_.value()];
+        syncedSchema.reinterpretables_.else_ =
+            *syncedSchemas[schema.else_.value()];
       } else {
-        syncedSchema.else_ = std::nullopt;
+        syncedSchema.reinterpretables_.else_ = std::nullopt;
       }
       if (schema.allOf_.has_value()) {
-        syncedSchema.allOf_ =
+        syncedSchema.reinterpretables_.allOf_ =
             std::vector<std::reference_wrapper<const SyncedSchema>>();
         for (size_t index : schema.allOf_.value()) {
-          syncedSchema.allOf_.value().push_back(*syncedSchemas[index]);
+          syncedSchema.reinterpretables_.allOf_.value().push_back(
+              *syncedSchemas[index]);
         }
       }
       if (schema.anyOf_.has_value()) {
-        syncedSchema.anyOf_ =
+        syncedSchema.reinterpretables_.anyOf_ =
             std::vector<std::reference_wrapper<const SyncedSchema>>();
         for (size_t index : schema.anyOf_.value()) {
-          syncedSchema.anyOf_.value().push_back(*syncedSchemas[index]);
+          syncedSchema.reinterpretables_.anyOf_.value().push_back(
+              *syncedSchemas[index]);
         }
       }
       if (schema.oneOf_.has_value()) {
-        syncedSchema.oneOf_ =
+        syncedSchema.reinterpretables_.oneOf_ =
             std::vector<std::reference_wrapper<const SyncedSchema>>();
         for (size_t index : schema.oneOf_.value()) {
-          syncedSchema.oneOf_.value().push_back(*syncedSchemas[index]);
+          syncedSchema.reinterpretables_.oneOf_.value().push_back(
+              *syncedSchemas[index]);
         }
       }
       if (schema.not_.has_value()) {
-        syncedSchema.not_ = *syncedSchemas[schema.not_.value()];
+        syncedSchema.reinterpretables_.not_ =
+            *syncedSchemas[schema.not_.value()];
       } else {
-        syncedSchema.not_ = std::nullopt;
+        syncedSchema.reinterpretables_.not_ = std::nullopt;
       }
       syncedSchema.format_ = schema.format_;
       syncedSchema.default_ = schema.default_;
@@ -1810,8 +1572,9 @@ void SyncedSchema::dumpSchemas(
       schemaDump["definedAsBooleanSchema"] =
           schema->definedAsBooleanSchema_.value();
     }
-    if (schema->ref_.has_value()) {
-      schemaDump["ref"] = schema->ref_.value().get().identifier_;
+    if (schema->reinterpretables_.ref_.has_value()) {
+      schemaDump["ref"] =
+          schema->reinterpretables_.ref_.value().get().identifier_;
     }
     auto typeDump = nlohmann::json::array();
     for (const auto& type : schema->type_) {
@@ -1828,82 +1591,89 @@ void SyncedSchema::dumpSchemas(
     if (schema->description_.has_value()) {
       schemaDump["description"] = schema->description_.value();
     }
-    if (schema->multipleOf_.has_value()) {
-      schemaDump["multipleOf"] = schema->multipleOf_.value();
+    if (schema->numberProperties_.multipleOf_.has_value()) {
+      schemaDump["multipleOf"] = schema->numberProperties_.multipleOf_.value();
     }
-    if (schema->maximum_.has_value()) {
-      schemaDump["maximum"] = schema->maximum_.value();
+    if (schema->numberProperties_.maximum_.has_value()) {
+      schemaDump["maximum"] = schema->numberProperties_.maximum_.value();
     }
-    if (schema->exclusiveMaximum_.has_value()) {
-      schemaDump["exclusiveMaximum"] = schema->exclusiveMaximum_.value();
+    if (schema->numberProperties_.exclusiveMaximum_.has_value()) {
+      schemaDump["exclusiveMaximum"] =
+          schema->numberProperties_.exclusiveMaximum_.value();
     }
-    if (schema->minimum_.has_value()) {
-      schemaDump["minimum"] = schema->minimum_.value();
+    if (schema->numberProperties_.minimum_.has_value()) {
+      schemaDump["minimum"] = schema->numberProperties_.minimum_.value();
     }
-    if (schema->exclusiveMinimum_.has_value()) {
-      schemaDump["exclusiveMinimum"] = schema->exclusiveMinimum_.value();
+    if (schema->numberProperties_.exclusiveMinimum_.has_value()) {
+      schemaDump["exclusiveMinimum"] =
+          schema->numberProperties_.exclusiveMinimum_.value();
     }
-    if (schema->maxLength_.has_value()) {
-      schemaDump["maxLength"] = schema->maxLength_.value();
+    if (schema->stringProperties_.maxLength_.has_value()) {
+      schemaDump["maxLength"] = schema->stringProperties_.maxLength_.value();
     }
-    if (schema->minLength_.has_value()) {
-      schemaDump["minLength"] = schema->minLength_.value();
+    if (schema->stringProperties_.minLength_.has_value()) {
+      schemaDump["minLength"] = schema->stringProperties_.minLength_.value();
     }
-    if (schema->pattern_.has_value()) {
-      schemaDump["pattern"] = schema->pattern_.value();
+    if (schema->stringProperties_.pattern_.has_value()) {
+      schemaDump["pattern"] = schema->stringProperties_.pattern_.value();
     }
-    if (schema->tupleableItems_.has_value()) {
+    if (schema->arrayProperties_.tupleableItems_.has_value()) {
       auto tupleableItemsDump = nlohmann::json::array();
-      for (auto& index : schema->tupleableItems_.value()) {
+      for (auto& index : schema->arrayProperties_.tupleableItems_.value()) {
         tupleableItemsDump.push_back(index.get().identifier_);
       }
       schemaDump["tupleableItems"] = tupleableItemsDump;
     }
-    schemaDump["items"] = schema->items_.get().identifier_;
+    schemaDump["items"] = schema->arrayProperties_.items_.get().identifier_;
 
-    if (schema->maxItems_.has_value()) {
-      schemaDump["maxItems"] = schema->maxItems_.value();
+    if (schema->arrayProperties_.maxItems_.has_value()) {
+      schemaDump["maxItems"] = schema->arrayProperties_.maxItems_.value();
     }
-    if (schema->minItems_.has_value()) {
-      schemaDump["minItems"] = schema->minItems_.value();
+    if (schema->arrayProperties_.minItems_.has_value()) {
+      schemaDump["minItems"] = schema->arrayProperties_.minItems_.value();
     }
-    if (schema->uniqueItems_.has_value()) {
-      schemaDump["uniqueItems"] = schema->uniqueItems_.value();
+    if (schema->arrayProperties_.uniqueItems_.has_value()) {
+      schemaDump["uniqueItems"] = schema->arrayProperties_.uniqueItems_.value();
     }
-    if (schema->contains_.has_value()) {
-      schemaDump["contains"] = schema->contains_.value().get().identifier_;
+    if (schema->arrayProperties_.contains_.has_value()) {
+      schemaDump["contains"] =
+          schema->arrayProperties_.contains_.value().get().identifier_;
     }
-    if (schema->maxProperties_.has_value()) {
-      schemaDump["maxProperties"] = schema->maxProperties_.value();
+    if (schema->objectProperties_.maxProperties_.has_value()) {
+      schemaDump["maxProperties"] =
+          schema->objectProperties_.maxProperties_.value();
     }
-    if (schema->minProperties_.has_value()) {
-      schemaDump["minProperties"] = schema->minProperties_.value();
+    if (schema->objectProperties_.minProperties_.has_value()) {
+      schemaDump["minProperties"] =
+          schema->objectProperties_.minProperties_.value();
     }
-    if (schema->required_.has_value()) {
+    if (schema->objectProperties_.required_.has_value()) {
       auto requiredDump = nlohmann::json::array();
-      for (const auto& required : schema->required_.value()) {
+      for (const auto& required : schema->objectProperties_.required_.value()) {
         requiredDump.push_back(required);
       }
       schemaDump["required"] = requiredDump;
     }
     auto propertiesDump = nlohmann::json::object();
-    for (const auto& [propertyName, index] : schema->properties_) {
+    for (const auto& [propertyName, index] :
+         schema->objectProperties_.properties_) {
       propertiesDump[propertyName] = index.get().identifier_;
     }
     schemaDump["properties"] = propertiesDump;
-    if (schema->patternProperties_.has_value()) {
+    if (schema->objectProperties_.patternProperties_.has_value()) {
       auto patternPropertiesDump = nlohmann::json::object();
-      for (const auto& [pattern, index] : schema->patternProperties_.value()) {
+      for (const auto& [pattern, index] :
+           schema->objectProperties_.patternProperties_.value()) {
         patternPropertiesDump[pattern] = index.get().identifier_;
       }
       schemaDump["patternProperties"] = patternPropertiesDump;
     }
     schemaDump["additionalProperties"] =
-        schema->additionalProperties_.get().identifier_;
-    if (schema->propertyDependencies_.has_value()) {
+        schema->objectProperties_.additionalProperties_.get().identifier_;
+    if (schema->objectProperties_.propertyDependencies_.has_value()) {
       auto propertyDependenciesDump = nlohmann::json::object();
       for (const auto& [propertyName, index] :
-           schema->propertyDependencies_.value()) {
+           schema->objectProperties_.propertyDependencies_.value()) {
 
         propertyDependenciesDump[propertyName] = nlohmann::json::array();
         for (const auto& dependency : index) {
@@ -1911,10 +1681,10 @@ void SyncedSchema::dumpSchemas(
         }
       }
     }
-    if (schema->propertyDependencies_.has_value()) {
+    if (schema->objectProperties_.propertyDependencies_.has_value()) {
       auto propertyDependenciesDump = nlohmann::json::object();
       for (const auto& [propertyName, index] :
-           schema->propertyDependencies_.value()) {
+           schema->objectProperties_.propertyDependencies_.value()) {
         propertyDependenciesDump[propertyName] = nlohmann::json::array();
         for (const auto& dependency : index) {
           propertyDependenciesDump[propertyName].push_back(dependency);
@@ -1922,50 +1692,54 @@ void SyncedSchema::dumpSchemas(
       }
       schemaDump["propertyDependencies"] = propertyDependenciesDump;
     }
-    if (schema->schemaDependencies_.has_value()) {
+    if (schema->objectProperties_.schemaDependencies_.has_value()) {
       auto schemaDependenciesDump = nlohmann::json::object();
       for (const auto& [propertyName, index] :
-           schema->schemaDependencies_.value()) {
+           schema->objectProperties_.schemaDependencies_.value()) {
         schemaDependenciesDump[propertyName] = index.get().identifier_;
       }
       schemaDump["schemaDependencies"] = schemaDependenciesDump;
     }
-    if (schema->propertyNames_.has_value()) {
+    if (schema->objectProperties_.propertyNames_.has_value()) {
       schemaDump["propertyNames"] =
-          schema->propertyNames_.value().get().identifier_;
+          schema->objectProperties_.propertyNames_.value().get().identifier_;
     }
-    if (schema->if_.has_value()) {
-      schemaDump["if"] = schema->if_.value().get().identifier_;
+    if (schema->reinterpretables_.if_.has_value()) {
+      schemaDump["if"] =
+          schema->reinterpretables_.if_.value().get().identifier_;
     }
-    if (schema->then_.has_value()) {
-      schemaDump["then"] = schema->then_.value().get().identifier_;
+    if (schema->reinterpretables_.then_.has_value()) {
+      schemaDump["then"] =
+          schema->reinterpretables_.then_.value().get().identifier_;
     }
-    if (schema->else_.has_value()) {
-      schemaDump["else"] = schema->else_.value().get().identifier_;
+    if (schema->reinterpretables_.else_.has_value()) {
+      schemaDump["else"] =
+          schema->reinterpretables_.else_.value().get().identifier_;
     }
-    if (schema->allOf_.has_value()) {
+    if (schema->reinterpretables_.allOf_.has_value()) {
       auto allOfDump = nlohmann::json::array();
-      for (const auto& index : schema->allOf_.value()) {
+      for (const auto& index : schema->reinterpretables_.allOf_.value()) {
         allOfDump.push_back(index.get().identifier_);
       }
       schemaDump["allOf"] = allOfDump;
     }
-    if (schema->anyOf_.has_value()) {
+    if (schema->reinterpretables_.anyOf_.has_value()) {
       auto anyOfDump = nlohmann::json::array();
-      for (const auto& index : schema->anyOf_.value()) {
+      for (const auto& index : schema->reinterpretables_.anyOf_.value()) {
         anyOfDump.push_back(index.get().identifier_);
       }
       schemaDump["anyOf"] = anyOfDump;
     }
-    if (schema->oneOf_.has_value()) {
+    if (schema->reinterpretables_.oneOf_.has_value()) {
       auto oneOfDump = nlohmann::json::array();
-      for (const auto& index : schema->oneOf_.value()) {
+      for (const auto& index : schema->reinterpretables_.oneOf_.value()) {
         oneOfDump.push_back(index.get().identifier_);
       }
       schemaDump["oneOf"] = oneOfDump;
     }
-    if (schema->not_.has_value()) {
-      schemaDump["not"] = schema->not_.value().get().identifier_;
+    if (schema->reinterpretables_.not_.has_value()) {
+      schemaDump["not"] =
+          schema->reinterpretables_.not_.value().get().identifier_;
     }
     if (schema->format_.has_value()) {
       schemaDump["format"] = static_cast<size_t>(schema->format_.value());
@@ -1979,5 +1753,3 @@ void SyncedSchema::dumpSchemas(
   ofs << schemasDump.dump(2);
   ofs.close();
 }
-
-#undef BLOCK

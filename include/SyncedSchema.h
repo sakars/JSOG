@@ -4,7 +4,9 @@
 #include "CodeBlock.h"
 #include "IndexedSyncedSchema.h"
 #include "SyncedSchema/ArrayProperties.h"
+#include "SyncedSchema/NumberProperties.h"
 #include "SyncedSchema/ObjectProperties.h"
+#include "SyncedSchema/StringProperties.h"
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <set>
@@ -12,37 +14,6 @@
 #include <vector>
 
 class SyncedSchema;
-
-struct NumberProperties {
-  std::optional<double> multipleOf_;
-  std::optional<double> maximum_;
-  std::optional<double> exclusiveMaximum_;
-  std::optional<double> minimum_;
-  std::optional<double> exclusiveMinimum_;
-
-  enum class IntegerType {
-    INT8,
-    UINT8,
-    INT16,
-    UINT16,
-    INT32,
-    UINT32,
-    INT64,
-    UINT64
-  };
-
-  std::string getNumberType() const;
-  std::string getIntegerType() const;
-  IntegerType getIntegerEnum() const;
-};
-
-struct StringProperties {
-  std::optional<size_t> maxLength_;
-  std::optional<size_t> minLength_;
-  std::optional<std::string> pattern_;
-
-  std::string getStringType() const;
-};
 
 struct Reinterpretables {
   std::optional<std::reference_wrapper<SyncedSchema>> ref_;
@@ -129,8 +100,8 @@ public:
   std::string getSourceFileName() const;
   std::string getType() const;
 
-  std::string getBooleanType() const;
-  std::string getNullType() const;
+  std::string getBooleanType() const { return "bool"; }
+  std::string getNullType() const { return "std::monostate"; }
 
   std::string getNamespaceLocation() const;
 

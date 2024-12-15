@@ -24,6 +24,7 @@ struct NumberProperties {
     UINT64
   };
 
+  NumberProperties() = default;
   NumberProperties(
       const IndexedSyncedSchema& schema,
       const std::vector<std::unique_ptr<SyncedSchema>>& syncedSchemas);

@@ -7,7 +7,7 @@ std::string NumberProperties::getNumberType() const { return "double"; }
 
 NumberProperties::NumberProperties(
     const IndexedSyncedSchema& schema,
-    const std::vector<std::unique_ptr<SyncedSchema>>& syncedSchemas) {
+    const std::vector<std::unique_ptr<SyncedSchema>>&) {
   if (schema.multipleOf_.has_value()) {
     multipleOf_ = schema.multipleOf_.value();
   }

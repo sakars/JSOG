@@ -4,6 +4,31 @@
 #include "SyncedSchema.h"
 #include <format>
 
+ArrayProperties::ArrayProperties(
+    const IndexedSyncedSchema& schema,
+    const std::vector<std::unique_ptr<SyncedSchema>>& syncedSchemas)
+    : items_(schema.items_.has_value() ? *syncedSchemas[schema.items_.value()]
+                                       : SyncedSchema::getTrueSchema()) {
+  if (schema.tupleableItems_.has_value()) {
+    tupleableItems_ = std::vector<std::reference_wrapper<const SyncedSchema>>();
+    for (auto index : schema.tupleableItems_.value()) {
+      tupleableItems_.value().push_back(*syncedSchemas[index]);
+    }
+  }
+  if (schema.maxItems_.has_value()) {
+    maxItems_ = schema.maxItems_.value();
+  }
+  if (schema.minItems_.has_value()) {
+    minItems_ = schema.minItems_.value();
+  }
+  if (schema.uniqueItems_.has_value()) {
+    uniqueItems_ = schema.uniqueItems_.value();
+  }
+  if (schema.contains_.has_value()) {
+    contains_ = *syncedSchemas[schema.contains_.value()];
+  }
+}
+
 CodeBlock ArrayProperties::arrayConstructor(
     const CodeProperties& codeProperties,
     const std::string& inputJsonVariableName,

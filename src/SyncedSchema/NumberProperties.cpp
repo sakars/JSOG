@@ -5,6 +5,26 @@
 
 std::string NumberProperties::getNumberType() const { return "double"; }
 
+NumberProperties::NumberProperties(
+    const IndexedSyncedSchema& schema,
+    const std::vector<std::unique_ptr<SyncedSchema>>& syncedSchemas) {
+  if (schema.multipleOf_.has_value()) {
+    multipleOf_ = schema.multipleOf_.value();
+  }
+  if (schema.maximum_.has_value()) {
+    maximum_ = schema.maximum_.value();
+  }
+  if (schema.exclusiveMaximum_.has_value()) {
+    exclusiveMaximum_ = schema.exclusiveMaximum_.value();
+  }
+  if (schema.minimum_.has_value()) {
+    minimum_ = schema.minimum_.value();
+  }
+  if (schema.exclusiveMinimum_.has_value()) {
+    exclusiveMinimum_ = schema.exclusiveMinimum_.value();
+  }
+}
+
 NumberProperties::IntegerType
 smallestIntegerType(std::optional<double> minimum,
                     std::optional<double> maximum,

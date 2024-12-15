@@ -1,14 +1,17 @@
 #ifndef SYNCEDSCHEMA_NUMBERPROPERTIES_H
 #define SYNCEDSCHEMA_NUMBERPROPERTIES_H
+#include "IndexedSyncedSchema.h"
 #include <optional>
 #include <string>
 
+class SyncedSchema;
+
 struct NumberProperties {
-  std::optional<double> multipleOf_;
-  std::optional<double> maximum_;
-  std::optional<double> exclusiveMaximum_;
-  std::optional<double> minimum_;
-  std::optional<double> exclusiveMinimum_;
+  std::optional<double> multipleOf_ = std::nullopt;
+  std::optional<double> maximum_ = std::nullopt;
+  std::optional<double> exclusiveMaximum_ = std::nullopt;
+  std::optional<double> minimum_ = std::nullopt;
+  std::optional<double> exclusiveMinimum_ = std::nullopt;
 
   enum class IntegerType {
     INT8,
@@ -20,6 +23,10 @@ struct NumberProperties {
     INT64,
     UINT64
   };
+
+  NumberProperties(
+      const IndexedSyncedSchema& schema,
+      const std::vector<std::unique_ptr<SyncedSchema>>& syncedSchemas);
 
   std::string getNumberType() const;
   std::string getIntegerType() const;

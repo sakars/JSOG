@@ -38,8 +38,6 @@ public:
       std::cref(getDefaultCodeProperties());
 
   std::string identifier_;
-  std::string filename_;
-
   // Non-type specific properties
 
   /// @brief If set, the schema is interpreted as a boolean schema, regardless
@@ -78,15 +76,14 @@ public:
   std::optional<std::vector<nlohmann::json>> examples_;
 
   SyncedSchema(const std::string& identifier)
-      : identifier_(identifier), filename_(identifier),
-        arrayProperties_(getTrueSchema()), objectProperties_(getTrueSchema()) {}
+      : identifier_(identifier), arrayProperties_(getTrueSchema()),
+        objectProperties_(getTrueSchema()) {}
 
 private:
   /// @brief Private constructor to create default schemas
   /// without causing undefined behavior
   SyncedSchema()
-      : identifier_(""), filename_(""), arrayProperties_(*this),
-        objectProperties_(*this) {}
+      : identifier_(""), arrayProperties_(*this), objectProperties_(*this) {}
 
 public:
   /// @brief Generates the declaration of the schema
@@ -113,7 +110,6 @@ public:
   static const SyncedSchema& getTrueSchema() {
     static SyncedSchema schema;
     schema.identifier_ = "True";
-    schema.filename_ = "True";
     schema.definedAsBooleanSchema_ = true;
     return schema;
   }

@@ -1214,17 +1214,17 @@ std::string SyncedSchema::getNamespace() const {
 }
 
 std::string SyncedSchema::getHeaderFileName() const {
-  if (filename_.empty()) {
+  if (identifier_.empty()) {
     return "";
   }
-  return filename_ + ".h";
+  return identifier_ + ".h";
 }
 
 std::string SyncedSchema::getSourceFileName() const {
-  if (filename_.empty()) {
+  if (identifier_.empty()) {
     return "";
   }
-  return filename_ + ".cpp";
+  return identifier_ + ".cpp";
 }
 
 std::string SyncedSchema::getType() const {
@@ -1273,39 +1273,37 @@ std::string SyncedSchema::getType() const {
     case Type::Integer:
       return numberProperties_.getIntegerType();
     }
-  } else {
-    std::string type = "std::variant<";
-    for (auto it = types.begin(); it != types.end(); it++) {
-      switch (*it) {
-      case Type::Null:
-        type += getNullType();
-        break;
-      case Type::Boolean:
-        type += getBooleanType();
-        break;
-      case Type::Object:
-        type += objectProperties_.getObjectType(getNamespaceLocation());
-        break;
-      case Type::Array:
-        type += arrayProperties_.getArrayType(getNamespaceLocation());
-        break;
-      case Type::Number:
-        type += numberProperties_.getNumberType();
-        break;
-      case Type::String:
-        type += stringProperties_.getStringType();
-        break;
-      case Type::Integer:
-        type += numberProperties_.getIntegerType();
-      }
-      if (std::next(it) != types.end()) {
-        type += ", ";
-      }
-    }
-    type += ">";
-    return type;
   }
-  throw std::runtime_error("Unreachable code");
+  std::string type = "std::variant<";
+  for (auto it = types.begin(); it != types.end(); it++) {
+    switch (*it) {
+    case Type::Null:
+      type += getNullType();
+      break;
+    case Type::Boolean:
+      type += getBooleanType();
+      break;
+    case Type::Object:
+      type += objectProperties_.getObjectType(getNamespaceLocation());
+      break;
+    case Type::Array:
+      type += arrayProperties_.getArrayType(getNamespaceLocation());
+      break;
+    case Type::Number:
+      type += numberProperties_.getNumberType();
+      break;
+    case Type::String:
+      type += stringProperties_.getStringType();
+      break;
+    case Type::Integer:
+      type += numberProperties_.getIntegerType();
+    }
+    if (std::next(it) != types.end()) {
+      type += ", ";
+    }
+  }
+  type += ">";
+  return type;
 }
 
 std::string SyncedSchema::getNamespaceLocation() const {
@@ -1351,30 +1349,31 @@ SyncedSchema::resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas) {
       syncedSchema.stringProperties_.maxLength_ = schema.maxLength_;
       syncedSchema.stringProperties_.minLength_ = schema.minLength_;
       syncedSchema.stringProperties_.pattern_ = schema.pattern_;
-      if (schema.tupleableItems_.has_value()) {
-        const auto& indices = schema.tupleableItems_.value();
-        syncedSchema.arrayProperties_.tupleableItems_ =
-            std::vector<std::reference_wrapper<const SyncedSchema>>();
-        for (size_t index : indices) {
-          syncedSchema.arrayProperties_.tupleableItems_.value().push_back(
-              *syncedSchemas[index]);
-        }
-      }
-      if (schema.items_.has_value()) {
-        syncedSchema.arrayProperties_.items_ =
-            *syncedSchemas[schema.items_.value()];
-      } else {
-        syncedSchema.arrayProperties_.items_ = getTrueSchema();
-      }
-      syncedSchema.arrayProperties_.maxItems_ = schema.maxItems_;
-      syncedSchema.arrayProperties_.minItems_ = schema.minItems_;
-      syncedSchema.arrayProperties_.uniqueItems_ = schema.uniqueItems_;
-      if (schema.contains_.has_value()) {
-        syncedSchema.arrayProperties_.contains_ =
-            *syncedSchemas[schema.contains_.value()];
-      } else {
-        syncedSchema.arrayProperties_.contains_ = std::nullopt;
-      }
+      // if (schema.tupleableItems_.has_value()) {
+      //   const auto& indices = schema.tupleableItems_.value();
+      //   syncedSchema.arrayProperties_.tupleableItems_ =
+      //       std::vector<std::reference_wrapper<const SyncedSchema>>();
+      //   for (size_t index : indices) {
+      //     syncedSchema.arrayProperties_.tupleableItems_.value().push_back(
+      //         *syncedSchemas[index]);
+      //   }
+      // }
+      // if (schema.items_.has_value()) {
+      //   syncedSchema.arrayProperties_.items_ =
+      //       *syncedSchemas[schema.items_.value()];
+      // } else {
+      //   syncedSchema.arrayProperties_.items_ = getTrueSchema();
+      // }
+      // syncedSchema.arrayProperties_.maxItems_ = schema.maxItems_;
+      // syncedSchema.arrayProperties_.minItems_ = schema.minItems_;
+      // syncedSchema.arrayProperties_.uniqueItems_ = schema.uniqueItems_;
+      // if (schema.contains_.has_value()) {
+      //   syncedSchema.arrayProperties_.contains_ =
+      //       *syncedSchemas[schema.contains_.value()];
+      // } else {
+      //   syncedSchema.arrayProperties_.contains_ = std::nullopt;
+      // }
+      syncedSchema.arrayProperties_ = ArrayProperties(schema, syncedSchemas);
       syncedSchema.objectProperties_.maxProperties_ = schema.maxProperties_;
       syncedSchema.objectProperties_.minProperties_ = schema.minProperties_;
       syncedSchema.objectProperties_.required_ = schema.required_;

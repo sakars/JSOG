@@ -1,6 +1,8 @@
 #include "SyncedSchema/NumberProperties.h"
+#include "CodeBlock.h"
 #include <cmath>
 #include <cstdint>
+#include <format>
 #include <limits>
 
 std::string NumberProperties::getNumberType() const { return "double"; }
@@ -102,4 +104,32 @@ std::string NumberProperties::getIntegerType() const {
 NumberProperties::IntegerType NumberProperties::getIntegerEnum() const {
   return smallestIntegerType(minimum_, maximum_, exclusiveMinimum_,
                              exclusiveMaximum_);
+}
+
+CodeBlock NumberProperties::integerConstructor(
+    const CodeProperties& codeProperties,
+    const std::string& inputJsonVariableName,
+    const std::string& outSchemaVariableName) const {
+  CodeBlock block(codeProperties.indent_);
+  BLOCK << std::format("if({}.is_number_integer()) {{", inputJsonVariableName)
+        << CodeBlock::inc;
+  BLOCK << std::format("{} = {}.get<{}>();", outSchemaVariableName,
+                       inputJsonVariableName, getIntegerType());
+  BLOCK << CodeBlock::dec << "}";
+
+  return block;
+}
+
+CodeBlock NumberProperties::numberConstructor(
+    const CodeProperties& codeProperties,
+    const std::string& inputJsonVariableName,
+    const std::string& outSchemaVariableName) const {
+  CodeBlock block(codeProperties.indent_);
+  BLOCK << std::format("if({}.is_number()) {{", inputJsonVariableName)
+        << CodeBlock::inc;
+  BLOCK << std::format("{} = {}.get<{}>();", outSchemaVariableName,
+                       inputJsonVariableName, getNumberType());
+  BLOCK << CodeBlock::dec << "}";
+
+  return block;
 }

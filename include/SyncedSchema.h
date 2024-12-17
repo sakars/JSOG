@@ -4,6 +4,8 @@
 #include "CodeBlock.h"
 #include "IndexedSyncedSchema.h"
 #include "SyncedSchema/ArrayProperties.h"
+#include "SyncedSchema/BoolProperties.h"
+#include "SyncedSchema/NullProperties.h"
 #include "SyncedSchema/NumberProperties.h"
 #include "SyncedSchema/ObjectProperties.h"
 #include "SyncedSchema/StringProperties.h"
@@ -52,6 +54,10 @@ public:
 
   std::optional<std::string> description_;
 
+  NullProperties nullProperties_;
+
+  BoolProperties boolProperties_;
+
   // Number and Integer properties
   NumberProperties numberProperties_;
 
@@ -98,7 +104,6 @@ public:
   std::string getType() const;
 
   std::string getBooleanType() const { return "bool"; }
-  std::string getNullType() const { return "std::monostate"; }
 
   std::string getNamespaceLocation() const;
 

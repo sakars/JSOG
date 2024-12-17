@@ -260,51 +260,7 @@ static CodeBlock nullConstructor(const SyncedSchema& schema,
     BLOCK << std::format("if({}.is_null()) {{", inputJsonVariableName)
           << CodeBlock::inc;
     BLOCK << std::format("{} = {}();", outSchemaVariableName,
-                         schema.getNullType());
-    BLOCK << CodeBlock::dec << "}";
-  }
-  return block;
-}
-
-static CodeBlock booleanConstructor(const SyncedSchema& schema,
-                                    const std::string& inputJsonVariableName,
-                                    const std::string& outSchemaVariableName) {
-  CodeBlock block(schema.codeProperties.get().indent_);
-  if (schema.type_.contains(SyncedSchema::Type::Boolean)) {
-    BLOCK << std::format("if({}.is_boolean()) {{", inputJsonVariableName)
-          << CodeBlock::inc;
-    BLOCK << std::format("{} = {}.get<{}>();", outSchemaVariableName,
-                         inputJsonVariableName, schema.getBooleanType());
-    BLOCK << CodeBlock::dec << "}";
-  }
-  return block;
-}
-
-static CodeBlock integerConstructor(const SyncedSchema& schema,
-                                    const std::string& inputJsonVariableName,
-                                    const std::string& outSchemaVariableName) {
-  CodeBlock block(schema.codeProperties.get().indent_);
-  if (schema.type_.contains(SyncedSchema::Type::Integer)) {
-    BLOCK << std::format("if({}.is_number_integer()) {{", inputJsonVariableName)
-          << CodeBlock::inc;
-    BLOCK << std::format("{} = {}.get<{}>();", outSchemaVariableName,
-                         inputJsonVariableName,
-                         schema.numberProperties_.getIntegerType());
-    BLOCK << CodeBlock::dec << "}";
-  }
-  return block;
-}
-
-static CodeBlock numberConstructor(const SyncedSchema& schema,
-                                   const std::string& inputJsonVariableName,
-                                   const std::string& outSchemaVariableName) {
-  CodeBlock block(schema.codeProperties.get().indent_);
-  if (schema.type_.contains(SyncedSchema::Type::Number)) {
-    BLOCK << std::format("if({}.is_number()) {{", inputJsonVariableName)
-          << CodeBlock::inc;
-    BLOCK << std::format("{} = {}.get<{}>();", outSchemaVariableName,
-                         inputJsonVariableName,
-                         schema.numberProperties_.getNumberType());
+                         schema.nullProperties_.getNullType());
     BLOCK << CodeBlock::dec << "}";
   }
   return block;
@@ -372,17 +328,28 @@ static CodeBlock constructFunction(const SyncedSchema& schema) {
         BLOCK << nullConstructor(schema, inputJsonVariableName,
                                  outSchemaVariableName);
 
-        BLOCK << booleanConstructor(schema, inputJsonVariableName,
-                                    outSchemaVariableName);
+        if (schema.type_.contains(SyncedSchema::Type::Boolean)) {
+          BLOCK << schema.boolProperties_.booleanConstructor(
+              schema.codeProperties, inputJsonVariableName,
+              outSchemaVariableName);
+        }
 
-        BLOCK << integerConstructor(schema, inputJsonVariableName,
-                                    outSchemaVariableName);
+        if (schema.type_.contains(SyncedSchema::Type::Integer)) {
+          BLOCK << schema.numberProperties_.integerConstructor(
+              schema.codeProperties, inputJsonVariableName,
+              outSchemaVariableName);
+        }
 
-        BLOCK << numberConstructor(schema, inputJsonVariableName,
-                                   outSchemaVariableName);
+        if (schema.type_.contains(SyncedSchema::Type::Number)) {
+          BLOCK << schema.numberProperties_.numberConstructor(
+              schema.codeProperties, inputJsonVariableName,
+              outSchemaVariableName);
+        }
 
-        BLOCK << stringConstructor(schema, inputJsonVariableName,
-                                   outSchemaVariableName);
+        if (schema.type_.contains(SyncedSchema::Type::String)) {
+          BLOCK << stringConstructor(schema, inputJsonVariableName,
+                                     outSchemaVariableName);
+        }
 
         if (schema.type_.contains(SyncedSchema::Type::Array)) {
           BLOCK << schema.arrayProperties_.arrayConstructor(
@@ -1259,7 +1226,7 @@ std::string SyncedSchema::getType() const {
   if (types.size() == 1) {
     switch (*types.begin()) {
     case Type::Null:
-      return getNullType();
+      return nullProperties_.getNullType();
     case Type::Boolean:
       return getBooleanType();
     case Type::Object:
@@ -1278,7 +1245,7 @@ std::string SyncedSchema::getType() const {
   for (auto it = types.begin(); it != types.end(); it++) {
     switch (*it) {
     case Type::Null:
-      type += getNullType();
+      type += nullProperties_.getNullType();
       break;
     case Type::Boolean:
       type += getBooleanType();

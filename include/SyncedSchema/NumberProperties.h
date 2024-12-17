@@ -1,5 +1,7 @@
 #ifndef SYNCEDSCHEMA_NUMBERPROPERTIES_H
 #define SYNCEDSCHEMA_NUMBERPROPERTIES_H
+#include "CodeBlock.h"
+#include "CodeProperties.h"
 #include "IndexedSyncedSchema.h"
 #include <optional>
 #include <string>
@@ -32,6 +34,13 @@ struct NumberProperties {
   std::string getNumberType() const;
   std::string getIntegerType() const;
   IntegerType getIntegerEnum() const;
+  CodeBlock numberConstructor(const CodeProperties& codeProperties,
+                              const std::string& inputJsonVariableName,
+                              const std::string& outSchemaVariableName) const;
+
+  CodeBlock integerConstructor(const CodeProperties& codeProperties,
+                               const std::string& inputJsonVariableName,
+                               const std::string& outSchemaVariableName) const;
 };
 
 #endif // SYNCEDSCHEMA_NUMBERPROPERTIES_H

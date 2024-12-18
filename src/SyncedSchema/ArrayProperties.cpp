@@ -5,27 +5,28 @@
 #include <format>
 
 ArrayProperties::ArrayProperties(
-    const IndexedSyncedSchema& schema,
+    const IndexedArrayProperties& arrayProperties,
     const std::vector<std::unique_ptr<SyncedSchema>>& syncedSchemas)
-    : items_(schema.items_.has_value() ? *syncedSchemas[schema.items_.value()]
-                                       : SyncedSchema::getTrueSchema()) {
-  if (schema.tupleableItems_.has_value()) {
+    : items_(arrayProperties.items_.has_value()
+                 ? *syncedSchemas[arrayProperties.items_.value()]
+                 : SyncedSchema::getTrueSchema()) {
+  if (arrayProperties.tupleableItems_.has_value()) {
     tupleableItems_ = std::vector<std::reference_wrapper<const SyncedSchema>>();
-    for (auto index : schema.tupleableItems_.value()) {
+    for (auto index : arrayProperties.tupleableItems_.value()) {
       tupleableItems_.value().push_back(*syncedSchemas[index]);
     }
   }
-  if (schema.maxItems_.has_value()) {
-    maxItems_ = schema.maxItems_.value();
+  if (arrayProperties.maxItems_.has_value()) {
+    maxItems_ = arrayProperties.maxItems_.value();
   }
-  if (schema.minItems_.has_value()) {
-    minItems_ = schema.minItems_.value();
+  if (arrayProperties.minItems_.has_value()) {
+    minItems_ = arrayProperties.minItems_.value();
   }
-  if (schema.uniqueItems_.has_value()) {
-    uniqueItems_ = schema.uniqueItems_.value();
+  if (arrayProperties.uniqueItems_.has_value()) {
+    uniqueItems_ = arrayProperties.uniqueItems_.value();
   }
-  if (schema.contains_.has_value()) {
-    contains_ = *syncedSchemas[schema.contains_.value()];
+  if (arrayProperties.contains_.has_value()) {
+    contains_ = *syncedSchemas[arrayProperties.contains_.value()];
   }
 }
 

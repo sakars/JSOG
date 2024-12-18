@@ -2,7 +2,6 @@
 #define SYNCEDSCHEMA_NUMBERPROPERTIES_H
 #include "CodeBlock.h"
 #include "CodeProperties.h"
-#include "IndexedSyncedSchema.h"
 #include <optional>
 #include <string>
 
@@ -27,9 +26,7 @@ struct NumberProperties {
   };
 
   NumberProperties() = default;
-  NumberProperties(
-      const IndexedSyncedSchema& schema,
-      const std::vector<std::unique_ptr<SyncedSchema>>& syncedSchemas);
+  NumberProperties(const NumberProperties& other) = default;
 
   std::string getNumberType() const;
   std::string getIntegerType() const;

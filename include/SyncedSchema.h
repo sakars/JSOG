@@ -8,26 +8,13 @@
 #include "SyncedSchema/NullProperties.h"
 #include "SyncedSchema/NumberProperties.h"
 #include "SyncedSchema/ObjectProperties.h"
+#include "SyncedSchema/Reinterpretables.h"
 #include "SyncedSchema/StringProperties.h"
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <set>
 #include <string>
 #include <vector>
-
-class SyncedSchema;
-
-struct Reinterpretables {
-  std::optional<std::reference_wrapper<SyncedSchema>> ref_;
-  std::optional<std::reference_wrapper<const SyncedSchema>> if_;
-  std::optional<std::reference_wrapper<const SyncedSchema>> then_;
-  std::optional<std::reference_wrapper<const SyncedSchema>> else_;
-
-  std::optional<std::vector<std::reference_wrapper<const SyncedSchema>>> allOf_;
-  std::optional<std::vector<std::reference_wrapper<const SyncedSchema>>> anyOf_;
-  std::optional<std::vector<std::reference_wrapper<const SyncedSchema>>> oneOf_;
-  std::optional<std::reference_wrapper<const SyncedSchema>> not_;
-};
 
 /// @brief A class to represent a schema that holds information to generate code
 /// @details This class is used to represent a schema that holds information to

@@ -150,8 +150,29 @@ ArrayProperties::arrayClassDefinition(const CodeProperties& codeProperties,
                "std::to_string(N) + \" out of range\");";
     }
     BLOCK << CodeBlock::dec << "}";
-    BLOCK << std::format("inline {}& get(size_t n) {{", items_.get().getType())
-          << CodeBlock::inc << "if(n >= items.size()) {"
+    BLOCK << std::format("inline {}& get(size_t n) {{", items_.get().getType());
+    if (tupleableItems_.has_value()) {
+
+      for (size_t i = 0; i < tupleableItems_->size(); i++) {
+        BLOCK << std::format("if(n == {}) {{", i) << CodeBlock::inc;
+        {
+          if (codeProperties.minItemsMakeTupleableRequired_ &&
+              minItems_.has_value() && i < minItems_.value()) {
+            BLOCK << "return item" + std::to_string(i) + ";";
+          } else {
+            BLOCK << "if(item" + std::to_string(i) + ".has_value()) {"
+                  << CodeBlock::inc;
+            BLOCK << "return item" + std::to_string(i) + ".value();";
+            BLOCK << CodeBlock::dec << "}";
+          }
+        }
+        BLOCK << CodeBlock::dec << "}";
+      }
+    }
+    BLOCK << CodeBlock::inc
+          << std::format("if(n - {} >= items.size()) {{",
+                         tupleableItems_.has_value() ? tupleableItems_->size()
+                                                     : 0)
           << "throw std::range_error(\"Item \" + std::to_string(n) + \" out "
              "of range\");"
           << "}"

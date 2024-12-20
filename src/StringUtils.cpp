@@ -17,7 +17,7 @@ std::string sanitizeString(std::string s) {
   }
   for (const auto& c : s) {
     if (c == ' ') {
-      outStr += "_";
+      outStr += "_s";
     } else if (c == '_') {
       outStr += "__";
     } else if ((c <= '9' && c >= '0') || (c >= 'a' && c <= 'z') ||
@@ -130,8 +130,11 @@ std::string sanitizeString(std::string s) {
       "while",
       "xor",
       "xor_eq"};
-  if (cpp_keywords.contains(outStr)) {
-    outStr += "_";
+  for (const auto& keyword : cpp_keywords) {
+    if (outStr.starts_with(keyword)) {
+      outStr += "_";
+      break;
+    }
   }
 
   return outStr;

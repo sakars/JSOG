@@ -1,8 +1,15 @@
+#ifndef CODEBLOCK_H
+#define CODEBLOCK_H
+
 #include <sstream>
 #include <stack>
 #include <string>
 #include <variant>
 #include <vector>
+
+#ifndef JSOG_DEBUG
+#define JSOG_DEBUG 0
+#endif
 
 class CodeBlock {
   struct _Inc_Ty {};
@@ -84,3 +91,28 @@ struct Indent {
   Indent(CodeBlock& block) : block(block) { block << CodeBlock::inc; }
   ~Indent() { block << CodeBlock::dec; }
 };
+
+#if JSOG_DEBUG
+static std::string centerPadString(const std::string& s, size_t width) {
+  if (s.size() >= width) {
+    return s;
+  }
+  size_t leftPad = (width - s.size()) / 2;
+  size_t rightPad = width - s.size() - leftPad;
+  return std::string(leftPad, ' ') + s + std::string(rightPad, ' ');
+}
+#define BLOCK                                                                  \
+  {                                                                            \
+    block << CodeBlock::dis                                                    \
+          << centerPadString(                                                  \
+                 std::format("/*{}:{}*/", __FILE_NAME__, __LINE__), 40);       \
+  }                                                                            \
+  block
+#else
+#define BLOCK block
+#endif
+#ifndef __FILE_NAME__
+#define __FILE_NAME__ __FILE__
+#endif
+
+#endif // CODEBLOCK_H

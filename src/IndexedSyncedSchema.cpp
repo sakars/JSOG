@@ -16,8 +16,8 @@ void IndexedSyncedSchema::dumpSchemas(
           indexedshcema.definedAsBooleanSchema_.value();
     }
 
-    if (indexedshcema.ref_.has_value()) {
-      isDump["ref"] = indexedshcema.ref_.value();
+    if (indexedshcema.reinterpretables_.ref_.has_value()) {
+      isDump["ref"] = indexedshcema.reinterpretables_.ref_.value();
     }
 
     if (indexedshcema.type_.has_value()) {
@@ -63,153 +63,163 @@ void IndexedSyncedSchema::dumpSchemas(
       isDump["description"] = indexedshcema.description_.value();
     }
 
-    if (indexedshcema.multipleOf_.has_value()) {
-      isDump["multipleOf"] = indexedshcema.multipleOf_.value();
+    if (indexedshcema.numberProperties_.multipleOf_.has_value()) {
+      isDump["multipleOf"] =
+          indexedshcema.numberProperties_.multipleOf_.value();
     }
 
-    if (indexedshcema.maximum_.has_value()) {
-      isDump["maximum"] = indexedshcema.maximum_.value();
+    if (indexedshcema.numberProperties_.maximum_.has_value()) {
+      isDump["maximum"] = indexedshcema.numberProperties_.maximum_.value();
     }
 
-    if (indexedshcema.exclusiveMaximum_.has_value()) {
-      isDump["exclusiveMaximum"] = indexedshcema.exclusiveMaximum_.value();
+    if (indexedshcema.numberProperties_.exclusiveMaximum_.has_value()) {
+      isDump["exclusiveMaximum"] =
+          indexedshcema.numberProperties_.exclusiveMaximum_.value();
     }
 
-    if (indexedshcema.minimum_.has_value()) {
-      isDump["minimum"] = indexedshcema.minimum_.value();
+    if (indexedshcema.numberProperties_.minimum_.has_value()) {
+      isDump["minimum"] = indexedshcema.numberProperties_.minimum_.value();
     }
 
-    if (indexedshcema.exclusiveMinimum_.has_value()) {
-      isDump["exclusiveMinimum"] = indexedshcema.exclusiveMinimum_.value();
+    if (indexedshcema.numberProperties_.exclusiveMinimum_.has_value()) {
+      isDump["exclusiveMinimum"] =
+          indexedshcema.numberProperties_.exclusiveMinimum_.value();
     }
 
-    if (indexedshcema.maxLength_.has_value()) {
-      isDump["maxLength"] = indexedshcema.maxLength_.value();
+    if (indexedshcema.stringProperties_.maxLength_.has_value()) {
+      isDump["maxLength"] = indexedshcema.stringProperties_.maxLength_.value();
     }
 
-    if (indexedshcema.minLength_.has_value()) {
-      isDump["minLength"] = indexedshcema.minLength_.value();
+    if (indexedshcema.stringProperties_.minLength_.has_value()) {
+      isDump["minLength"] = indexedshcema.stringProperties_.minLength_.value();
     }
 
-    if (indexedshcema.pattern_.has_value()) {
-      isDump["pattern"] = indexedshcema.pattern_.value();
+    if (indexedshcema.stringProperties_.pattern_.has_value()) {
+      isDump["pattern"] = indexedshcema.stringProperties_.pattern_.value();
     }
 
-    if (indexedshcema.tupleableItems_.has_value()) {
+    if (indexedshcema.arrayProperties_.tupleableItems_.has_value()) {
       auto& tupleableItemsDump = isDump["tupleableItems"];
-      for (const auto& tupleableItem : indexedshcema.tupleableItems_.value()) {
+      for (const auto& tupleableItem :
+           indexedshcema.arrayProperties_.tupleableItems_.value()) {
         tupleableItemsDump.push_back(tupleableItem);
       }
     }
 
-    if (indexedshcema.items_.has_value()) {
-      isDump["items"] = indexedshcema.items_.value();
+    if (indexedshcema.arrayProperties_.items_.has_value()) {
+      isDump["items"] = indexedshcema.arrayProperties_.items_.value();
     }
 
-    if (indexedshcema.maxItems_.has_value()) {
-      isDump["maxItems"] = indexedshcema.maxItems_.value();
+    if (indexedshcema.arrayProperties_.maxItems_.has_value()) {
+      isDump["maxItems"] = indexedshcema.arrayProperties_.maxItems_.value();
     }
 
-    if (indexedshcema.minItems_.has_value()) {
-      isDump["minItems"] = indexedshcema.minItems_.value();
+    if (indexedshcema.arrayProperties_.minItems_.has_value()) {
+      isDump["minItems"] = indexedshcema.arrayProperties_.minItems_.value();
     }
 
-    if (indexedshcema.uniqueItems_.has_value()) {
-      isDump["uniqueItems"] = indexedshcema.uniqueItems_.value();
+    if (indexedshcema.arrayProperties_.uniqueItems_.has_value()) {
+      isDump["uniqueItems"] =
+          indexedshcema.arrayProperties_.uniqueItems_.value();
     }
 
-    if (indexedshcema.contains_.has_value()) {
-      isDump["contains"] = indexedshcema.contains_.value();
+    if (indexedshcema.arrayProperties_.contains_.has_value()) {
+      isDump["contains"] = indexedshcema.arrayProperties_.contains_.value();
     }
 
-    if (indexedshcema.maxProperties_.has_value()) {
-      isDump["maxProperties"] = indexedshcema.maxProperties_.value();
+    if (indexedshcema.objectProperties_.maxProperties_.has_value()) {
+      isDump["maxProperties"] =
+          indexedshcema.objectProperties_.maxProperties_.value();
     }
 
-    if (indexedshcema.minProperties_.has_value()) {
-      isDump["minProperties"] = indexedshcema.minProperties_.value();
+    if (indexedshcema.objectProperties_.minProperties_.has_value()) {
+      isDump["minProperties"] =
+          indexedshcema.objectProperties_.minProperties_.value();
     }
 
-    if (indexedshcema.required_.has_value()) {
+    if (indexedshcema.objectProperties_.required_.has_value()) {
       auto& requiredDump = isDump["required"];
-      for (const auto& required : indexedshcema.required_.value()) {
+      for (const auto& required :
+           indexedshcema.objectProperties_.required_.value()) {
         requiredDump.push_back(required);
       }
     }
 
     auto& propertiesDump = isDump["properties"];
-    for (const auto& [key, value] : indexedshcema.properties_) {
+    for (const auto& [key, value] :
+         indexedshcema.objectProperties_.properties_) {
       propertiesDump[key] = value;
     }
 
-    if (indexedshcema.patternProperties_.has_value()) {
+    if (indexedshcema.objectProperties_.patternProperties_.has_value()) {
       auto& patternPropertiesDump = isDump["patternProperties"];
       for (const auto& [key, value] :
-           indexedshcema.patternProperties_.value()) {
+           indexedshcema.objectProperties_.patternProperties_.value()) {
         patternPropertiesDump[key] = value;
       }
     }
 
-    if (indexedshcema.additionalProperties_.has_value()) {
+    if (indexedshcema.objectProperties_.additionalProperties_.has_value()) {
       isDump["additionalProperties"] =
-          indexedshcema.additionalProperties_.value();
+          indexedshcema.objectProperties_.additionalProperties_.value();
     }
 
-    if (indexedshcema.propertyDependencies_.has_value()) {
+    if (indexedshcema.objectProperties_.propertyDependencies_.has_value()) {
       auto& propertyDependenciesDump = isDump["propertyDependencies"];
       for (const auto& [key, value] :
-           indexedshcema.propertyDependencies_.value()) {
+           indexedshcema.objectProperties_.propertyDependencies_.value()) {
         propertyDependenciesDump[key] = value;
       }
     }
 
-    if (indexedshcema.schemaDependencies_.has_value()) {
+    if (indexedshcema.objectProperties_.schemaDependencies_.has_value()) {
       auto& schemaDependenciesDump = isDump["schemaDependencies"];
       for (const auto& [key, value] :
-           indexedshcema.schemaDependencies_.value()) {
+           indexedshcema.objectProperties_.schemaDependencies_.value()) {
         schemaDependenciesDump[key] = value;
       }
     }
 
-    if (indexedshcema.propertyNames_.has_value()) {
-      isDump["propertyNames"] = indexedshcema.propertyNames_.value();
+    if (indexedshcema.objectProperties_.propertyNames_.has_value()) {
+      isDump["propertyNames"] =
+          indexedshcema.objectProperties_.propertyNames_.value();
     }
 
-    if (indexedshcema.if_.has_value()) {
-      isDump["if"] = indexedshcema.if_.value();
+    if (indexedshcema.reinterpretables_.if_.has_value()) {
+      isDump["if"] = indexedshcema.reinterpretables_.if_.value();
     }
 
-    if (indexedshcema.then_.has_value()) {
-      isDump["then"] = indexedshcema.then_.value();
+    if (indexedshcema.reinterpretables_.then_.has_value()) {
+      isDump["then"] = indexedshcema.reinterpretables_.then_.value();
     }
 
-    if (indexedshcema.else_.has_value()) {
-      isDump["else"] = indexedshcema.else_.value();
+    if (indexedshcema.reinterpretables_.else_.has_value()) {
+      isDump["else"] = indexedshcema.reinterpretables_.else_.value();
     }
 
-    if (indexedshcema.allOf_.has_value()) {
+    if (indexedshcema.reinterpretables_.allOf_.has_value()) {
       auto& allOfDump = isDump["allOf"];
-      for (const auto& allOf : indexedshcema.allOf_.value()) {
+      for (const auto& allOf : indexedshcema.reinterpretables_.allOf_.value()) {
         allOfDump.push_back(allOf);
       }
     }
 
-    if (indexedshcema.anyOf_.has_value()) {
+    if (indexedshcema.reinterpretables_.anyOf_.has_value()) {
       auto& anyOfDump = isDump["anyOf"];
-      for (const auto& anyOf : indexedshcema.anyOf_.value()) {
+      for (const auto& anyOf : indexedshcema.reinterpretables_.anyOf_.value()) {
         anyOfDump.push_back(anyOf);
       }
     }
 
-    if (indexedshcema.oneOf_.has_value()) {
+    if (indexedshcema.reinterpretables_.oneOf_.has_value()) {
       auto& oneOfDump = isDump["oneOf"];
-      for (const auto& oneOf : indexedshcema.oneOf_.value()) {
+      for (const auto& oneOf : indexedshcema.reinterpretables_.oneOf_.value()) {
         oneOfDump.push_back(oneOf);
       }
     }
 
-    if (indexedshcema.not_.has_value()) {
-      isDump["not"] = indexedshcema.not_.value();
+    if (indexedshcema.reinterpretables_.not_.has_value()) {
+      isDump["not"] = indexedshcema.reinterpretables_.not_.value();
     }
 
     if (indexedshcema.format_.has_value()) {

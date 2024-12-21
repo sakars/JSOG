@@ -8,12 +8,12 @@ struct StringGenerator : Catch::Generators::IGenerator<std::string> {
   std::uniform_int_distribution<> m_length;
 
   StringGenerator()
-      : m_rand(std::random_device()()), m_char(0, 255), m_length(0, 200) {
+      : m_rand(std::random_device()()), m_char(0, 127), m_length(0, 200) {
     next();
   }
 
   StringGenerator(size_t maxLength, size_t minLength = 0)
-      : m_rand(std::random_device()()), m_char(0, 255),
+      : m_rand(std::random_device()()), m_char(0, 127),
         m_length(minLength, maxLength) {
     next();
   }

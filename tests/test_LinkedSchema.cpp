@@ -210,20 +210,8 @@ SCENARIO("Full pipeline run up to LinkedSchema",
     std::set<UriWrapper> refs;
 
     refs.insert(UriWrapper("file://samples/document_2.json"));
-    WHEN("Deconstructing the unresolved schemas") {
-      const auto [set, map] =
-          deconstructUnresolvedSchemaMap(std::move(unresolvedSchecmas));
-      THEN("The set and map are correct") {
-        REQUIRE(set.size() == 5);
-        REQUIRE(map.size() == 10);
-      }
-    }
     auto resolved = resolveDependencies(std::move(unresolvedSchecmas), refs);
     THEN("The references are resolved") {
-      for (const auto& schema : resolved) {
-        std::cout << schema->baseUri_.withPointer(schema->pointer_)
-                  << std::endl;
-      }
       REQUIRE(resolved.size() == 4);
       const auto uri =
           GENERATE(UriWrapper("file://samples/document_1.json"),

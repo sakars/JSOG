@@ -88,10 +88,16 @@ int main(int argc, char* argv[]) {
     }
     inputFiles.push_back(args[i]);
   }
+
+  if (inputFiles.empty()) {
+    std::cerr << "Error: No input files specified." << std::endl;
+    return 1;
+  }
+
   for (auto& file : inputFiles) {
     file = std::filesystem::absolute(file);
     if (!std::filesystem::exists(file)) {
-      std::cerr << "Error: File " << file << " does not exist." << std::endl;
+      std::cerr << "Error: File not found: " << file << std::endl;
       return 1;
     }
   }
@@ -122,7 +128,7 @@ int main(int argc, char* argv[]) {
     LinkedSchema::dumpSchemas(linkedSchemas, outputDirectory);
   const auto issues = LinkedSchema::generateIssuesList(linkedSchemas);
   if (!issues.empty()) {
-    std::cerr << "Issues with the schemas:" << std::endl;
+    std::cerr << "Error: Issues with the schemas:" << std::endl;
     for (const auto& issue : issues) {
       std::cerr << issue << std::endl;
     }
@@ -151,8 +157,18 @@ int main(int argc, char* argv[]) {
 
   if (combineSourceFiles) {
     std::ofstream source(outputDirectory / "schemas.cpp");
+    if (!source.is_open()) {
+      std::cerr << "Error: Could not open schemas.cpp for writing."
+                << std::endl;
+      return 1;
+    }
     for (auto& schema : syncedSchemas) {
       std::ofstream header(outputDirectory / schema->getHeaderFileName());
+      if (!header.is_open()) {
+        std::cerr << "Error: Could not open " << schema->getHeaderFileName()
+                  << " for writing." << std::endl;
+        return 1;
+      }
       header << schema->generateDeclaration().str();
       header.close();
       source << schema->generateDefinition().str();
@@ -161,10 +177,30 @@ int main(int argc, char* argv[]) {
   } else {
     for (auto& schema : syncedSchemas) {
       std::ofstream header(outputDirectory / schema->getHeaderFileName());
-      header << schema->generateDeclaration().str();
+      if (!header.is_open()) {
+        std::cerr << "Error: Could not open " << schema->getHeaderFileName()
+                  << " for writing." << std::endl;
+        return 1;
+      }
+      try {
+        header << schema->generateDeclaration().str();
+      } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+      }
       header.close();
       std::ofstream source(outputDirectory / schema->getSourceFileName());
-      source << schema->generateDefinition().str();
+      if (!source.is_open()) {
+        std::cerr << "Error: Could not open " << schema->getSourceFileName()
+                  << " for writing." << std::endl;
+        return 1;
+      }
+      try {
+        source << schema->generateDefinition().str();
+      } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+      }
       source.close();
     }
   }

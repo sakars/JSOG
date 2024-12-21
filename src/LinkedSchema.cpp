@@ -50,9 +50,8 @@ resolveDependencies(SetMap<UriWrapper, SchemaResource>&& setMap,
       if (schemaIndices.contains(ref)) {
         buildableRequiredSchemas.insert(schemaIndices[ref]);
       } else {
-        std::cerr
-            << "Warning: Required reference not found in opened documents: "
-            << ref << std::endl;
+        std::cerr << "Error: Required reference not found in opened documents: "
+                  << ref << std::endl;
       }
     }
 
@@ -72,8 +71,9 @@ resolveDependencies(SetMap<UriWrapper, SchemaResource>&& setMap,
         if (schemaIndices.contains(dep)) {
           depIndices_.emplace(dep, schemaIndices.at(dep));
         } else {
-          std::cerr << "Warning: Dependency not found in opened documents: "
-                    << dep << std::endl;
+          std::cerr
+              << "Error: Required reference not found in opened documents: "
+              << dep << std::endl;
           for (const auto& [uri, idx] : schemaIndices) {
             std::cerr << uri << " -> " << idx << std::endl;
           }
@@ -135,6 +135,12 @@ std::vector<std::string> LinkedSchema::generateIssuesList(
       const auto& issueChecker = issueCheckers.at(schema->draft_);
       const auto schemaIssues =
           issueChecker(schema->json_.get(), schema->baseUri_, schema->pointer_);
+      for (const auto& issue : schemaIssues) {
+        issues.push_back(std::format(
+            "{}: {}",
+            schema->baseUri_.withPointer(schema->pointer_).toString().value(),
+            issue));
+      }
       issues.insert(issues.end(), schemaIssues.begin(), schemaIssues.end());
     }
     return issues;

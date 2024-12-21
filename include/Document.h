@@ -26,9 +26,15 @@ public:
     std::ifstream file(path);
     if (!file.is_open()) {
       throw std::runtime_error(
-          std::format("Could not open file {}", path.string()));
+          std::format("Error: Could not open file {}", path.string()));
     }
-    file >> json_;
+    try {
+      file >> json_;
+    } catch (const nlohmann::json::parse_error& e) {
+      throw std::runtime_error(
+          std::format("Error: Could not parse JSON in file {}: {}",
+                      path.string(), e.what()));
+    }
     const auto absPath = std::filesystem::absolute(path);
     const auto uri = "file://" + absPath.string();
     fileUri_ = UriWrapper(uri);

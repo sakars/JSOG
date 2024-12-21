@@ -20,9 +20,7 @@ struct DraftRecognisedDocument : public Document {
       if (schemaField == draft07SchemaUri) {
         return Draft::DRAFT_07;
       } else {
-        std::cerr << "Unknown Schema attempted resolution. Schema field: "
-                  << schemaField << "draft07 uri\n"
-                  << draft07SchemaUri << std::endl;
+        std::cerr << "Error: Unsupported schema version: " << schemaField;
       }
     }
 

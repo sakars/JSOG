@@ -53,7 +53,8 @@ jobs:
     # Configure the project
     - name: Configure with CMake
       run: |
-        cmake -Bbuild -H. -Dnlohmann_json_DIR=../json/build -Duriparser_DIR=../uriparser/build
+        cd ${{ github.workspace }}
+        cmake -Bbuild -H. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=${{ github.workspace }}/third_party
           
 
     # Build the project

@@ -27,10 +27,8 @@ jobs:
         git clone https://github.com/nlohmann/json.git ${{github.workspace}}/json
         cd ${{github.workspace}}/json
         git checkout v3.2.0
-        mkdir build
-        cd build
-        cmake ..
-        make install
+        mkdir ${{github.workspace}}/json/build
+        cd ${{github.workspace}}/json/build && cmake .. && make install
 
     - name: Download uriparser
       run: |

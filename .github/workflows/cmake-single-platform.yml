@@ -46,7 +46,7 @@ jobs:
         git clone https://github.com/uriparser/uriparser
         cd uriparser
         mkdir build && cd build
-        cmake ..
+        cmake -DCMAKE_BUILD_TYPE=Release -DURIPARSER_BUILD_WCHAR_T=OFF -DURIPARSER_BUILD_TESTS=OFF -DURIPARSER_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/third_party ..
         make install
         cd ../..
 

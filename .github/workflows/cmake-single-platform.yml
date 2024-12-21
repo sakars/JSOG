@@ -22,10 +22,16 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Download nlohmann/json
+      run: git clone https://github.com/nlohmann/json.git ${{github.workspace}}/json
+
+    - name: Download uriparser
+      run: git clone https://github.com/uriparser/uriparser ${{github.workspace}}/uriparser
+
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dnlohmann_json_DIR=${{github.workspace}}/json/single_include -Duriparser_DIR=${{github.workspace}}/uriparser/build
 
     - name: Build
       # Build your program with the given configuration

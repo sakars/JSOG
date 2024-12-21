@@ -55,7 +55,7 @@ jobs:
     - name: Configure with CMake
       run: |
         cd ${{ github.workspace }}
-        cmake -Bbuild -H. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=${{ github.workspace }}/third_party -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_COMPILER=/usr/bin/g++-14
+        cmake -Bbuild -H. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=${{ github.workspace }}/third_party -DCMAKE_CXX_STANDARD=20
           
 
     # Build the project

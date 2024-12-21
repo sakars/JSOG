@@ -35,10 +35,10 @@ jobs:
         git clone https://github.com/nlohmann/json.git
         cd json
         mkdir build && cd build
-        cmake -DJSON_BuildTests=OFF ..
+        cmake -DJSON_BuildTests=OFF -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/third_party ..
         make install
         cd ../..
-    
+  
     - name: Install uriparser
       run: |
         # Clone and install uriparser

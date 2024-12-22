@@ -12,7 +12,7 @@ on:
       - CI-test
 
 jobs:
-  build:
+  tests:
     runs-on: ubuntu-24.04
 
     steps:
@@ -60,9 +60,18 @@ jobs:
         cmake -Bbuild -H. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=${{ github.workspace }}/third_party -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_COMPILER=/usr/bin/g++
           
 
+    # Build the output test samples
+    - name: Build the samples for output tests
+      run: cmake --build build --target full_test_samples -- -j$(nproc)
+    
+    - name: Reconfigure with the new output test samples
+      run: |
+        cd ${{ github.workspace }}
+        cmake -Bbuild -H. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=${{ github.workspace }}/third_party -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_COMPILER=/usr/bin/g++ -DOUTPUT_TEST_SAMPLES=ON
+    
     # Build the project
     - name: Build the project
-      run: cmake --build build --target all -- -j$(nproc)
+      run: cmake --build build -- -j$(nproc)
 
     # Run tests
     - name: Run tests

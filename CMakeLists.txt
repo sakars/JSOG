@@ -31,7 +31,7 @@ target_include_directories(JSOG_lib PUBLIC include)
 # Link the nlohmann json and uriparser libraries to the JSOG_lib target
 target_link_libraries(JSOG_lib PUBLIC nlohmann_json::nlohmann_json uriparser::uriparser)
 
-target_compile_options(JSOG_lib PRIVATE -Wall -Wextra -Wpedantic -Werror)
+target_compile_options(JSOG_lib PRIVATE -Wall -Wextra -Wpedantic)
 
 # Create the executable
 

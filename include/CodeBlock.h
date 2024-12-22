@@ -39,17 +39,20 @@ public:
   }
 
   CodeBlock& operator<<(_Inc_Ty) {
-    lines.push_back(inc);
+    lines.emplace_back(
+        std::variant<std::string, _Inc_Ty, _Dec_ty, _Discard_Ty>(inc));
     return *this;
   }
 
   CodeBlock& operator<<(_Dec_ty) {
-    lines.push_back(dec);
+    lines.emplace_back(
+        std::variant<std::string, _Inc_Ty, _Dec_ty, _Discard_Ty>(dec));
     return *this;
   }
 
   CodeBlock& operator<<(_Discard_Ty) {
-    lines.push_back(dis);
+    lines.emplace_back(
+        std::variant<std::string, _Inc_Ty, _Dec_ty, _Discard_Ty>(dis));
     return *this;
   }
 

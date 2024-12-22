@@ -77,4 +77,26 @@ jobs:
     - name: Run tests
       run: |
         chmod +x ./build/tests
-        ctest --test-dir build --output-on-failure
+        ctest --test-dir build --output-on-failure --output-junit test-results.xml
+    
+    # Upload test results
+    - name: Upload test results
+      uses: actions/upload-artifact@v2
+      with:
+        path: test-results.xml
+        name: test-results
+
+  report:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: dorny/test-reporter@v1
+      with:
+        artifact: test-results
+        name: Test Results
+        reporter: java-junit
+        path: test-results.xml
+
+
+
+    
+

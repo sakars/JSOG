@@ -101,7 +101,7 @@ jobs:
         artifact: test-results
         name: Test Results
         reporter: java-junit
-        path: *.xml
+        path: build/test-results.xml
 
 
 

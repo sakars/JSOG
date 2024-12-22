@@ -63,42 +63,6 @@ jobs:
     - name: Build the project
       run: cmake --build build --target all -- -j$(nproc)
 
-    - name: Upload dependency artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: dependencies
-        path: third_party
-
-    # Upload build artifacts
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: build-artifacts
-        path: build
-
-  test:
-    runs-on: ubuntu-latest
-    needs: build
-
-    steps:
-    # Checkout the code (necessary to keep the source files synced)
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    # Download build artifacts
-    - name: Download build artifacts
-      uses: actions/download-artifact@v3
-      with:
-        name: build-artifacts
-        path: build
-    
-    # Download dependency artifacts
-    - name: Download dependency artifacts
-      uses: actions/download-artifact@v3
-      with:
-        name: dependencies
-        path: third_party
-
     # Run tests
     - name: Run tests
       run: |

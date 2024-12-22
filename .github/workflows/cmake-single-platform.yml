@@ -63,6 +63,12 @@ jobs:
     - name: Build the project
       run: cmake --build build --target all -- -j$(nproc)
 
+    - name: Upload dependency artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: dependencies
+        path: third_party
+
     # Upload build artifacts
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
@@ -85,6 +91,13 @@ jobs:
       with:
         name: build-artifacts
         path: build
+    
+    # Download dependency artifacts
+    - name: Download dependency artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: dependencies
+        path: third_party
 
     # Run tests
     - name: Run tests

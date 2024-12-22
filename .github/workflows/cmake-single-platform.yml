@@ -88,4 +88,6 @@ jobs:
 
     # Run tests
     - name: Run tests
-      run: ctest --test-dir build --output-on-failure
+      run: |
+        chmod +x ./build/tests
+        ctest --test-dir build --output-on-failure

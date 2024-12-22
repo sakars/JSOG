@@ -139,27 +139,3 @@ std::string sanitizeString(std::string s) {
 
   return outStr;
 }
-
-bool iscxxTypeJSONPrimitive(std::string s) {
-  static const std::unordered_map<std::string, std::string> typeMap = {
-      {"std::string", "string"}, {"double", "number"},
-      {"int", "integer"},        {"unsigned int", "integer"},
-      {"long", "integer"},       {"unsigned long", "integer"},
-      {"bool", "boolean"},       {"std::monostate", "null"}};
-
-  return typeMap.find(s) != typeMap.end();
-}
-
-std::string cxxTypeToJSONType(std::string s) {
-  static const std::unordered_map<std::string, std::string> typeMap = {
-      {"std::string", "string"}, {"double", "number"},
-      {"int", "integer"},        {"unsigned int", "integer"},
-      {"long", "integer"},       {"unsigned long", "integer"},
-      {"bool", "boolean"},       {"std::monostate", "null"}};
-
-  auto it = typeMap.find(s);
-  if (it != typeMap.end()) {
-    return it->second;
-  }
-  return "object";
-}

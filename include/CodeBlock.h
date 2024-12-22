@@ -39,17 +39,17 @@ public:
   }
 
   CodeBlock& operator<<(_Inc_Ty) {
-    lines.push_back(_Inc_Ty());
+    lines.push_back(inc);
     return *this;
   }
 
   CodeBlock& operator<<(_Dec_ty) {
-    lines.push_back(_Dec_ty());
+    lines.push_back(dec);
     return *this;
   }
 
   CodeBlock& operator<<(_Discard_Ty) {
-    lines.push_back(_Discard_Ty());
+    lines.push_back(dis);
     return *this;
   }
 

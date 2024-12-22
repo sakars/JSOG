@@ -87,6 +87,8 @@ jobs:
         name: test-results
 
   report:
+    permissions: 
+      checks: write
     needs: tests
     runs-on: ubuntu-24.04
     steps:

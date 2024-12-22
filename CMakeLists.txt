@@ -13,6 +13,10 @@ if(NOT DEFINED CODE_COVERAGE)
   set(CODE_COVERAGE ON)
 endif()
 
+if(NOT DEFINED DO_OUTPUT_TESTS)
+  set(DO_OUTPUT_TESTS ON)
+endif()
+
 # == Packages ==
 # Add nlohmann json package
 find_package(nlohmann_json 3.2.0 CONFIG REQUIRED)
@@ -83,14 +87,15 @@ target_link_libraries(tests PRIVATE Catch2::Catch2WithMain JSOG_lib  nlohmann_js
 # Make tests depend on copy_samples as we need to copy the samples before running the tests
 add_dependencies(tests copy_samples)
 
-file(GLOB OUTPUT_TEST_SOURCES tests/output_tests/*.cpp)
-file(GLOB OUTPUT_TEST_SCHEMA_SOURCES ${CMAKE_BINARY_DIR}/built_samples/*.cpp)
+if(DO_OUTPUT_TESTS)
+  file(GLOB OUTPUT_TEST_SOURCES tests/output_tests/*.cpp)
+  file(GLOB OUTPUT_TEST_SCHEMA_SOURCES ${CMAKE_BINARY_DIR}/built_samples/*.cpp)
 
-add_executable(output_tests ${OUTPUT_TEST_SOURCES} ${OUTPUT_TEST_SCHEMA_SOURCES})
-include_directories(output_tests PRIVATE ${CMAKE_BINARY_DIR}/built_samples)
-target_link_libraries(output_tests PRIVATE Catch2::Catch2WithMain JSOG_lib  nlohmann_json::nlohmann_json uriparser::uriparser)
-add_dependencies(output_tests copy_samples full_test_samples)
-
+  add_executable(output_tests ${OUTPUT_TEST_SOURCES} ${OUTPUT_TEST_SCHEMA_SOURCES})
+  include_directories(output_tests PRIVATE ${CMAKE_BINARY_DIR}/built_samples)
+  target_link_libraries(output_tests PRIVATE Catch2::Catch2WithMain JSOG_lib  nlohmann_json::nlohmann_json uriparser::uriparser)
+  add_dependencies(output_tests copy_samples full_test_samples)
+endif()
 
 # Add coverage flags to the compiler options
 if(CODE_COVERAGE)
@@ -123,7 +128,10 @@ endif()
 include(CTest)
 include(Catch)
 catch_discover_tests(tests)
-catch_discover_tests(output_tests)
+
+if(DO_OUTPUT_TESTS)
+  catch_discover_tests(output_tests)
+endif()
 
 enable_testing()
 

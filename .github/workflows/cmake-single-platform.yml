@@ -4,12 +4,9 @@ on:
   push:
     branches: 
       - main
-      - CI-test
-      - CI-output-tests-setup
   pull_request:
     branches:
       - main
-      - CI-test
 
 jobs:
   tests:

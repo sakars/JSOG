@@ -70,10 +70,8 @@ public:
   std::vector<std::tuple<std::vector<K>, std::unique_ptr<V>>> extract() {
     std::vector<std::tuple<std::vector<K>, std::unique_ptr<V>>> extracted;
     while (!set.empty()) {
-      size_t size = set.size();
       std::vector<K> keys;
       std::unique_ptr<V> value = std::move(set.extract(set.begin()).value());
-      assert(set.size() == size - 1);
       for (const auto& [key, val] : map) {
         if (&val.get() == value.get()) {
           keys.emplace_back(key);

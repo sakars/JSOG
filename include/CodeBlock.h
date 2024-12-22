@@ -38,18 +38,18 @@ public:
     return *this;
   }
 
-  CodeBlock& operator<<(const _Inc_Ty&) {
-    lines.push_back(_Inc_Ty());
+  CodeBlock& operator<<(_Inc_Ty) {
+    lines.emplace_back(inc);
     return *this;
   }
 
-  CodeBlock& operator<<(const _Dec_ty&) {
-    lines.push_back(_Dec_ty());
+  CodeBlock& operator<<(_Dec_ty) {
+    lines.emplace_back(dec);
     return *this;
   }
 
-  CodeBlock& operator<<(const _Discard_Ty&) {
-    lines.push_back(_Discard_Ty());
+  CodeBlock& operator<<(_Discard_Ty) {
+    lines.emplace_back(dis);
     return *this;
   }
 

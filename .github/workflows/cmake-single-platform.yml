@@ -1,45 +1,106 @@
-# This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
-# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-multi-platform.yml
-name: CMake on a single platform
+name: Build and Test
 
 on:
   push:
-    branches: [ "main" ]
+    branches: 
+      - main
   pull_request:
-    branches: [ "main" ]
-
-env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
-  BUILD_TYPE: Release
+    branches:
+      - main
 
 jobs:
-  build:
-    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
-    # You can convert this to a matrix build if you need cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: ubuntu-latest
+  tests:
+    runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@v4
+    # Checkout the code
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    - name: Download nlohmann/json
-      run: git clone https://github.com/nlohmann/json.git ${{github.workspace}}/json
+    # Set up CMake
+    - name: Set up CMake
+      uses: lukka/get-cmake@latest
 
-    - name: Download uriparser
-      run: git clone https://github.com/uriparser/uriparser ${{github.workspace}}/uriparser
+    # Install dependencies
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get remove -y g++-13
+        sudo apt-get install -y g++=4:13.2.0-7ubuntu1
 
-    - name: Configure CMake
-      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dnlohmann_json_DIR=${{github.workspace}}/json/single_include -Duriparser_DIR=${{github.workspace}}/uriparser/build
+    - name: Install nlohmann/json
+      run: |
+        # Clone and install nlohmann/json
+        cd ${{ github.workspace }}
+        git clone https://github.com/nlohmann/json.git
+        cd json
+        mkdir build && cd build
+        cmake -DJSON_BuildTests=OFF -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/third_party ..
+        make install
+        cd ../..
+  
+    - name: Install uriparser
+      run: |
+        # Clone and install uriparser
+        cd ${{ github.workspace }}
+        git clone https://github.com/uriparser/uriparser
+        cd uriparser
+        mkdir build && cd build
+        cmake -DCMAKE_BUILD_TYPE=Release -DURIPARSER_BUILD_WCHAR_T=OFF -DURIPARSER_BUILD_TESTS=OFF -DURIPARSER_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/third_party ..
+        make install
+        cd ../..
 
-    - name: Build
-      # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+    # Configure the project
+    - name: Configure with CMake
+      run: |
+        cd ${{ github.workspace }}
+        cmake -Bbuild -H. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=${{ github.workspace }}/third_party -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_COMPILER=/usr/bin/g++
+          
 
-    - name: Test
-      working-directory: ${{github.workspace}}/build
-      # Execute tests defined by the CMake configuration.
-      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      run: ctest -C ${{env.BUILD_TYPE}}
+    # Build the output test samples
+    - name: Build the samples for output tests
+      run: cmake --build build --target full_test_samples -- -j$(nproc)
+    
+    - name: Reconfigure with the new output test samples
+      run: |
+        cd ${{ github.workspace }}
+        cmake -Bbuild -H. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=${{ github.workspace }}/third_party -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_COMPILER=/usr/bin/g++ -DOUTPUT_TEST_SAMPLES=ON
+    
+    # Build the project
+    - name: Build the project
+      run: cmake --build build -- -j$(nproc)
+
+    # Run tests
+    - name: Run tests
+      run: |
+        chmod +x ./build/tests
+        ctest --test-dir build --output-junit test-results.xml
+    
+    # Upload test results
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      with:
+        path: build/test-results.xml
+        name: test-results
+
+  report:
+    permissions:
+      statuses: write
+      checks: write
+      contents: write
+      pull-requests: write
+      actions: write
+    needs: tests
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: dorny/test-reporter@v1
+      with:
+        artifact: test-results
+        name: Test Results
+        reporter: java-junit
+        path: test-results.xml
+
+
+
+    
 

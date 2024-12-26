@@ -43,10 +43,24 @@ int main(int argc, char* argv[]) {
 
   // configure extra options here
   for (int i = 1; i < argc; ++i) {
-    if (args[i] == "--help") {
-      std::cout << "Usage: " << args[0] << " [options] [file]" << std::endl;
+    if (args[i] == "--help" || args[i] == "-h") {
+      std::cout << "Usage: " << args[0] << " [options] [files*]" << std::endl;
       std::cout << "Options:" << std::endl;
       std::cout << "  --help: Display this help message" << std::endl;
+      std::cout << "  --dump-schemas, -d: Dump schemas at each stage"
+                << std::endl;
+      std::cout << "  --output-directory, -o: Specify the output directory"
+                << std::endl;
+      std::cout << "  --require, -r: Specify a URI to a schema that must have "
+                   "it's code generated"
+                << std::endl;
+      std::cout << "  --preferred-identifier, -p:" << std::endl
+                << "    Usage: --preferred-identifier <uri> <identifier>"
+                << "    Specify a preferred identifier for a specific schema"
+                << "    Note: The identifier must be unique and a valid C++ "
+                   "identifier"
+                << std::endl;
+
       return 0;
     }
     if (args[i] == "--dump-schemas" || args[i] == "-d") {

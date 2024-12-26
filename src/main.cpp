@@ -38,6 +38,7 @@ int main(int argc, char* argv[]) {
   std::filesystem::path outputDirectory = ".";
   std::vector<std::filesystem::path> inputFiles;
   std::vector<std::string> requiredFiles;
+  std::map<UriWrapper, std::string> preferredIdentifiers;
   bool dumpSchemas = false;
 
   // configure extra options here
@@ -79,6 +80,18 @@ int main(int argc, char* argv[]) {
         continue;
       } else {
         std::cerr << "Error: --require requires an argument." << std::endl;
+        return 1;
+      }
+    }
+    if (args[i] == "--preferred-identifier" || args[i] == "-p") {
+      if (i + 2 < argc) {
+        preferredIdentifiers.emplace(UriWrapper(std::string(args[i + 1])),
+                                     args[i + 2]);
+        i += 2;
+        continue;
+      } else {
+        std::cerr << "Error: --preferred-identifier requires two arguments."
+                  << std::endl;
         return 1;
       }
     }
@@ -137,8 +150,8 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  auto identifiableSchemas =
-      IdentifiableSchema::transition(std::move(linkedSchemas));
+  auto identifiableSchemas = IdentifiableSchema::transition(
+      std::move(linkedSchemas), preferredIdentifiers);
 
   if (dumpSchemas)
     IdentifiableSchema::dumpSchemas(identifiableSchemas, outputDirectory);

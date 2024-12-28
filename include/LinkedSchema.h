@@ -51,6 +51,9 @@ public:
     return "Schema";
   }
 
+  /// @brief Returns the preferred identifier for the schema.
+  /// @param schemas
+  /// @param outputDirectory
   static void dumpSchemas(std::vector<std::unique_ptr<LinkedSchema>>& schemas,
                           std::filesystem::path outputDirectory = ".") {
 
@@ -73,24 +76,33 @@ public:
     linkedDumpFile.close();
   }
 
+  /// @brief Generates a list of issues with the schemas
+  /// @param schemas
   static std::vector<std::string>
   generateIssuesList(const std::vector<std::unique_ptr<LinkedSchema>>& schemas);
 };
 
+/// @brief A map to hold the linker functions for each schema version
 extern std::map<Draft,
                 std::set<UriWrapper> (*)(const nlohmann::json&,
                                          const UriWrapper&, const JSONPointer&)>
     linkers;
 
+/// @brief A map to hold the issue checker functions for each schema version
 extern std::map<Draft, std::vector<std::string> (*)(const nlohmann::json&,
                                                     const UriWrapper&,
                                                     const JSONPointer&)>
     issueCheckers;
 
+/// @brief Deconstructs a set map of unresolved schemas into a vector of
+/// schemas and a map of idendifiers to indices to the schemas via vector
 std::tuple<std::vector<std::unique_ptr<SchemaResource>>,
            std::map<UriWrapper, size_t>>
 deconstructUnresolvedSchemaMap(SetMap<UriWrapper, SchemaResource>&& setMap);
 
+/// @brief Resolves the dependencies of a set map of schemas
+/// @param setMap The set map of schemas
+/// @param requiredReferences
 std::vector<std::unique_ptr<LinkedSchema>>
 resolveDependencies(SetMap<UriWrapper, SchemaResource>&& setMap,
                     const std::set<UriWrapper>& requiredReferences);

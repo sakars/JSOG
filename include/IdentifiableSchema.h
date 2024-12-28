@@ -4,6 +4,9 @@
 #include "LinkedSchema.h"
 #include <map>
 
+/// @brief Represents a schema with an identifier
+/// @details This class represents a schema with an identifier.
+/// The identifier is used to reference the schema in generated code.
 class IdentifiableSchema : public LinkedSchema {
 
 public:
@@ -19,6 +22,9 @@ public:
       : LinkedSchema(json, baseUri, pointer, draft, {}),
         identifier_(identifier) {}
 
+  /// @brief Transitions a LinkedSchema to an IdentifiableSchema
+  /// @param linkedSchemas
+  /// @param preferredIdentifiers
   static std::vector<IdentifiableSchema>
   transition(std::vector<std::unique_ptr<LinkedSchema>>&& linkedSchemas,
              std::map<UriWrapper, std::string> preferredIdentifiers = {}) {
@@ -72,6 +78,9 @@ public:
     }
   }
 
+  /// @brief Dumps the schemas to a file
+  /// @param identifiableSchemas
+  /// @param outputDirectory
   static void dumpSchemas(std::vector<IdentifiableSchema>& identifiableSchemas,
                           std::filesystem::path outputDirectory = ".") {
     auto iDump = R"({"dependencies":{}})"_json;

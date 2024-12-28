@@ -41,6 +41,9 @@ public:
   }
 };
 
+/// @brief Loads a vector of documents from a vector of paths
+/// @param paths The paths to load the documents from
+/// @return The loaded documents
 inline std::vector<Document>
 loadDocuments(const std::vector<std::filesystem::path>& paths) {
   std::vector<Document> documents;

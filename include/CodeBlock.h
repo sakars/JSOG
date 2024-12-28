@@ -11,19 +11,28 @@
 #define JSOG_DEBUG 0
 #endif
 
+/// @brief A class that helps with code generation by providing a way to
+/// group code line by line with indent increases and decreases recorded.
 class CodeBlock {
+  /// @brief An empty increase indent type
   struct _Inc_Ty {};
+  /// @brief An empty decrease indent type
   struct _Dec_ty {};
+  /// @brief An empty discard newline type
   struct _Discard_Ty {};
 
+  /// @brief The lines of code
   std::vector<std::variant<std::string, _Inc_Ty, _Dec_ty, _Discard_Ty>> lines;
 
 public:
+  /// @brief Publically accessible increase indent type
   static constexpr _Inc_Ty inc = _Inc_Ty();
+  /// @brief Publically accessible decrease indent type
   static constexpr _Dec_ty dec = _Dec_ty();
   /// @brief Discard the next newline
   static constexpr _Discard_Ty dis = _Discard_Ty();
 
+  /// @brief Indent to use for each level of indentation
   std::string indent;
 
   CodeBlock(std::string default_indent = "  ") : indent(default_indent) {};
@@ -53,6 +62,8 @@ public:
     return *this;
   }
 
+  /// @brief Returns a string representation of the code block, respecting
+  /// the indentation levels
   std::string str() const {
     std::ostringstream out;
     size_t indentLevel = 0;
@@ -86,6 +97,12 @@ public:
     return out.str();
   }
 };
+
+/// @brief A class that helps with code generation by providing a way to
+/// group code line by line with indent increases and decreases recorded.
+///
+/// Indentation is automatically increased and decreased when the object
+/// is created and destroyed.
 struct Indent {
   CodeBlock& block;
   Indent(CodeBlock& block) : block(block) { block << CodeBlock::inc; }

@@ -9,7 +9,7 @@
 #include <random>
 #include <type_traits>
 
-TEST_CASE("Simple String static tests", "[SimpleString]") {
+TEST_CASE("Simple String static tests", "[Output][SimpleString]") {
   STATIC_REQUIRE(std::is_same_v<JSOG::SimpleString::SimpleString, std::string>);
 
   using ConstructType = decltype(JSOG::SimpleString::construct);
@@ -24,7 +24,7 @@ TEST_CASE("Simple String static tests", "[SimpleString]") {
   STATIC_REQUIRE(std::is_same_v<ValidateType, bool(const std::string&)>);
 }
 
-TEST_CASE("Check SimpleString::construct", "[SimpleString]") {
+TEST_CASE("Check SimpleString::construct", "[Output][SimpleString]") {
   std::string str = GENERATE(take(100, randomString()));
   nlohmann::json json = str;
   auto result = JSOG::SimpleString::construct(json);
@@ -33,7 +33,7 @@ TEST_CASE("Check SimpleString::construct", "[SimpleString]") {
   REQUIRE(result.value() == str);
 }
 
-TEST_CASE("Check SimpleString::rawExport", "[SimpleString]") {
+TEST_CASE("Check SimpleString::rawExport", "[Output][SimpleString]") {
   std::string str = GENERATE(take(100, randomString()));
   auto result = JSOG::SimpleString::rawExport(str);
   CAPTURE(str);
@@ -42,13 +42,13 @@ TEST_CASE("Check SimpleString::rawExport", "[SimpleString]") {
   REQUIRE(result == str);
 }
 
-TEST_CASE("Check SimpleString::validate", "[SimpleString]") {
+TEST_CASE("Check SimpleString::validate", "[Output][SimpleString]") {
   std::string str = GENERATE(take(100, randomString()));
   CAPTURE(str);
   REQUIRE(JSOG::SimpleString::validate(str));
 }
 
-TEST_CASE("SimpleString::json", "[SimpleString]") {
+TEST_CASE("SimpleString::json", "[Output][SimpleString]") {
   std::string str = GENERATE(take(100, randomString()));
   nlohmann::json json = JSOG::SimpleString::json(str).value();
   CAPTURE(str);

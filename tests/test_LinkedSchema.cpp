@@ -3,7 +3,7 @@
 #include "LinkedSchema.h"
 #include <catch2/catch_all.hpp>
 
-SCENARIO("Buildable Schema Draft07 constructs correct deps",
+SCENARIO("Buildable Schema Draft07 constructs correct dependencies",
          "[Draft07][LinkedSchema]") {
   // FAIL("Refactors needed");
   WHEN("Schema has a ref in properties") {
@@ -175,7 +175,7 @@ SCENARIO("Multi-file Draft07 reference resolution", "[Draft07][LinkedSchema]") {
 }
 
 SCENARIO("Full pipeline run up to LinkedSchema",
-         "[Draft07][filesystem][LinkedSchema][DraftRecognisedDocument]["
+         "[Draft07][LinkedSchema][DraftRecognisedDocument]["
          "Document]") {
   GIVEN("A sample case with 2 documents") {
     std::vector<std::filesystem::path> files{"samples/document_1.json",
@@ -185,12 +185,12 @@ SCENARIO("Full pipeline run up to LinkedSchema",
     auto recognised =
         DraftRecognisedDocument::performDraftRecognition(std::move(documents));
     REQUIRE(recognised.size() == 2);
-    auto unresolvedSchecmas =
+    auto schemaResources =
         SchemaResource::generateSetMap(std::move(recognised));
 
-    REQUIRE(unresolvedSchecmas.getSet().size() == 5);
+    REQUIRE(schemaResources.getSet().size() == 5);
     const auto doesSetContainUri = [&](const UriWrapper& uri) {
-      for (const auto& value : unresolvedSchecmas.getSet()) {
+      for (const auto& value : schemaResources.getSet()) {
         if (value->baseUri_.withPointer(value->pointer_) == uri) {
           return true;
         }
@@ -210,7 +210,7 @@ SCENARIO("Full pipeline run up to LinkedSchema",
     std::set<UriWrapper> refs;
 
     refs.insert(UriWrapper("file://samples/document_2.json"));
-    auto resolved = resolveDependencies(std::move(unresolvedSchecmas), refs);
+    auto resolved = resolveDependencies(std::move(schemaResources), refs);
     THEN("The references are resolved") {
       REQUIRE(resolved.size() == 4);
       const auto uri =

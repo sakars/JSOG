@@ -5,7 +5,7 @@
 
 #include "LengthLimitedString.h"
 
-TEST_CASE("Static lengthLimitedString tests") {
+TEST_CASE("Static lengthLimitedString tests", "[Output][LengthLimitedString]") {
   STATIC_REQUIRE(std::is_same_v<JSOG::LengthLimitedString::LengthLimitedString,
                                 std::string>);
   using ConstructType = decltype(JSOG::LengthLimitedString::construct);
@@ -20,7 +20,8 @@ TEST_CASE("Static lengthLimitedString tests") {
   STATIC_REQUIRE(std::is_same_v<ValidateType, bool(const std::string&)>);
 }
 
-TEST_CASE("Check LengthLimitedString::construct") {
+TEST_CASE("Check LengthLimitedString::construct",
+          "[Output][LengthLimitedString]") {
   SECTION("Valid size strings") {
     std::string str = GENERATE(take(100, randomString(10, 5)));
     INFO(str);
@@ -51,7 +52,8 @@ TEST_CASE("Check LengthLimitedString::construct") {
   }
 }
 
-TEST_CASE("Check LengthLimitedString::rawExport") {
+TEST_CASE("Check LengthLimitedString::rawExport",
+          "[Output][LengthLimitedString]") {
   std::string str = GENERATE(take(100, randomString(10, 5)));
   auto result = JSOG::LengthLimitedString::rawExport(str);
   CAPTURE(str);
@@ -60,13 +62,14 @@ TEST_CASE("Check LengthLimitedString::rawExport") {
   REQUIRE(result == str);
 }
 
-TEST_CASE("Check LengthLimitedString::validate") {
+TEST_CASE("Check LengthLimitedString::validate",
+          "[Output][LengthLimitedString]") {
   std::string str = GENERATE(take(100, randomString(10, 5)));
   CAPTURE(str);
   REQUIRE(JSOG::LengthLimitedString::validate(str));
 }
 
-TEST_CASE("LengthLimitedString::json") {
+TEST_CASE("LengthLimitedString::json", "[Output][LengthLimitedString]") {
   SECTION("Valid strings") {
     std::string str = GENERATE(take(100, randomString(10, 5)));
     auto jsonopt = JSOG::LengthLimitedString::json(str);

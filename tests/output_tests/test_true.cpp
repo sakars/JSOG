@@ -5,7 +5,7 @@
 #include "True.h"
 #include <type_traits>
 
-TEST_CASE("True static tests", "[True]") {
+TEST_CASE("True static tests", "[Output][True]") {
   STATIC_REQUIRE(std::is_same_v<JSOG::True::True, nlohmann::json>);
 
   using ConstructType = decltype(JSOG::True::construct);

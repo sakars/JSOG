@@ -113,17 +113,17 @@ public:
       }
       return setMap;
     } catch (const std::exception& e) {
-      std::cerr << "Error caught in UnresolvedSchema::generateSetMap:\n";
+      std::cerr << "Error caught in SchemaResource::generateSetMap:\n";
       throw e;
     }
   }
 
-  static void dumpSchemas(SetMap<UriWrapper, SchemaResource>& unresolvedSchemas,
+  static void dumpSchemas(SetMap<UriWrapper, SchemaResource>& schemaResources,
                           std::filesystem::path outputDirectory = ".") {
-    nlohmann::json unresolvedSchemaDump = nlohmann::json::object();
-    for (const auto& [uris, schema] : unresolvedSchemas) {
+    nlohmann::json schemaResourceDump = nlohmann::json::object();
+    for (const auto& [uris, schema] : schemaResources) {
       auto& baseUriList =
-          unresolvedSchemaDump[schema.get().baseUri_.toString().value()];
+          schemaResourceDump[schema.get().baseUri_.toString().value()];
       baseUriList[schema.get().pointer_.toFragment()] = nlohmann::json::array();
       for (const auto& uri : uris.get()) {
         baseUriList[schema.get().pointer_.toFragment()].push_back(
@@ -131,9 +131,9 @@ public:
                                    uri.getFragment().value_or("")}));
       }
     }
-    std::ofstream unresolvedDump(outputDirectory / "unresolved.dump.json");
-    unresolvedDump << unresolvedSchemaDump.dump(2);
-    unresolvedDump.close();
+    std::ofstream resourceDump(outputDirectory / "resource.dump.json");
+    resourceDump << schemaResourceDump.dump(2);
+    resourceDump.close();
   }
 };
 

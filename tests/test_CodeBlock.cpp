@@ -21,16 +21,17 @@ TEST_CASE("CodeBlock with custom indent", "[CodeBlock]") {
 TEST_CASE("CodeBlock with discard", "[CodeBlock]") {
   CodeBlock block;
   block.indent = "x";
-  block << "Hello, World!" << CodeBlock::inc << "Goodbye, World!"
-        << CodeBlock::dis << "Hello, World!";
+  block << "Hello, World!" << CodeBlock::inc << CodeBlock::dis
+        << "Goodbye, World!"
+        << "Hello, World!";
   REQUIRE(block.str() == "Hello, World!\nxGoodbye, World!Hello, World!\n");
 }
 
 TEST_CASE("CodeBlock with multiple discards", "[CodeBlock]") {
   CodeBlock block;
   block.indent = "x";
-  block << "Hello, World!" << CodeBlock::inc << "Goodbye, World!"
-        << CodeBlock::dis << "Hello, World!" << CodeBlock::dis
+  block << "Hello, World!" << CodeBlock::inc << CodeBlock::dis
+        << "Goodbye, World!" << CodeBlock::dis << "Hello, World!"
         << "Goodbye World!";
   REQUIRE(block.str() == "Hello, World!\nxGoodbye, World!Hello, World!Goodbye "
                          "World!\n");

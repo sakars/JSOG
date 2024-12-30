@@ -40,3 +40,5 @@ TEST_CASE("Load Documents loads documents with unique fileUris", "[Document]") {
   REQUIRE(documents.size() == 2);
   REQUIRE(documents[0].fileUri_ != documents[1].fileUri_);
 }
+
+TEST_CASE("Fail") { REQUIRE(1 == 2); }

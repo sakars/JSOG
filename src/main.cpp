@@ -38,14 +38,29 @@ int main(int argc, char* argv[]) {
   std::filesystem::path outputDirectory = ".";
   std::vector<std::filesystem::path> inputFiles;
   std::vector<std::string> requiredFiles;
+  std::map<UriWrapper, std::string> preferredIdentifiers;
   bool dumpSchemas = false;
 
   // configure extra options here
   for (int i = 1; i < argc; ++i) {
-    if (args[i] == "--help") {
-      std::cout << "Usage: " << args[0] << " [options] [file]" << std::endl;
+    if (args[i] == "--help" || args[i] == "-h") {
+      std::cout << "Usage: " << args[0] << " [options] [files*]" << std::endl;
       std::cout << "Options:" << std::endl;
       std::cout << "  --help: Display this help message" << std::endl;
+      std::cout << "  --dump-schemas, -d: Dump schemas at each stage"
+                << std::endl;
+      std::cout << "  --output-directory, -o: Specify the output directory"
+                << std::endl;
+      std::cout << "  --require, -r: Specify a URI to a schema that must have "
+                   "it's code generated"
+                << std::endl;
+      std::cout << "  --preferred-identifier, -p:" << std::endl
+                << "    Usage: --preferred-identifier <uri> <identifier>"
+                << "    Specify a preferred identifier for a specific schema"
+                << "    Note: The identifier must be unique and a valid C++ "
+                   "identifier"
+                << std::endl;
+
       return 0;
     }
     if (args[i] == "--dump-schemas" || args[i] == "-d") {
@@ -79,6 +94,18 @@ int main(int argc, char* argv[]) {
         continue;
       } else {
         std::cerr << "Error: --require requires an argument." << std::endl;
+        return 1;
+      }
+    }
+    if (args[i] == "--preferred-identifier" || args[i] == "-p") {
+      if (i + 2 < argc) {
+        preferredIdentifiers.emplace(UriWrapper(std::string(args[i + 1])),
+                                     args[i + 2]);
+        i += 2;
+        continue;
+      } else {
+        std::cerr << "Error: --preferred-identifier requires two arguments."
+                  << std::endl;
         return 1;
       }
     }
@@ -137,8 +164,8 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  auto identifiableSchemas =
-      IdentifiableSchema::transition(std::move(linkedSchemas));
+  auto identifiableSchemas = IdentifiableSchema::transition(
+      std::move(linkedSchemas), preferredIdentifiers);
 
   if (dumpSchemas)
     IdentifiableSchema::dumpSchemas(identifiableSchemas, outputDirectory);

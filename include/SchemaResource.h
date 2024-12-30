@@ -6,6 +6,8 @@
 #include "UriWrapper.h"
 #include <string>
 
+/// @brief Represents a schema resource - a JSON value found in a schema.
+/// One or more URIs can reference the same schema resource.
 class SchemaResource {
 public:
   /// @brief The json content of the schema. This does not own the JSON
@@ -15,6 +17,7 @@ public:
   /// @brief The base URI of the schema
   UriWrapper baseUri_;
 
+  /// @brief The draft of the schema
   Draft draft_;
 
   /// @brief Pointer to the current schema from baseUri_

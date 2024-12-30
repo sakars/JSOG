@@ -5,6 +5,11 @@
 #include <memory>
 #include <set>
 
+/// @brief A container that allows for multiple keys to reference the same value
+/// and a reverse lookup of keys for a value. Useful if a map is required with
+/// frequent lookup of keys for a value.
+/// @tparam K The key value type
+/// @tparam V The value type
 template <typename K, typename V> class SetMap {
   std::map<K, std::reference_wrapper<V>> map;
   std::map<const V*, std::set<K>> reverseMap;
@@ -49,16 +54,19 @@ public:
   std::set<K>& keysOfValue(const V& value) { return reverseMap.at(&value); }
   std::set<K> equivalentKeys(const K& key) { return keysOfValue(map.at(key)); }
 
+  /// @brief Inserts a key set for a value into the map
   void bulkInsert(std::set<K> keys, V&& value) {
     auto up = std::make_unique<V>(std::move(value));
     bulkInsert(keys, std::move(up));
   }
 
+  /// @brief Inserts a key set for a value into the map
   void bulkInsert(std::set<K> keys, const V& value) {
     auto up = std::make_unique<V>(value);
     bulkInsert(keys, std::move(up));
   }
 
+  /// @brief Inserts a key set for a value into the map
   void bulkInsert(std::set<K> keys, std::unique_ptr<V> value) {
     reverseMap[value.get()] = keys;
     for (auto& key : keys) {
@@ -67,6 +75,8 @@ public:
     set.emplace(std::move(value));
   }
 
+  /// @brief Clears the map and the reverse map and returns the values into
+  /// a vector of tuples containing the keys and the values
   std::vector<std::tuple<std::vector<K>, std::unique_ptr<V>>> extract() {
     std::vector<std::tuple<std::vector<K>, std::unique_ptr<V>>> extracted;
     while (!set.empty()) {

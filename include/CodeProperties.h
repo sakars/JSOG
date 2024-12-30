@@ -4,6 +4,7 @@
 #include <optional>
 #include <string>
 
+/// @brief Holds data about how to generate code
 struct CodeProperties {
   enum class HeaderGuard { Pragma, Ifndef };
   HeaderGuard headerGuardType_ = HeaderGuard::Ifndef;

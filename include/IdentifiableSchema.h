@@ -4,6 +4,9 @@
 #include "LinkedSchema.h"
 #include <map>
 
+/// @brief Represents a schema with an identifier
+/// @details This class represents a schema with an identifier.
+/// The identifier is used to reference the schema in generated code.
 class IdentifiableSchema : public LinkedSchema {
 
 public:
@@ -19,14 +22,33 @@ public:
       : LinkedSchema(json, baseUri, pointer, draft, {}),
         identifier_(identifier) {}
 
+  /// @brief Transitions a LinkedSchema to an IdentifiableSchema
+  /// @param linkedSchemas
+  /// @param preferredIdentifiers
   static std::vector<IdentifiableSchema>
-  transition(std::vector<std::unique_ptr<LinkedSchema>>&& linkedSchemas) {
+  transition(std::vector<std::unique_ptr<LinkedSchema>>&& linkedSchemas,
+             std::map<UriWrapper, std::string> preferredIdentifiers = {}) {
     try {
       // Construct the identifiable schemas
       // Note: We add reserved identifiers to the identifiers to avoid conflicts
       // with the predefined schemas.
       std::set<std::string> identifiers{"True", "False"};
       std::vector<IdentifiableSchema> identifiableSchemas;
+      for (const auto& [uri, identifier] : preferredIdentifiers) {
+        for (size_t i = 0; i < linkedSchemas.size(); i++) {
+          const auto& linkedSchema = linkedSchemas[i];
+          if (linkedSchema->baseUri_.withPointer(linkedSchema->pointer_) ==
+              uri) {
+            auto schema = IdentifiableSchema(
+                linkedSchema->json_, linkedSchema->baseUri_,
+                linkedSchema->pointer_, linkedSchema->draft_, identifier);
+            schema.dependencies_ = linkedSchema->dependencies_;
+            identifiableSchemas.emplace_back(std::move(schema));
+            linkedSchemas.erase(linkedSchemas.begin() + i);
+            break;
+          }
+        }
+      }
       for (size_t i = 0; i < linkedSchemas.size(); i++) {
         const auto& linkedSchema = linkedSchemas[i];
         const std::string preferred_identifier =
@@ -56,6 +78,9 @@ public:
     }
   }
 
+  /// @brief Dumps the schemas to a file
+  /// @param identifiableSchemas
+  /// @param outputDirectory
   static void dumpSchemas(std::vector<IdentifiableSchema>& identifiableSchemas,
                           std::filesystem::path outputDirectory = ".") {
     auto iDump = R"({"dependencies":{}})"_json;

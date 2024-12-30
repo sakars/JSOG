@@ -3,8 +3,13 @@
 #include "Document.h"
 #include "UriWrapper.h"
 
+/// @brief Represents the recognized schema drafts
+/// @details This enum class represents the recognized schema drafts.
+/// The schema drafts are used to determine how to interpret the schema.
+/// Currently, only Draft 7 is supported.
 enum class Draft { DRAFT_07 };
 
+/// @brief Represents a JSON document with a recognized schema draft
 struct DraftRecognisedDocument : public Document {
   Draft draft_;
 
@@ -37,6 +42,9 @@ public:
       : Document(std::move(json), std::move(fileUri)),
         draft_(identifySchemaDraft(json_)) {}
 
+  /// @brief Transforms a vector of documents into a vector of draft-recognized
+  /// documents
+  /// @param documents
   static inline std::vector<DraftRecognisedDocument>
   performDraftRecognition(std::vector<Document>&& documents) {
     std::vector<DraftRecognisedDocument> recognisedDocuments;

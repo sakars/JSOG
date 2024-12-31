@@ -25,11 +25,11 @@ TEST_CASE("Self referencial code generation doesn't crash", "[selfref]") {
 })"_json;
   std::vector<DraftRecognisedDocument> documents = {
       DraftRecognisedDocument(Document(std::move(selfRef), "jsog://SelfRef"))};
-  auto unresolvedSchemas = SchemaResource::generateSetMap(documents);
-  REQUIRE(unresolvedSchemas.getSet().size() ==
+  auto schemaResources = SchemaResource::generateSetMap(documents);
+  REQUIRE(schemaResources.getSet().size() ==
           3); // the schema, properties, object
   auto linkedSchemas = resolveDependencies(
-      std::move(unresolvedSchemas), std::set<UriWrapper>{"jsog://SelfRef"});
+      std::move(schemaResources), std::set<UriWrapper>{"jsog://SelfRef"});
   REQUIRE(linkedSchemas.size() == 2);
   auto identifiableSchemas =
       IdentifiableSchema::transition(std::move(linkedSchemas));

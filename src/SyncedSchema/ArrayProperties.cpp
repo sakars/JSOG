@@ -110,7 +110,12 @@ ArrayProperties::arrayClassDefinition(const CodeProperties& codeProperties,
         }
       }
     }
-    BLOCK << std::format("std::vector<{}> items;", items_.get().getType());
+    std::string itemsType = items_.get().getType();
+    // Avoid bool type, as bool vectors have a different interface
+    if (itemsType == "bool") {
+      itemsType = "unsigned char";
+    }
+    BLOCK << std::format("std::vector<{}> items;", itemsType);
 
     BLOCK << CodeBlock::dec << "public:" << CodeBlock::inc;
     BLOCK << "template <size_t N>";
@@ -125,11 +130,12 @@ ArrayProperties::arrayClassDefinition(const CodeProperties& codeProperties,
                 minItems_.has_value() && i < minItems_.value()) {
               BLOCK << std::format("return item{};", i);
             } else {
-              BLOCK << std::format("if (item{}.has_value()) {{", i)
-                    << CodeBlock::inc;
+              // BLOCK << std::format("if (item{}.has_value()) {{", i)
+              //       << CodeBlock::inc;
+              // BLOCK << std::format("return item{}.value();", i);
+              // BLOCK << CodeBlock::dec << "}";
+              BLOCK << std::format("return item{};", i);
             }
-            BLOCK << std::format("return item{}.value();", i);
-            BLOCK << CodeBlock::dec << "}";
           }
           BLOCK << CodeBlock::dec << CodeBlock::dis << "} else ";
         }
@@ -150,7 +156,33 @@ ArrayProperties::arrayClassDefinition(const CodeProperties& codeProperties,
                "std::to_string(N) + \" out of range\");";
     }
     BLOCK << CodeBlock::dec << "}";
-    BLOCK << std::format("inline {}& get(size_t n) {{", items_.get().getType());
+
+    std::set<std::string> arrayItemTypes;
+    if (tupleableItems_.has_value()) {
+      for (const auto& item : *tupleableItems_) {
+        arrayItemTypes.insert(item.get().getType());
+      }
+    }
+    arrayItemTypes.insert(itemsType);
+    std::string arrayType;
+    if (arrayItemTypes.size() == 1) {
+      arrayType = *arrayItemTypes.begin() + "&";
+    } else if (arrayItemTypes.size() > 1) {
+      std::vector<std::string> wrappedArrayItemTypes(arrayItemTypes.size());
+      for (auto& item : arrayItemTypes) {
+        wrappedArrayItemTypes.emplace_back("std::reference_wrapper<" + item +
+                                           ">");
+      }
+      arrayType =
+          "std::variant<" +
+          std::accumulate(wrappedArrayItemTypes.begin(),
+                          wrappedArrayItemTypes.end(), std::string(),
+                          [](const std::string acc, const std::string& item) {
+                            return acc.empty() ? item : acc + ", " + item;
+                          }) +
+          ">";
+    }
+    BLOCK << std::format("inline {} get(size_t n) {{", arrayType);
     if (tupleableItems_.has_value()) {
 
       for (size_t i = 0; i < tupleableItems_->size(); i++) {
@@ -158,11 +190,11 @@ ArrayProperties::arrayClassDefinition(const CodeProperties& codeProperties,
         {
           if (codeProperties.minItemsMakeTupleableRequired_ &&
               minItems_.has_value() && i < minItems_.value()) {
-            BLOCK << "return item" + std::to_string(i) + ";";
+            BLOCK << "return std::ref(item" + std::to_string(i) + ");";
           } else {
             BLOCK << "if(item" + std::to_string(i) + ".has_value()) {"
                   << CodeBlock::inc;
-            BLOCK << "return item" + std::to_string(i) + ".value();";
+            BLOCK << "return std::ref(item" + std::to_string(i) + ".value());";
             BLOCK << CodeBlock::dec << "}";
           }
         }
@@ -176,7 +208,7 @@ ArrayProperties::arrayClassDefinition(const CodeProperties& codeProperties,
           << "throw std::range_error(\"Item \" + std::to_string(n) + \" out "
              "of range\");"
           << "}"
-          << "return items[n];" << CodeBlock::dec << "}";
+          << "return std::ref(items[n]);" << CodeBlock::dec << "}";
   }
   BLOCK << CodeBlock::dec;
   BLOCK << "};";

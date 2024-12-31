@@ -143,13 +143,13 @@ int main(int argc, char* argv[]) {
   std::vector<Document> documents = loadDocuments(inputFiles);
   std::vector<DraftRecognisedDocument> draftDocs =
       DraftRecognisedDocument::performDraftRecognition(std::move(documents));
-  auto unresolvedSchemas = SchemaResource::generateSetMap(draftDocs);
+  auto schemaResources = SchemaResource::generateSetMap(draftDocs);
 
   if (dumpSchemas)
-    SchemaResource::dumpSchemas(unresolvedSchemas, outputDirectory);
+    SchemaResource::dumpSchemas(schemaResources, outputDirectory);
 
   auto linkedSchemas =
-      resolveDependencies(std::move(unresolvedSchemas), requiredReferences);
+      resolveDependencies(std::move(schemaResources), requiredReferences);
 
   if (dumpSchemas)
     LinkedSchema::dumpSchemas(linkedSchemas, outputDirectory);

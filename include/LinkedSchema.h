@@ -98,7 +98,7 @@ extern std::map<Draft, std::vector<std::string> (*)(const nlohmann::json&,
 /// schemas and a map of idendifiers to indices to the schemas via vector
 std::tuple<std::vector<std::unique_ptr<SchemaResource>>,
            std::map<UriWrapper, size_t>>
-deconstructUnresolvedSchemaMap(SetMap<UriWrapper, SchemaResource>&& setMap);
+deconstructSchemaResourceMap(SetMap<UriWrapper, SchemaResource>&& setMap);
 
 /// @brief Resolves the dependencies of a set map of schemas
 /// @param setMap The set map of schemas

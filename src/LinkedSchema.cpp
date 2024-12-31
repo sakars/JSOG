@@ -15,17 +15,17 @@ std::map<Draft,
 
 std::tuple<std::vector<std::unique_ptr<SchemaResource>>,
            std::map<UriWrapper, size_t>>
-deconstructUnresolvedSchemaMap(SetMap<UriWrapper, SchemaResource>&& setMap) {
+deconstructSchemaResourceMap(SetMap<UriWrapper, SchemaResource>&& setMap) {
   auto map = setMap.extract();
-  std::vector<std::unique_ptr<SchemaResource>> unresolvedSchemas;
+  std::vector<std::unique_ptr<SchemaResource>> schemaResources;
   std::map<UriWrapper, size_t> schemaIndices;
   for (auto& [keys, value] : map) {
     for (const auto& key : keys) {
-      schemaIndices[key] = unresolvedSchemas.size();
+      schemaIndices[key] = schemaResources.size();
     }
-    unresolvedSchemas.push_back(std::move(value));
+    schemaResources.push_back(std::move(value));
   }
-  return {std::move(unresolvedSchemas), std::move(schemaIndices)};
+  return {std::move(schemaResources), std::move(schemaIndices)};
 }
 
 std::vector<std::unique_ptr<LinkedSchema>>
@@ -41,8 +41,8 @@ resolveDependencies(SetMap<UriWrapper, SchemaResource>&& setMap,
     return normalized;
   }();
   try {
-    auto [unresolvedSchemas, schemaIndices] =
-        deconstructUnresolvedSchemaMap(std::move(setMap));
+    auto [schemaResources, schemaIndices] =
+        deconstructSchemaResourceMap(std::move(setMap));
 
     std::set<size_t> buildableRequiredSchemas;
 
@@ -57,14 +57,14 @@ resolveDependencies(SetMap<UriWrapper, SchemaResource>&& setMap,
 
     std::set<size_t> builtRequiredSchemas;
     std::vector<std::map<UriWrapper, size_t>> dependencyList(
-        unresolvedSchemas.size());
+        schemaResources.size());
 
     while (!buildableRequiredSchemas.empty()) {
       auto schemaIdx = *buildableRequiredSchemas.begin();
-      auto& schema = *unresolvedSchemas[schemaIdx];
+      auto& schema = *schemaResources[schemaIdx];
       buildableRequiredSchemas.erase(schemaIdx);
       builtRequiredSchemas.insert(schemaIdx);
-      auto dependencies = linkers[unresolvedSchemas[schemaIdx]->draft_](
+      auto dependencies = linkers[schemaResources[schemaIdx]->draft_](
           schema.json_.get(), schema.baseUri_, schema.pointer_);
       std::map<UriWrapper, size_t> depIndices_;
       for (const auto& dep : dependencies) {
@@ -109,7 +109,7 @@ resolveDependencies(SetMap<UriWrapper, SchemaResource>&& setMap,
 
     std::vector<std::unique_ptr<SchemaResource>> shrunkSchemas;
     for (const auto builtIdx : builtRequiredSchemas) {
-      shrunkSchemas.push_back(std::move(unresolvedSchemas[builtIdx]));
+      shrunkSchemas.push_back(std::move(schemaResources[builtIdx]));
     }
 
     std::vector<std::unique_ptr<LinkedSchema>> linkedSchemas;

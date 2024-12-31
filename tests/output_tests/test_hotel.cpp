@@ -1,7 +1,7 @@
 
 #include "Hotel.h"
 #include <catch2/catch_all.hpp>
-TEST_CASE("Test hotel") {
+TEST_CASE("Test hotel", "[Output][Hotel]") {
   nlohmann::json json = R"({
     "id": "00000000-0000-0000-0000-000000000000",
     "name": "Hotel California",

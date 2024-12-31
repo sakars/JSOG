@@ -2,7 +2,7 @@
 #include "randomString.h"
 #include <catch2/catch_all.hpp>
 
-TEST_CASE("Static RegexMatcherString tests") {
+TEST_CASE("Static RegexMatcherString tests", "[Output][RegexMatcherString]") {
   STATIC_REQUIRE(std::is_same_v<JSOG::RegexMatcherString::RegexMatcherString,
                                 std::string>);
   using ConstructType = decltype(JSOG::RegexMatcherString::construct);
@@ -17,7 +17,8 @@ TEST_CASE("Static RegexMatcherString tests") {
   STATIC_REQUIRE(std::is_same_v<ValidateType, bool(const std::string&)>);
 }
 
-TEST_CASE("Check RegexMatcherString::construct") {
+TEST_CASE("Check RegexMatcherString::construct",
+          "[Output][RegexMatcherString]") {
   SECTION("Valid strings") {
     std::string str = GENERATE(take(100, randomString()));
     for (auto& c : str) {
@@ -47,7 +48,8 @@ TEST_CASE("Check RegexMatcherString::construct") {
   }
 }
 
-TEST_CASE("Check RegexMatcherString::rawExport") {
+TEST_CASE("Check RegexMatcherString::rawExport",
+          "[Output][RegexMatcherString]") {
   std::string str = GENERATE(take(100, randomString()));
   auto result = JSOG::RegexMatcherString::rawExport(str);
   CAPTURE(str);
@@ -56,7 +58,8 @@ TEST_CASE("Check RegexMatcherString::rawExport") {
   REQUIRE(result == str);
 }
 
-TEST_CASE("Check RegexMatcherString::validate") {
+TEST_CASE("Check RegexMatcherString::validate",
+          "[Output][RegexMatcherString]") {
   SECTION("Valid strings") {
     std::string str = GENERATE(take(100, randomString()));
     for (auto& c : str) {
@@ -80,7 +83,7 @@ TEST_CASE("Check RegexMatcherString::validate") {
   }
 }
 
-TEST_CASE("RegexMatcherString::json") {
+TEST_CASE("RegexMatcherString::json", "[Output][RegexMatcherString]") {
   SECTION("Valid strings") {
     std::string str = GENERATE(take(100, randomString()));
     for (auto& c : str) {

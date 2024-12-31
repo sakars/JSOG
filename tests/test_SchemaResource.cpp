@@ -1,7 +1,8 @@
 #include "SchemaResource.h"
 #include <catch2/catch_all.hpp>
 
-TEST_CASE("UnresolvedSchema construction", "[UnresolvedSchema]") {
+TEST_CASE("Schema Resource construction",
+          "[SchemaResource][DraftRecognisedDocument][Document]") {
   SECTION("Construction from atoms") {
     nlohmann::json json = R"(
 {
@@ -43,7 +44,8 @@ TEST_CASE("UnresolvedSchema construction", "[UnresolvedSchema]") {
   }
 }
 
-TEST_CASE("Unresolved Schema setmap construction", "[UnresolvedSchema]") {
+TEST_CASE("Schema Resource setmap construction",
+          "[SchemaResource][DraftRecognisedDocument]") {
   nlohmann::json json = R"(
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -54,8 +56,8 @@ TEST_CASE("Unresolved Schema setmap construction", "[UnresolvedSchema]") {
   JSONPointer pointer;
   std::vector<DraftRecognisedDocument> drafts{
       DraftRecognisedDocument{nlohmann::json(json), UriWrapper(fileUri)}};
-  auto unresolvedMap = SchemaResource::generateSetMap(drafts);
-  auto extracted = unresolvedMap.extract();
+  auto resourceMap = SchemaResource::generateSetMap(drafts);
+  auto extracted = resourceMap.extract();
   REQUIRE(extracted.size() == 1);
   auto& [keys, value] = extracted[0];
   REQUIRE(keys.size() == 1);
@@ -66,18 +68,17 @@ TEST_CASE("Unresolved Schema setmap construction", "[UnresolvedSchema]") {
 }
 
 TEST_CASE("Full pipeline run up to LinkedSchema",
-          "[Draft07][filesystem][LinkedSchema][DraftRecognisedDocument]["
-          "Document]") {
+          "[Draft07][LinkedSchema][DraftRecognisedDocument]["
+          "Document][SchemaResource]") {
   std::vector<std::filesystem::path> files{"./samples/document_1.json",
                                            "./samples/document_2.json"};
   auto documents = loadDocuments(files);
   auto recognised =
       DraftRecognisedDocument::performDraftRecognition(std::move(documents));
-  auto unresolvedSchecmas =
-      SchemaResource::generateSetMap(std::move(recognised));
-  REQUIRE(unresolvedSchecmas.getSet().size() == 5);
+  auto schemaResources = SchemaResource::generateSetMap(std::move(recognised));
+  REQUIRE(schemaResources.getSet().size() == 5);
   const auto doesSetContainUri = [&](const UriWrapper& uri) {
-    for (const auto& value : unresolvedSchecmas.getSet()) {
+    for (const auto& value : schemaResources.getSet()) {
       if (value->baseUri_.withPointer(value->pointer_) == uri) {
         return true;
       }

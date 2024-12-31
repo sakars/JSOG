@@ -4,7 +4,8 @@
 
 #include "StringNumberVariant.h"
 
-TEST_CASE("Static StringNumberVariant checks") {
+TEST_CASE("Static StringNumberVariant checks",
+          "[Output][StringNumberVariant]") {
   STATIC_CHECK((std::is_same_v<JSOG::StringNumberVariant::StringNumberVariant,
                                std::variant<std::string, double>> ||
                 std::is_same_v<JSOG::StringNumberVariant::StringNumberVariant,

@@ -8,5 +8,3 @@ TEST_CASE("Myself: Static checks for whether self-referential types can exist",
   myself.additionalProperties["key"] = "value";
   REQUIRE(myself.object_ != nullptr);
 }
-
-TEST_CASE("FAIL") { FAIL(); }

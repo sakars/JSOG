@@ -78,6 +78,7 @@ jobs:
     
     # Upload test results
     - name: Upload test results
+      if: ${{ hashFiles('build/test-results.xml') != '' }}
       uses: actions/upload-artifact@v4
       with:
         path: build/test-results.xml

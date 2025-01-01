@@ -22,3 +22,5 @@ for debugging purposes.
 - `-n`: Alias for `--namespace`.
 - `--no-namespace`: Disables generation of namespaces.
 - `-nn`: Alias for `--no-namespace`.
+- `--define-prefix <prefix>`: Sets the prefix for generated `#define` guards.
+- `-dp`: Alias for `--define-prefix`.

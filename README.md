@@ -22,5 +22,7 @@ for debugging purposes.
 - `-n`: Alias for `--namespace`.
 - `--no-namespace`: Disables generation of namespaces.
 - `-nn`: Alias for `--no-namespace`.
+- `--define-prefix <prefix>`: Sets the prefix for generated `#define` guards.
+- `-dp`: Alias for `--define-prefix`.
 - `--indent <indent>`: Sets the indentation string for generated files. 2 spaces by default.
 - `-i`: Alias for `--indent`.

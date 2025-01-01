@@ -23,7 +23,7 @@ class SyncedSchema {
 public:
   using Type = IndexedSyncedSchema::Type;
   using Format = IndexedSyncedSchema::Format;
-  std::reference_wrapper<const CodeProperties> codeProperties =
+  std::reference_wrapper<const CodeProperties> codeProperties_ =
       std::cref(getDefaultCodeProperties());
 
   std::string identifier_;
@@ -68,9 +68,11 @@ public:
 
   std::optional<std::vector<nlohmann::json>> examples_;
 
-  SyncedSchema(const std::string& identifier)
-      : identifier_(identifier), arrayProperties_(getTrueSchema()),
-        objectProperties_(getTrueSchema()) {}
+  SyncedSchema(
+      const std::string& identifier, const SyncedSchema& trueSchema,
+      const CodeProperties& codeProperties = getDefaultCodeProperties())
+      : codeProperties_(codeProperties), identifier_(identifier),
+        arrayProperties_(trueSchema), objectProperties_(trueSchema) {}
 
 private:
   /// @brief Private constructor to create default schemas
@@ -99,15 +101,20 @@ public:
     return properties;
   }
 
-  static const SyncedSchema& getTrueSchema() {
-    static SyncedSchema schema;
-    schema.identifier_ = "True";
-    schema.definedAsBooleanSchema_ = true;
+  static std::unique_ptr<SyncedSchema> getTrueSchema(
+      const CodeProperties& codeProperties = getDefaultCodeProperties()) {
+    auto schema = std::make_unique<SyncedSchema>(SyncedSchema());
+    schema->codeProperties_ = codeProperties;
+    schema->identifier_ = "True";
+    schema->definedAsBooleanSchema_ = true;
+    schema->arrayProperties_ = ArrayProperties(*schema);
+    schema->objectProperties_ = ObjectProperties(*schema);
     return schema;
   }
 
-  static std::vector<std::unique_ptr<SyncedSchema>>
-  resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas);
+  static std::vector<std::unique_ptr<SyncedSchema>> resolveIndexedSchema(
+      std::vector<IndexedSyncedSchema>&& schemas,
+      const CodeProperties& codeProperties = getDefaultCodeProperties());
 
   static void dumpSchemas(std::vector<std::unique_ptr<SyncedSchema>>& schemas,
                           std::filesystem::path outputDirectory = ".");

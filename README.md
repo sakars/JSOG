@@ -22,3 +22,5 @@ for debugging purposes.
 - `-n`: Alias for `--namespace`.
 - `--no-namespace`: Disables generation of namespaces.
 - `-nn`: Alias for `--no-namespace`.
+- `--indent <indent>`: Sets the indentation string for generated files. 2 spaces by default.
+- `-i`: Alias for `--indent`.

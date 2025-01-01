@@ -23,7 +23,7 @@ class SyncedSchema {
 public:
   using Type = IndexedSyncedSchema::Type;
   using Format = IndexedSyncedSchema::Format;
-  std::reference_wrapper<const CodeProperties> codeProperties =
+  std::reference_wrapper<const CodeProperties> codeProperties_ =
       std::cref(getDefaultCodeProperties());
 
   std::string identifier_;
@@ -68,9 +68,11 @@ public:
 
   std::optional<std::vector<nlohmann::json>> examples_;
 
-  SyncedSchema(const std::string& identifier)
-      : identifier_(identifier), arrayProperties_(getTrueSchema()),
-        objectProperties_(getTrueSchema()) {}
+  SyncedSchema(
+      const std::string& identifier,
+      const CodeProperties& codeProperties = getDefaultCodeProperties())
+      : codeProperties_(codeProperties), identifier_(identifier),
+        arrayProperties_(getTrueSchema()), objectProperties_(getTrueSchema()) {}
 
 private:
   /// @brief Private constructor to create default schemas
@@ -106,8 +108,9 @@ public:
     return schema;
   }
 
-  static std::vector<std::unique_ptr<SyncedSchema>>
-  resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas);
+  static std::vector<std::unique_ptr<SyncedSchema>> resolveIndexedSchema(
+      std::vector<IndexedSyncedSchema>&& schemas,
+      const CodeProperties& codeProperties = getDefaultCodeProperties());
 
   static void dumpSchemas(std::vector<std::unique_ptr<SyncedSchema>>& schemas,
                           std::filesystem::path outputDirectory = ".");

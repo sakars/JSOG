@@ -1,3 +1,4 @@
+#include "CodeProperties.h"
 #include "Document.h"
 #include "Draft07.h"
 #include "DraftInterpreter.h"
@@ -39,6 +40,7 @@ int main(int argc, char* argv[]) {
   std::vector<std::filesystem::path> inputFiles;
   std::vector<std::string> requiredFiles;
   std::map<UriWrapper, std::string> preferredIdentifiers;
+  CodeProperties codeProperties;
   bool dumpSchemas = false;
 
   // configure extra options here
@@ -109,6 +111,35 @@ int main(int argc, char* argv[]) {
         return 1;
       }
     }
+    if (args[i] == "--namespace" || args[i] == "-n") {
+      if (i + 1 < argc) {
+        codeProperties.globalNamespace_ = args[i + 1];
+        i += 1;
+        continue;
+      } else {
+        std::cerr << "Error: --namespace requires an argument." << std::endl;
+        return 1;
+      }
+    }
+    if (args[i] == "--define-prefix" || args[i] == "-dp") {
+      if (i + 1 < argc) {
+        codeProperties.definePrefix_ = args[i + 1];
+        i += 1;
+        continue;
+      } else {
+        std::cerr << "Error: --define-prefix requires an argument."
+                  << std::endl;
+        return 1;
+      }
+    }
+    if (args[i] == "--use-pragma" || args[i] == "-up") {
+      codeProperties.headerGuardType_ = CodeProperties::HeaderGuard::Pragma;
+      continue;
+    }
+    if (args[i] == "--use-ifndef" || args[i] == "-ui") {
+      codeProperties.headerGuardType_ = CodeProperties::HeaderGuard::Ifndef;
+      continue;
+    }
     if (args[i].starts_with('-')) {
       std::cerr << "Error: Unknown option " << args[i] << std::endl;
       return 1;
@@ -175,8 +206,8 @@ int main(int argc, char* argv[]) {
   if (dumpSchemas)
     IndexedSyncedSchema::dumpSchemas(indexedSyncedSchemas, outputDirectory);
 
-  auto syncedSchemas =
-      SyncedSchema::resolveIndexedSchema(std::move(indexedSyncedSchemas));
+  auto syncedSchemas = SyncedSchema::resolveIndexedSchema(
+      std::move(indexedSyncedSchemas), codeProperties);
 
   SyncedSchema::dumpSchemas(syncedSchemas);
 

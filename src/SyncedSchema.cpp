@@ -16,9 +16,9 @@ static std::string getHeaderDefine(const SyncedSchema& schema) {
   }
   std::transform(headerDefine.begin(), headerDefine.end(), headerDefine.begin(),
                  ::toupper);
-  if (schema.codeProperties.get().definePrefix_.has_value()) {
+  if (schema.codeProperties_.get().definePrefix_.has_value()) {
     headerDefine =
-        schema.codeProperties.get().definePrefix_.value() + headerDefine;
+        schema.codeProperties_.get().definePrefix_.value() + headerDefine;
   }
   return headerDefine;
 }
@@ -29,11 +29,11 @@ static std::string getHeaderDefine(const SyncedSchema& schema) {
 /// @param schema The schema to generate the include guard for
 /// @return The generated code block
 static CodeBlock declarationIncludeGuardStart(const SyncedSchema& schema) {
-  CodeBlock block(schema.codeProperties.get().indent_);
+  CodeBlock block(schema.codeProperties_.get().indent_);
 #if JSOG_DEBUG
   block << "/*" << schema.identifier_ << " include guard start*/";
 #endif
-  if (schema.codeProperties.get().headerGuardType_ ==
+  if (schema.codeProperties_.get().headerGuardType_ ==
       CodeProperties::HeaderGuard::Ifndef) {
     std::string upperFileName = getHeaderDefine(schema);
     BLOCK << std::format("#ifndef {}", upperFileName);
@@ -45,11 +45,11 @@ static CodeBlock declarationIncludeGuardStart(const SyncedSchema& schema) {
 }
 
 static CodeBlock declarationIncludeGuardEnd(const SyncedSchema& schema) {
-  CodeBlock block(schema.codeProperties.get().indent_);
+  CodeBlock block(schema.codeProperties_.get().indent_);
 #if JSOG_DEBUG
   block << "/*" << schema.identifier_ << " include guard end*/";
 #endif
-  if (schema.codeProperties.get().headerGuardType_ ==
+  if (schema.codeProperties_.get().headerGuardType_ ==
       CodeProperties::HeaderGuard::Ifndef) {
     BLOCK << std::format("#endif // {}", getHeaderDefine(schema));
   }
@@ -59,14 +59,14 @@ static CodeBlock declarationIncludeGuardEnd(const SyncedSchema& schema) {
 // Namespace generation
 
 static CodeBlock namespaceStart(const SyncedSchema& schema) {
-  CodeBlock block(schema.codeProperties.get().indent_);
+  CodeBlock block(schema.codeProperties_.get().indent_);
 #if JSON_DEBUG
   block << "/*" << schema.identifier_ << " namespace start*/";
 #endif
   // Global namespace, if set
-  if (schema.codeProperties.get().globalNamespace_.has_value()) {
+  if (schema.codeProperties_.get().globalNamespace_.has_value()) {
     BLOCK << std::format("namespace {} {{",
-                         schema.codeProperties.get().globalNamespace_.value());
+                         schema.codeProperties_.get().globalNamespace_.value());
   }
   // Identifier namespace
   BLOCK << std::format("namespace {} {{", schema.identifier_);
@@ -74,21 +74,21 @@ static CodeBlock namespaceStart(const SyncedSchema& schema) {
 }
 
 static CodeBlock namespaceEnd(const SyncedSchema& schema) {
-  CodeBlock block(schema.codeProperties.get().indent_);
+  CodeBlock block(schema.codeProperties_.get().indent_);
 #if JSON_DEBUG
   block << "/*" << schema.identifier_ << " namespace end*/";
 #endif
   BLOCK << std::format("}} // namespace {}", schema.identifier_);
 
-  if (schema.codeProperties.get().globalNamespace_.has_value()) {
+  if (schema.codeProperties_.get().globalNamespace_.has_value()) {
     BLOCK << std::format("}} // namespace {}",
-                         schema.codeProperties.get().globalNamespace_.value());
+                         schema.codeProperties_.get().globalNamespace_.value());
   }
   return block;
 }
 
 static CodeBlock functionDeclarations(const SyncedSchema& schema) {
-  CodeBlock block(schema.codeProperties.get().indent_);
+  CodeBlock block(schema.codeProperties_.get().indent_);
 #if JSOG_DEBUG
   // hoi hoi
   block << "/*" << schema.identifier_ << " function declarations*/";
@@ -114,7 +114,7 @@ static CodeBlock classForwardDeclarations(const SyncedSchema& schema) {
 #if JSOG_DEBUG
   block << "/*" << schema.identifier_ << " forward declarations*/";
 #endif
-  CodeBlock block(schema.codeProperties.get().indent_);
+  CodeBlock block(schema.codeProperties_.get().indent_);
   if (schema.type_.contains(IndexedSyncedSchema::Type::Object) ||
       schema.type_.contains(IndexedSyncedSchema::Type::Array)) {
     BLOCK << "// Forward declarations";
@@ -130,7 +130,7 @@ static CodeBlock classForwardDeclarations(const SyncedSchema& schema) {
 }
 
 CodeBlock SyncedSchema::generateDeclaration() const {
-  CodeBlock block(codeProperties.get().indent_);
+  CodeBlock block(codeProperties_.get().indent_);
 
   BLOCK << declarationIncludeGuardStart(*this);
 
@@ -155,13 +155,14 @@ CodeBlock SyncedSchema::generateDeclaration() const {
     // Object declaration
 
     if (type_.contains(IndexedSyncedSchema::Type::Object)) {
-      BLOCK << objectProperties_.objectClassDefinition(codeProperties,
+      BLOCK << objectProperties_.objectClassDefinition(codeProperties_,
                                                        getType());
     }
 
     // Array declaration
     if (type_.contains(IndexedSyncedSchema::Type::Array)) {
-      BLOCK << arrayProperties_.arrayClassDefinition(codeProperties, getType());
+      BLOCK << arrayProperties_.arrayClassDefinition(codeProperties_,
+                                                     getType());
     }
   }
 
@@ -194,7 +195,7 @@ static std::string escapeJSON(const nlohmann::json& json) {
 }
 
 static CodeBlock jsonExportFunction(const SyncedSchema& schema) {
-  CodeBlock block(schema.codeProperties.get().indent_);
+  CodeBlock block(schema.codeProperties_.get().indent_);
   BLOCK << std::format("std::optional<nlohmann::json> json(const {}& schema) "
                        "{{",
                        schema.getType());
@@ -213,7 +214,7 @@ static CodeBlock jsonExportFunction(const SyncedSchema& schema) {
 }
 
 static CodeBlock booleanSchemaConstruct(const SyncedSchema& schema) {
-  CodeBlock block(schema.codeProperties.get().indent_);
+  CodeBlock block(schema.codeProperties_.get().indent_);
   // Boolean schema means that the schema accepts either everything or nothing
   if (schema.definedAsBooleanSchema_.has_value()) {
     if (schema.definedAsBooleanSchema_.value()) {
@@ -227,11 +228,11 @@ static CodeBlock booleanSchemaConstruct(const SyncedSchema& schema) {
 }
 
 static CodeBlock refConstruct(const SyncedSchema& schema) {
-  CodeBlock block(schema.codeProperties.get().indent_);
+  CodeBlock block(schema.codeProperties_.get().indent_);
   if (schema.reinterpretables_.ref_.has_value()) {
     std::string namespace_;
-    if (schema.codeProperties.get().globalNamespace_.has_value()) {
-      namespace_ = "::" + schema.codeProperties.get().globalNamespace_.value();
+    if (schema.codeProperties_.get().globalNamespace_.has_value()) {
+      namespace_ = "::" + schema.codeProperties_.get().globalNamespace_.value();
     }
     namespace_ += std::format(
         "::{}", schema.reinterpretables_.ref_.value().get().identifier_);
@@ -243,7 +244,7 @@ static CodeBlock refConstruct(const SyncedSchema& schema) {
 }
 
 static CodeBlock constConstruct(const SyncedSchema& schema) {
-  CodeBlock block(schema.codeProperties.get().indent_);
+  CodeBlock block(schema.codeProperties_.get().indent_);
   if (schema.const_.has_value()) {
     BLOCK << std::format("if(json != \"{}\"_json) {{",
                          escapeJSON(schema.const_.value()))
@@ -255,7 +256,7 @@ static CodeBlock constConstruct(const SyncedSchema& schema) {
 static CodeBlock nullConstructor(const SyncedSchema& schema,
                                  const std::string& inputJsonVariableName,
                                  const std::string& outSchemaVariableName) {
-  CodeBlock block(schema.codeProperties.get().indent_);
+  CodeBlock block(schema.codeProperties_.get().indent_);
   if (schema.type_.contains(SyncedSchema::Type::Null)) {
     BLOCK << std::format("if({}.is_null()) {{", inputJsonVariableName)
           << CodeBlock::inc;
@@ -269,7 +270,7 @@ static CodeBlock nullConstructor(const SyncedSchema& schema,
 static CodeBlock stringConstructor(const SyncedSchema& schema,
                                    const std::string& inputJsonVariableName,
                                    const std::string& outSchemaVariableName) {
-  CodeBlock block(schema.codeProperties.get().indent_);
+  CodeBlock block(schema.codeProperties_.get().indent_);
   if (schema.type_.contains(SyncedSchema::Type::String)) {
     BLOCK << std::format("if({}.is_string()) {{", inputJsonVariableName)
           << CodeBlock::inc;
@@ -283,7 +284,7 @@ static CodeBlock stringConstructor(const SyncedSchema& schema,
 
 static CodeBlock validateConstructed(const SyncedSchema& schema,
                                      const std::string& outSchemaVariableName) {
-  CodeBlock block(schema.codeProperties.get().indent_);
+  CodeBlock block(schema.codeProperties_.get().indent_);
   BLOCK << std::format("if({}.has_value()) {{", outSchemaVariableName);
   {
     Indent _(block);
@@ -300,7 +301,7 @@ static CodeBlock validateConstructed(const SyncedSchema& schema,
 }
 
 static CodeBlock constructFunction(const SyncedSchema& schema) {
-  CodeBlock block(schema.codeProperties.get().indent_);
+  CodeBlock block(schema.codeProperties_.get().indent_);
   // Construct function
   std::string outSchemaVariableName = "outSchema";
   std::string inputJsonVariableName = "json";
@@ -330,19 +331,19 @@ static CodeBlock constructFunction(const SyncedSchema& schema) {
 
         if (schema.type_.contains(SyncedSchema::Type::Boolean)) {
           BLOCK << schema.boolProperties_.booleanConstructor(
-              schema.codeProperties, inputJsonVariableName,
+              schema.codeProperties_, inputJsonVariableName,
               outSchemaVariableName);
         }
 
         if (schema.type_.contains(SyncedSchema::Type::Integer)) {
           BLOCK << schema.numberProperties_.integerConstructor(
-              schema.codeProperties, inputJsonVariableName,
+              schema.codeProperties_, inputJsonVariableName,
               outSchemaVariableName);
         }
 
         if (schema.type_.contains(SyncedSchema::Type::Number)) {
           BLOCK << schema.numberProperties_.numberConstructor(
-              schema.codeProperties, inputJsonVariableName,
+              schema.codeProperties_, inputJsonVariableName,
               outSchemaVariableName);
         }
 
@@ -353,13 +354,13 @@ static CodeBlock constructFunction(const SyncedSchema& schema) {
 
         if (schema.type_.contains(SyncedSchema::Type::Array)) {
           BLOCK << schema.arrayProperties_.arrayConstructor(
-              schema.codeProperties, inputJsonVariableName,
+              schema.codeProperties_, inputJsonVariableName,
               outSchemaVariableName);
         }
 
         if (schema.type_.contains(SyncedSchema::Type::Object)) {
           BLOCK << schema.objectProperties_.objectConstructor(
-              schema.codeProperties, inputJsonVariableName,
+              schema.codeProperties_, inputJsonVariableName,
               outSchemaVariableName);
         }
 
@@ -377,7 +378,7 @@ static CodeBlock constructFunction(const SyncedSchema& schema) {
 }
 
 CodeBlock rawExportDefinition(const SyncedSchema& schema) {
-  CodeBlock block(schema.codeProperties.get().indent_);
+  CodeBlock block(schema.codeProperties_.get().indent_);
   BLOCK << std::format("nlohmann::json rawExport(const {}& schema) {{",
                        schema.getType());
   {
@@ -455,7 +456,7 @@ CodeBlock rawExportDefinition(const SyncedSchema& schema) {
                    i < schema.arrayProperties_.tupleableItems_->size(); i++) {
                 const auto& item =
                     (*schema.arrayProperties_.tupleableItems_)[i].get();
-                if (schema.codeProperties.get()
+                if (schema.codeProperties_.get()
                         .minItemsMakeTupleableRequired_ &&
                     schema.arrayProperties_.minItems_.has_value() &&
                     i < schema.arrayProperties_.minItems_.value()) {
@@ -551,7 +552,7 @@ CodeBlock rawExportDefinition(const SyncedSchema& schema) {
                  i < schema.arrayProperties_.tupleableItems_->size(); i++) {
               const auto& item =
                   (*schema.arrayProperties_.tupleableItems_)[i].get();
-              if (schema.codeProperties.get().minItemsMakeTupleableRequired_ &&
+              if (schema.codeProperties_.get().minItemsMakeTupleableRequired_ &&
                   schema.arrayProperties_.minItems_.has_value() &&
                   i < schema.arrayProperties_.minItems_.value()) {
                 BLOCK << std::format(
@@ -628,7 +629,7 @@ CodeBlock rawExportDefinition(const SyncedSchema& schema) {
 
 static CodeBlock validateDefinition(const SyncedSchema& schema) {
   using Type = SyncedSchema::Type;
-  CodeBlock block(schema.codeProperties.get().indent_);
+  CodeBlock block(schema.codeProperties_.get().indent_);
 
   BLOCK << std::format("bool validate(const {}& schema) {{", schema.getType());
   {
@@ -1015,7 +1016,7 @@ static CodeBlock validateDefinition(const SyncedSchema& schema) {
 }
 
 CodeBlock SyncedSchema::generateDefinition() const {
-  CodeBlock block(codeProperties.get().indent_);
+  CodeBlock block(codeProperties_.get().indent_);
   BLOCK << std::format("#include \"{}\"", getHeaderFileName());
 
   BLOCK << namespaceStart(*this);
@@ -1043,7 +1044,7 @@ CodeBlock SyncedSchema::generateDefinition() const {
 }
 
 CodeBlock SyncedSchema::generateSystemDependencies() const {
-  CodeBlock block(codeProperties.get().indent_);
+  CodeBlock block(codeProperties_.get().indent_);
   BLOCK << "#ifndef JSOG_SYS_DEPS";
   BLOCK << "#define JSOG_SYS_DEPS";
   BLOCK << "// System dependencies"
@@ -1061,7 +1062,7 @@ CodeBlock SyncedSchema::generateSystemDependencies() const {
 }
 
 CodeBlock SyncedSchema::generateDependencies() const {
-  CodeBlock block(codeProperties.get().indent_);
+  CodeBlock block(codeProperties_.get().indent_);
   block << generateSystemDependencies();
   std::set<const SyncedSchema*> dependencies;
   if (reinterpretables_.ref_.has_value()) {
@@ -1133,9 +1134,9 @@ CodeBlock SyncedSchema::generateDependencies() const {
   bool hasForwardDeclarations = false;
   CodeBlock forwardDeclarations;
   forwardDeclarations << "// Forward declarations";
-  if (codeProperties.get().globalNamespace_.has_value()) {
+  if (codeProperties_.get().globalNamespace_.has_value()) {
     forwardDeclarations << std::format(
-        "namespace {} {{", codeProperties.get().globalNamespace_.value());
+        "namespace {} {{", codeProperties_.get().globalNamespace_.value());
   }
   for (const auto& dependency : dependencies) {
     bool hasForwardDeclaration = false;
@@ -1160,9 +1161,9 @@ CodeBlock SyncedSchema::generateDependencies() const {
       forwardDeclarations << forwardDeclaration;
     }
   }
-  if (codeProperties.get().globalNamespace_.has_value()) {
+  if (codeProperties_.get().globalNamespace_.has_value()) {
     forwardDeclarations << std::format(
-        "}} // namespace {}", codeProperties.get().globalNamespace_.value());
+        "}} // namespace {}", codeProperties_.get().globalNamespace_.value());
   }
   if (hasForwardDeclarations) {
     BLOCK << forwardDeclarations;
@@ -1173,8 +1174,8 @@ CodeBlock SyncedSchema::generateDependencies() const {
 
 std::string SyncedSchema::getNamespace() const {
   std::string namespaceString = "::";
-  if (codeProperties.get().globalNamespace_.has_value()) {
-    namespaceString += codeProperties.get().globalNamespace_.value() + "::";
+  if (codeProperties_.get().globalNamespace_.has_value()) {
+    namespaceString += codeProperties_.get().globalNamespace_.value() + "::";
   }
   namespaceString += identifier_;
   return namespaceString;
@@ -1274,20 +1275,22 @@ std::string SyncedSchema::getType() const {
 }
 
 std::string SyncedSchema::getNamespaceLocation() const {
-  if (codeProperties.get().globalNamespace_.has_value()) {
-    return std::format(
-        "::{}::{}", codeProperties.get().globalNamespace_.value(), identifier_);
+  if (codeProperties_.get().globalNamespace_.has_value()) {
+    return std::format("::{}::{}",
+                       codeProperties_.get().globalNamespace_.value(),
+                       identifier_);
   }
   return std::format("::{}", identifier_);
 }
 
 std::vector<std::unique_ptr<SyncedSchema>>
-SyncedSchema::resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas) {
+SyncedSchema::resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas,
+                                   const CodeProperties& codeProperties) {
   try {
     std::vector<std::unique_ptr<SyncedSchema>> syncedSchemas;
     for (auto& schema : schemas) {
       std::unique_ptr<SyncedSchema> syncedSchema =
-          std::make_unique<SyncedSchema>(schema.identifier_);
+          std::make_unique<SyncedSchema>(schema.identifier_, codeProperties);
       syncedSchemas.emplace_back(std::move(syncedSchema));
     }
     for (size_t i = 0; i < schemas.size(); i++) {

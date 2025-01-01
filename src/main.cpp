@@ -144,6 +144,16 @@ int main(int argc, char* argv[]) {
       codeProperties.headerGuardType_ = CodeProperties::HeaderGuard::Ifndef;
       continue;
     }
+    if (args[i] == "--indent" || args[i] == "-i") {
+      if (i + 1 < argc) {
+        codeProperties.indent_ = args[i + 1];
+        i += 1;
+        continue;
+      } else {
+        std::cerr << "Error: --indent requires an argument." << std::endl;
+        return 1;
+      }
+    }
     if (args[i].starts_with('-')) {
       std::cerr << "Error: Unknown option " << args[i] << std::endl;
       return 1;

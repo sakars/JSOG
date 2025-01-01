@@ -6,10 +6,11 @@
 
 ArrayProperties::ArrayProperties(
     const IndexedArrayProperties& arrayProperties,
-    const std::vector<std::unique_ptr<SyncedSchema>>& syncedSchemas)
+    const std::vector<std::unique_ptr<SyncedSchema>>& syncedSchemas,
+    const SyncedSchema& trueSchema)
     : items_(arrayProperties.items_.has_value()
                  ? *syncedSchemas[arrayProperties.items_.value()]
-                 : SyncedSchema::getTrueSchema()) {
+                 : trueSchema) {
   if (arrayProperties.tupleableItems_.has_value()) {
     tupleableItems_ = std::vector<std::reference_wrapper<const SyncedSchema>>();
     for (auto index : arrayProperties.tupleableItems_.value()) {

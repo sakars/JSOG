@@ -18,4 +18,7 @@ for debugging purposes.
 - `-r`: Alias for `--require`.
 - `--preferred-identifier <uri> <identifier>`: Sets the preferred identifier for a schema.
 - `-p`: Alias for `--preferred-identifier`.
-
+- `--namespace <namespace>`: Sets the default global namespace for generated files.
+- `-n`: Alias for `--namespace`.
+- `--no-namespace`: Disables generation of namespaces.
+- `-nn`: Alias for `--no-namespace`.

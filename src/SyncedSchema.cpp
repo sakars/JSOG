@@ -1288,9 +1288,13 @@ SyncedSchema::resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas,
                                    const CodeProperties& codeProperties) {
   try {
     std::vector<std::unique_ptr<SyncedSchema>> syncedSchemas;
+    syncedSchemas.reserve(schemas.size());
+    auto trueSchemaPtr = getTrueSchema(codeProperties);
+    const auto& trueSchema = *trueSchemaPtr;
     for (auto& schema : schemas) {
       std::unique_ptr<SyncedSchema> syncedSchema =
-          std::make_unique<SyncedSchema>(schema.identifier_, codeProperties);
+          std::make_unique<SyncedSchema>(schema.identifier_, trueSchema,
+                                         codeProperties);
       syncedSchemas.emplace_back(std::move(syncedSchema));
     }
     for (size_t i = 0; i < schemas.size(); i++) {
@@ -1312,7 +1316,7 @@ SyncedSchema::resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas,
       syncedSchema.numberProperties_ = schema.numberProperties_;
       syncedSchema.stringProperties_ = schema.stringProperties_;
       syncedSchema.arrayProperties_ =
-          ArrayProperties(schema.arrayProperties_, syncedSchemas);
+          ArrayProperties(schema.arrayProperties_, syncedSchemas, trueSchema);
       syncedSchema.objectProperties_.maxProperties_ =
           schema.objectProperties_.maxProperties_;
       syncedSchema.objectProperties_.minProperties_ =
@@ -1338,7 +1342,7 @@ SyncedSchema::resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas,
             *syncedSchemas[schema.objectProperties_.additionalProperties_
                                .value()];
       } else {
-        syncedSchema.objectProperties_.additionalProperties_ = getTrueSchema();
+        syncedSchema.objectProperties_.additionalProperties_ = trueSchema;
       }
       syncedSchema.objectProperties_.propertyDependencies_ =
           schema.objectProperties_.propertyDependencies_;
@@ -1353,7 +1357,8 @@ SyncedSchema::resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas,
               propertyName, *syncedSchemas[index]);
         }
       }
-      // syncedSchema.objectProperties_.propertyNames_ = schema.propertyNames_;
+      // syncedSchema.objectProperties_.propertyNames_ =
+      // schema.propertyNames_;
       if (schema.objectProperties_.propertyNames_.has_value()) {
         syncedSchema.objectProperties_.propertyNames_ =
             *syncedSchemas[schema.objectProperties_.propertyNames_.value()];
@@ -1412,7 +1417,7 @@ SyncedSchema::resolveIndexedSchema(std::vector<IndexedSyncedSchema>&& schemas,
       syncedSchema.format_ = schema.format_;
       syncedSchema.default_ = schema.default_;
     }
-    syncedSchemas.emplace_back(std::make_unique<SyncedSchema>(getTrueSchema()));
+    syncedSchemas.emplace_back(std::move(trueSchemaPtr));
     return syncedSchemas;
   } catch (const std::exception& e) {
     std::cerr << "Error transitioning Indexed Synced to Synced: ";
@@ -1430,6 +1435,7 @@ void SyncedSchema::dumpSchemas(
     if (schema->definedAsBooleanSchema_.has_value()) {
       schemaDump["definedAsBooleanSchema"] =
           schema->definedAsBooleanSchema_.value();
+      continue;
     }
     if (schema->reinterpretables_.ref_.has_value()) {
       schemaDump["ref"] =

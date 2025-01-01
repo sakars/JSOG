@@ -121,6 +121,10 @@ int main(int argc, char* argv[]) {
         return 1;
       }
     }
+    if (args[i] == "--no-namespace" || args[i] == "-nn") {
+      codeProperties.globalNamespace_ = std::nullopt;
+      continue;
+    }
     if (args[i] == "--define-prefix" || args[i] == "-dp") {
       if (i + 1 < argc) {
         codeProperties.definePrefix_ = args[i + 1];

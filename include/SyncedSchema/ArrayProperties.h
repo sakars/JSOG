@@ -31,7 +31,8 @@ struct ArrayProperties {
   ArrayProperties(const SyncedSchema& items) : items_(items) {}
   ArrayProperties(
       const IndexedArrayProperties& arrayProperties,
-      const std::vector<std::unique_ptr<SyncedSchema>>& syncedSchemas);
+      const std::vector<std::unique_ptr<SyncedSchema>>& syncedSchemas,
+      const SyncedSchema& trueSchema);
 
   /// @brief Gets the C++ type of the array
   std::string getArrayType(std::string namespaceLocation) const;

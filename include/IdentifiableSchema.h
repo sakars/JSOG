@@ -33,7 +33,9 @@ public:
       // Note: We add reserved identifiers to the identifiers to avoid conflicts
       // with the predefined schemas.
       std::set<std::string> identifiers{"True", "False"};
-      std::vector<IdentifiableSchema> identifiableSchemas;
+      std::vector<std::unique_ptr<IdentifiableSchema>> identifiableSchemas(
+          linkedSchemas.size());
+
       for (const auto& [uri, identifier] : preferredIdentifiers) {
         for (size_t i = 0; i < linkedSchemas.size(); i++) {
           const auto& linkedSchema = linkedSchemas[i];
@@ -43,13 +45,16 @@ public:
                 linkedSchema->json_, linkedSchema->baseUri_,
                 linkedSchema->pointer_, linkedSchema->draft_, identifier);
             schema.dependencies_ = linkedSchema->dependencies_;
-            identifiableSchemas.emplace_back(std::move(schema));
-            linkedSchemas.erase(linkedSchemas.begin() + i);
+            identifiableSchemas[i] =
+                std::make_unique<IdentifiableSchema>(std::move(schema));
             break;
           }
         }
       }
       for (size_t i = 0; i < linkedSchemas.size(); i++) {
+        if (identifiableSchemas[i] != nullptr) {
+          continue;
+        }
         const auto& linkedSchema = linkedSchemas[i];
         const std::string preferred_identifier =
             linkedSchema->getPreferredIdentifier();
@@ -69,9 +74,14 @@ public:
             linkedSchema->json_, linkedSchema->baseUri_, linkedSchema->pointer_,
             linkedSchema->draft_, identifier);
         schema.dependencies_ = linkedSchema->dependencies_;
-        identifiableSchemas.emplace_back(std::move(schema));
+        identifiableSchemas[i] =
+            std::make_unique<IdentifiableSchema>(std::move(schema));
       }
-      return identifiableSchemas;
+      std::vector<IdentifiableSchema> identifiableSchemaVec;
+      for (auto& schema : identifiableSchemas) {
+        identifiableSchemaVec.push_back(std::move(*schema));
+      }
+      return identifiableSchemaVec;
     } catch (const std::exception& e) {
       std::cerr << "Error caught in transition from Linked to Identifiable:\n";
       throw e;
@@ -90,11 +100,11 @@ public:
       auto& ptrDump = uriDump[iSchema.pointer_.toFragment()];
       for (const auto& [uri, idx] : iSchema.dependencies_) {
         const auto& idxSchema = identifiableSchemas[idx];
-        ptrDump.push_back(nlohmann::json::array(
-            {uri.toString().value(),
-             idxSchema.baseUri_.withPointer(idxSchema.pointer_)
-                 .toString()
-                 .value()}));
+        ptrDump.push_back({{"uri", uri.toString().value()},
+                           {"dependent location",
+                            idxSchema.baseUri_.withPointer(idxSchema.pointer_)
+                                .toString()
+                                .value()}});
       }
     }
 

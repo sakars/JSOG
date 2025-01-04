@@ -121,14 +121,18 @@ public:
   static void dumpSchemas(SetMap<UriWrapper, SchemaResource>& schemaResources,
                           std::filesystem::path outputDirectory = ".") {
     nlohmann::json schemaResourceDump = nlohmann::json::object();
+    // iterate over all the schemas.
     for (const auto& [uris, schema] : schemaResources) {
       auto& baseUriList =
           schemaResourceDump[schema.get().baseUri_.toString().value()];
-      baseUriList[schema.get().pointer_.toFragment()] = nlohmann::json::array();
+      if (!baseUriList[schema.get().pointer_.toFragment()].is_array()) {
+        baseUriList[schema.get().pointer_.toFragment()] =
+            nlohmann::json::array();
+      }
       for (const auto& uri : uris.get()) {
         baseUriList[schema.get().pointer_.toFragment()].push_back(
-            nlohmann::json::array({uri.toFragmentlessString().value_or(""),
-                                   uri.getFragment().value_or("")}));
+            {{"uri", uri.toFragmentlessString().value_or("")},
+             {"frag", uri.getFragment().value_or("")}});
       }
     }
     std::ofstream resourceDump(outputDirectory / "resource.dump.json");

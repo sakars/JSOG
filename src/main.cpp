@@ -223,7 +223,7 @@ int main(int argc, char* argv[]) {
   auto syncedSchemas = SyncedSchema::resolveIndexedSchema(
       std::move(indexedSyncedSchemas), codeProperties);
 
-  SyncedSchema::dumpSchemas(syncedSchemas);
+  SyncedSchema::dumpSchemas(syncedSchemas, outputDirectory);
 
   const bool combineSourceFiles = true;
 

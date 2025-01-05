@@ -42,6 +42,7 @@ int main(int argc, char* argv[]) {
   std::map<UriWrapper, std::string> preferredIdentifiers;
   CodeProperties codeProperties;
   bool dumpSchemas = false;
+  bool combineSourceFiles = true;
 
   // configure extra options here
   for (int i = 1; i < argc; ++i) {
@@ -154,6 +155,10 @@ int main(int argc, char* argv[]) {
         return 1;
       }
     }
+    if (args[i] == "--no-combine" || args[i] == "-nc") {
+      combineSourceFiles = false;
+      continue;
+    }
     if (args[i].starts_with('-')) {
       std::cerr << "Error: Unknown option " << args[i] << std::endl;
       return 1;
@@ -224,8 +229,6 @@ int main(int argc, char* argv[]) {
       std::move(indexedSyncedSchemas), codeProperties);
 
   SyncedSchema::dumpSchemas(syncedSchemas, outputDirectory);
-
-  const bool combineSourceFiles = true;
 
   if (combineSourceFiles) {
     std::ofstream source(outputDirectory / "schemas.cpp");

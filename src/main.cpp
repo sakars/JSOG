@@ -243,7 +243,8 @@ int main(int argc, char* argv[]) {
   auto syncedSchemas = SyncedSchema::resolveIndexedSchema(
       std::move(indexedSyncedSchemas), codeProperties);
 
-  SyncedSchema::dumpSchemas(syncedSchemas, outputDirectory);
+  if (dumpSchemas)
+    SyncedSchema::dumpSchemas(syncedSchemas, outputDirectory);
 
   if (combineSourceFiles) {
     std::ofstream source(outputDirectory / "schemas.cpp");

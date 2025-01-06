@@ -63,6 +63,21 @@ int main(int argc, char* argv[]) {
                 << "    Note: The identifier must be unique and a valid C++ "
                    "identifier"
                 << std::endl;
+      std::cout << "  --namespace, -n: Specify the global namespace"
+                << std::endl;
+      std::cout << "  --no-namespace, -nn: Do not use a global namespace"
+                << std::endl;
+      std::cout << "  --define-prefix, -dp: Specify the prefix for #define "
+                   "guards"
+                << std::endl;
+      std::cout << "  --use-pragma, -up: Use #pragma once for header guards"
+                << std::endl;
+      std::cout << "  --use-ifndef, -ui: Use #ifndef for header guards"
+                << std::endl;
+      std::cout << "  --indent, -i: Specify the indentation string"
+                << std::endl;
+      std::cout << "  --no-combine, -nc: Do not combine source files into one"
+                << std::endl;
 
       return 0;
     }
